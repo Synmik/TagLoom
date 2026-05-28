@@ -135,8 +135,14 @@ func (a *App) ScanVault() (int, error) {
 }
 
 // isExcluded checks if a directory path is in the excluded set.
+// Always skips ".tagloom" (internal metadata directory) regardless of user config.
 func isExcluded(path string, excluded map[string]bool) bool {
 	clean := strings.ToLower(filepath.Clean(path))
+	// Always exclude .tagloom — it contains thumbnails, DB, and config
+	base := filepath.Base(clean)
+	if base == ".tagloom" {
+		return true
+	}
 	for excl := range excluded {
 		if clean == excl || strings.HasPrefix(clean, excl+string(filepath.Separator)) {
 			return true
