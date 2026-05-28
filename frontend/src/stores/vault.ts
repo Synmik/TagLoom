@@ -18,11 +18,17 @@ export const useVaultStore = defineStore('vault', {
     currentVault: null as VaultInfo | null,
     config: null as VaultConfig | null,
     isLoading: false,
-    scanProgress: 0,
     scanTotal: 0,
     scanCurrent: 0,
     isScanning: false,
   }),
+  getters: {
+    /** Derived from scanCurrent / scanTotal — always consistent */
+    scanProgress: (state: any) => {
+      if (state.scanTotal <= 0) return 0
+      return Math.min(Math.round((state.scanCurrent / state.scanTotal) * 100), 100)
+    },
+  },
   actions: {
     /** Prompt user to pick a folder, then open it as a vault */
     async pickAndOpenVault() {
@@ -34,39 +40,44 @@ export const useVaultStore = defineStore('vault', {
         this.currentVault = vault
         await this.loadConfig()
 
-        // OpenVault triggers an auto-scan when file count is 0.
-        // Set isScanning so Gallery.vue's watch triggers a reload when it flips back.
-        this.isScanning = true
-        this.scanProgress = 0
+        // OpenVault only triggers an auto-scan when file count is 0.
+        // Only show the scanning popup if this vault actually needs scanning.
+        const needsScan = vault.file_count === 0
+        this.isScanning = needsScan
+        this.scanTotal = 0
+        this.scanCurrent = 0
 
-        const autoProgressUnsub = EventsOn('scan:progress', (data: { current: number; total: number }) => {
-          this.scanCurrent = data.current
-          this.scanTotal = data.total
-          if (data.total > 0) {
-            this.scanProgress = Math.round((data.current / data.total) * 100)
-          }
-        })
+        if (needsScan) {
+          // Clean up any stale listeners from previous opens
+          EventsOff('scan:progress')
+          EventsOff('scan:complete')
+          EventsOff('scan:error')
 
-        const autoCompleteUnsub = EventsOn('scan:complete', (count: number | { added: number; removed: number }) => {
-          this.scanProgress = 100
-          this.isScanning = false
-          this.isLoading = false
-          this.refreshCurrentVault()
-          console.log('Auto-scan complete:', count)
-        })
+          const autoProgressUnsub = EventsOn('scan:progress', (data: { current: number; total: number }) => {
+            this.scanCurrent = data.current
+            this.scanTotal = data.total
+          })
 
-        const autoErrorUnsub = EventsOn('scan:error', (data: { error: string }) => {
-          this.isScanning = false
-          this.isLoading = false
-          console.error('Auto-scan error:', data.error)
-        })
+          const autoCompleteUnsub = EventsOn('scan:complete', (count: number | { added: number; removed: number }) => {
+            this.isScanning = false
+            this.isLoading = false
+            this.refreshCurrentVault()
+            console.log('Auto-scan complete:', count)
+          })
 
-        // Clean up listeners after 60 seconds
-        setTimeout(() => {
-          autoProgressUnsub()
-          autoCompleteUnsub()
-          autoErrorUnsub()
-        }, 60000)
+          const autoErrorUnsub = EventsOn('scan:error', (data: { error: string }) => {
+            this.isScanning = false
+            this.isLoading = false
+            console.error('Auto-scan error:', data.error)
+          })
+
+          // Clean up listeners after 60 seconds
+          setTimeout(() => {
+            autoProgressUnsub()
+            autoCompleteUnsub()
+            autoErrorUnsub()
+          }, 60000)
+        }
       } finally {
         this.isLoading = false
       }
@@ -82,10 +93,13 @@ export const useVaultStore = defineStore('vault', {
       }
     },
     async closeVault() {
-      this.stopScanning()
       await CloseVault()
       this.currentVault = null
       this.config = null
+      // Always reset scanning state on close so the popup disappears
+      this.isScanning = false
+      this.scanTotal = 0
+      this.scanCurrent = 0
     },
     async loadConfig() {
       this.config = await GetVaultConfig()
@@ -97,27 +111,21 @@ export const useVaultStore = defineStore('vault', {
     async rescanVault() {
       this.isScanning = true
       this.isLoading = true
-      this.scanProgress = 0
       this.scanTotal = 0
       this.scanCurrent = 0
 
       const diffUnsub = EventsOn('rescan:diff', (data: { added: number; removed: number; total: number }) => {
         this.scanTotal = data.total
         this.scanCurrent = 0
-        this.scanProgress = 0
         console.log(`Rescan diff: +${data.added} -${data.removed} total=${data.total}`)
       })
 
       const progressUnsub = EventsOn('rescan:progress', (data: { phase: string; current: string; total: string }) => {
         this.scanCurrent = parseInt(data.current, 10)
         this.scanTotal = parseInt(data.total, 10)
-        if (this.scanTotal > 0) {
-          this.scanProgress = Math.round((this.scanCurrent / this.scanTotal) * 100)
-        }
       })
 
       const completeUnsub = EventsOn('rescan:complete', (data: { added: number; removed: number }) => {
-        this.scanProgress = 100
         this.isScanning = false
         this.isLoading = false
         console.log(`Rescan complete: +${data.added} -${data.removed}`)
@@ -141,7 +149,6 @@ export const useVaultStore = defineStore('vault', {
     async scanVault() {
       this.isScanning = true
       this.isLoading = true
-      this.scanProgress = 0
       this.scanTotal = 0
       this.scanCurrent = 0
 
@@ -149,15 +156,11 @@ export const useVaultStore = defineStore('vault', {
       const progressUnsub = EventsOn('scan:progress', (data: { current: number; total: number }) => {
         this.scanCurrent = data.current
         this.scanTotal = data.total
-        if (data.total > 0) {
-          this.scanProgress = Math.round((data.current / data.total) * 100)
-        }
       })
 
       const completeUnsub = EventsOn('scan:complete', (count: number) => {
         this.scanCurrent = count
         this.scanTotal = count
-        this.scanProgress = 100
         this.isScanning = false
         this.isLoading = false
         // Refresh vault info to get updated file count
@@ -178,7 +181,8 @@ export const useVaultStore = defineStore('vault', {
     },
     stopScanning() {
       this.isScanning = false
-      EventsOff('scan:progress', 'scan:complete')
+      this.scanTotal = 0
+      this.scanCurrent = 0
     },
     async refreshCurrentVault() {
       this.currentVault = await GetCurrentVault()

@@ -40,8 +40,8 @@ const progressPercent = computed(() => {
 })
 
 const dismiss = () => {
-  // Don't actually stop scanning, just hide overlay
-  // The overlay auto-hides when isScanning becomes false
+  // Hide the overlay — scanning continues in the background
+  vaultStore.isScanning = false
 }
 
 onMounted(() => {
