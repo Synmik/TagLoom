@@ -9,6 +9,8 @@ import {
   SetVaultConfig,
   ScanVault,
 } from '../api/backend'
+// @ts-ignore - wails runtime is injected at build time
+import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime'
 
 export const useVaultStore = defineStore('vault', {
   state: () => ({
@@ -16,6 +18,9 @@ export const useVaultStore = defineStore('vault', {
     config: null as VaultConfig | null,
     isLoading: false,
     scanProgress: 0,
+    scanTotal: 0,
+    scanCurrent: 0,
+    isScanning: false,
   }),
   actions: {
     /** Prompt user to pick a folder, then open it as a vault */
@@ -42,6 +47,7 @@ export const useVaultStore = defineStore('vault', {
       }
     },
     async closeVault() {
+      this.stopScanning()
       await CloseVault()
       this.currentVault = null
       this.config = null
@@ -54,14 +60,46 @@ export const useVaultStore = defineStore('vault', {
       this.config = cfg
     },
     async scanVault() {
+      this.isScanning = true
       this.isLoading = true
       this.scanProgress = 0
-      try {
-        await ScanVault(null)
-      } finally {
-        this.isLoading = false
+      this.scanTotal = 0
+      this.scanCurrent = 0
+
+      // Listen for progress events
+      const progressUnsub = EventsOn('scan:progress', (data: { current: number; total: number }) => {
+        this.scanCurrent = data.current
+        this.scanTotal = data.total
+        if (data.total > 0) {
+          this.scanProgress = Math.round((data.current / data.total) * 100)
+        }
+      })
+
+      const completeUnsub = EventsOn('scan:complete', (count: number) => {
+        this.scanCurrent = count
+        this.scanTotal = count
         this.scanProgress = 100
+        this.isScanning = false
+        this.isLoading = false
+        // Refresh vault info to get updated file count
+        this.refreshCurrentVault()
+      })
+
+      try {
+        const count = await ScanVault()
+        console.log('ScanVault indexed', count, 'files')
+      } catch (e) {
+        console.error('ScanVault failed:', e)
+        this.isScanning = false
+        this.isLoading = false
+      } finally {
+        progressUnsub()
+        completeUnsub()
       }
+    },
+    stopScanning() {
+      this.isScanning = false
+      EventsOff('scan:progress', 'scan:complete')
     },
     async refreshCurrentVault() {
       this.currentVault = await GetCurrentVault()

@@ -2,11 +2,15 @@ package app
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"TagLoom/db"
 	"TagLoom/utils"
+
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // folderInfo holds a folder path and its file count for tree building.
@@ -17,24 +21,137 @@ type folderInfo struct {
 
 // ScanVault performs a full re-scan of the vault directory.
 // It discovers all supported media files and indexes them.
-func (a *App) ScanVault(progress chan int) error {
+// Emits "scan:progress" events with {current, total} payload.
+// Returns the total number of indexed files.
+func (a *App) ScanVault() (int, error) {
 	if a.db == nil {
-		return fmt.Errorf("no vault open")
+		return 0, fmt.Errorf("no vault open")
 	}
-	// TODO: Implement folder tree walk
-	// TODO: For each supported file, insert into files table
-	// TODO: Send progress updates via channel
-	return fmt.Errorf("not implemented")
+	if a.vaultPath == "" {
+		return 0, fmt.Errorf("no vault path set")
+	}
+
+	// Load excluded folders into a set for O(1) lookup
+	excludedFolders, err := a.GetExcludedFolders()
+	if err != nil {
+		return 0, fmt.Errorf("failed to load excluded folders: %w", err)
+	}
+	excludedSet := make(map[string]bool, len(excludedFolders))
+	for _, fp := range excludedFolders {
+		excludedSet[strings.ToLower(filepath.Clean(fp))] = true
+	}
+
+	// First pass: count total supported files for progress tracking
+	var totalCount int
+	err = filepath.WalkDir(a.vaultPath, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil // Skip errors during count
+		}
+		if d.IsDir() {
+			if isExcluded(path, excludedSet) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if utils.IsSupported(path) {
+			totalCount++
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, fmt.Errorf("failed to walk directory: %w", err)
+	}
+
+	// Second pass: insert files into the database
+	tx, err := a.db.Conn().Begin()
+	if err != nil {
+		return 0, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	stmt, err := tx.Prepare(`
+		INSERT OR REPLACE INTO files (vault_path, folder_path, indexed_at)
+		VALUES (?, ?, ?)
+	`)
+	if err != nil {
+		tx.Rollback()
+		return 0, fmt.Errorf("failed to prepare statement: %w", err)
+	}
+	defer stmt.Close()
+
+	var indexedCount int
+	now := time.Now().Format(time.RFC3339)
+
+	err = filepath.WalkDir(a.vaultPath, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if d.IsDir() {
+			if isExcluded(path, excludedSet) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !utils.IsSupported(path) {
+			return nil
+		}
+
+		folderPath := filepath.Dir(path)
+		_, execErr := stmt.Exec(path, folderPath, now)
+		if execErr != nil {
+			return fmt.Errorf("failed to insert %s: %w", path, execErr)
+		}
+
+		indexedCount++
+
+		// Emit progress every 100 files
+		if indexedCount%100 == 0 || indexedCount == totalCount {
+			runtime.EventsEmit(a.ctx, "scan:progress", map[string]int{
+				"current": indexedCount,
+				"total":   totalCount,
+			})
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		tx.Rollback()
+		return 0, fmt.Errorf("failed to scan vault: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	// Emit final progress
+	runtime.EventsEmit(a.ctx, "scan:progress", map[string]int{
+		"current": indexedCount,
+		"total":   indexedCount,
+	})
+	runtime.EventsEmit(a.ctx, "scan:complete", indexedCount)
+
+	return indexedCount, nil
+}
+
+// isExcluded checks if a directory path is in the excluded set.
+func isExcluded(path string, excluded map[string]bool) bool {
+	clean := strings.ToLower(filepath.Clean(path))
+	for excl := range excluded {
+		if clean == excl || strings.HasPrefix(clean, excl+string(filepath.Separator)) {
+			return true
+		}
+	}
+	return false
 }
 
 // RescanVault performs a diff scan, detecting added and removed files.
-func (a *App) RescanVault(progress chan int) error {
+func (a *App) RescanVault() (int, error) {
 	if a.db == nil {
-		return fmt.Errorf("no vault open")
+		return 0, fmt.Errorf("no vault open")
 	}
 	// TODO: Compare filesystem with DB records
 	// TODO: Insert new files, mark deleted ones
-	return fmt.Errorf("not implemented")
+	return 0, fmt.Errorf("not implemented")
 }
 
 // GetFolderTree returns the recursive folder tree for the vault.

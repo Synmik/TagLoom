@@ -6,8 +6,8 @@ export interface AppBindings {
   OpenVault(path: string): Promise<VaultInfo>
   CloseVault(): Promise<void>
   GetCurrentVault(): Promise<VaultInfo | null>
-  ScanVault(): Promise<void>
-  RescanVault(): Promise<void>
+  ScanVault(): Promise<number>
+  RescanVault(): Promise<number>
 
   // Files
   GetFiles(filter: FileFilter, sort: SortOpts, page: number, limit: number): Promise<FilePage>

@@ -82,12 +82,12 @@ export function RemoveTagFromFile(arg1, arg2) {
   return window['go']['app']['App']['RemoveTagFromFile'](arg1, arg2);
 }
 
-export function RescanVault(arg1) {
-  return window['go']['app']['App']['RescanVault'](arg1);
+export function RescanVault() {
+  return window['go']['app']['App']['RescanVault']();
 }
 
-export function ScanVault(arg1) {
-  return window['go']['app']['App']['ScanVault'](arg1);
+export function ScanVault() {
+  return window['go']['app']['App']['ScanVault']();
 }
 
 export function SearchFiles(arg1, arg2) {
