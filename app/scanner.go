@@ -257,12 +257,13 @@ func (a *App) RescanVault() (int, error) {
 				tx.Rollback()
 				return 0, fmt.Errorf("failed to insert %s: %w", path, err)
 			}
-			// Progress every 50 inserts
-			if (i+1)%50 == 0 {
-				runtime.EventsEmit(a.ctx, "rescan:progress", map[string]string{
+			// Emit progress frequently enough for small batches too
+			step := (i + 1) * 100 / len(added)
+			if step%25 == 0 || i+1 == len(added) {
+				runtime.EventsEmit(a.ctx, "rescan:progress", map[string]interface{}{
 					"phase":   "adding",
-					"current": fmt.Sprintf("%d", i+1),
-					"total":   fmt.Sprintf("%d", len(added)),
+					"current": i + 1,
+					"total":   len(added),
 				})
 			}
 		}
@@ -285,12 +286,20 @@ func (a *App) RescanVault() (int, error) {
 			return 0, fmt.Errorf("failed to prepare delete: %w", err)
 		}
 
-		for _, p := range removed {
+			for i, p := range removed {
 			_, err := delFileStmt.Exec(p)
 			if err != nil {
 				delFileStmt.Close()
 				tx.Rollback()
 				return 0, fmt.Errorf("failed to delete %s: %w", p, err)
+			}
+			step := (i + 1) * 100 / len(removed)
+			if step%25 == 0 || i+1 == len(removed) {
+				runtime.EventsEmit(a.ctx, "rescan:progress", map[string]interface{}{
+					"phase":   "removing",
+					"current": i + 1,
+					"total":   len(removed),
+				})
 			}
 		}
 		delFileStmt.Close()

@@ -136,9 +136,9 @@ export const useVaultStore = defineStore('vault', {
         console.log(`Rescan diff: +${data.added} -${data.removed} total=${data.total}`)
       })
 
-      const progressUnsub = EventsOn('rescan:progress', (data: { phase: string; current: string; total: string }) => {
-        this.scanCurrent = parseInt(data.current, 10)
-        this.scanTotal = parseInt(data.total, 10)
+      const progressUnsub = EventsOn('rescan:progress', (data: { phase: string; current: number; total: number }) => {
+        this.scanCurrent = data.current
+        this.scanTotal = data.total
       })
 
       const thumbProgressUnsub = EventsOn('thumb:progress', (data: { current: number; total: number }) => {
@@ -146,8 +146,14 @@ export const useVaultStore = defineStore('vault', {
         this.scanTotal = data.total
       })
 
+      // Use a flag so thumb:complete only fires once for this rescan
+      let thumbDone = false
+
       const completeUnsub = EventsOn('rescan:complete', async (data: { added: number; removed: number }) => {
         console.log(`Rescan complete: +${data.added} -${data.removed}, generating thumbnails...`)
+        // Mark scan as done (show 100%) using total from rescan:diff —
+        // thumbnails will update progress further if there's work to do
+        this.scanCurrent = this.scanTotal
         try {
           await import('../api/backend').then(m => m.GenerateThumbnailsPool())
         } catch (e) {
@@ -156,12 +162,18 @@ export const useVaultStore = defineStore('vault', {
       })
 
       const thumbCompleteUnsub = EventsOn('thumb:complete', (data: { generated: number; failed: number; total: number }) => {
-        this.scanCurrent = data.total
-        this.scanTotal = data.total
+        if (thumbDone) return
+        thumbDone = true
+        if (data.total > 0) {
+          this.scanCurrent = data.total
+          this.scanTotal = data.total
+        }
         this.isScanning = false
         this.isLoading = false
         console.log(`Thumbnails: ${data.generated} generated, ${data.failed} failed out of ${data.total}`)
         this.refreshCurrentVault()
+        // Safe to clean up now that we're done
+        thumbCompleteUnsub()
       })
 
       try {
@@ -176,7 +188,11 @@ export const useVaultStore = defineStore('vault', {
         progressUnsub()
         completeUnsub()
         thumbProgressUnsub()
-        thumbCompleteUnsub()
+        // NOTE: thumbCompleteUnsub is NOT called here.
+        // The rescan:complete callback is async and calls GenerateThumbnailsPool().
+        // The finally block runs before that async callback finishes, so unsubscribing
+        // thumb:complete here would prevent it from ever firing.
+        // Instead, thumbCompleteUnsub calls itself inside its own callback.
       }
     },
 
@@ -197,6 +213,9 @@ export const useVaultStore = defineStore('vault', {
         this.scanTotal = data.total
       })
 
+      // Use a flag so thumb:complete only fires once for this scan
+      let thumbDone = false
+
       const completeUnsub = EventsOn('scan:complete', async (count: number) => {
         this.scanCurrent = count
         this.scanTotal = count
@@ -210,12 +229,16 @@ export const useVaultStore = defineStore('vault', {
       })
 
       const thumbCompleteUnsub = EventsOn('thumb:complete', (data: { generated: number; failed: number; total: number }) => {
+        if (thumbDone) return
+        thumbDone = true
         this.scanCurrent = data.total
         this.scanTotal = data.total
         this.isScanning = false
         this.isLoading = false
         console.log(`Thumbnails: ${data.generated} generated, ${data.failed} failed out of ${data.total}`)
         this.refreshCurrentVault()
+        // Safe to clean up now that we're done
+        thumbCompleteUnsub()
       })
 
       try {
@@ -229,7 +252,11 @@ export const useVaultStore = defineStore('vault', {
         progressUnsub()
         completeUnsub()
         thumbProgressUnsub()
-        thumbCompleteUnsub()
+        // NOTE: thumbCompleteUnsub is NOT called here.
+        // The scan:complete callback is async and calls GenerateThumbnailsPool().
+        // The finally block runs before that async callback finishes, so unsubscribing
+        // thumb:complete here would prevent it from ever firing.
+        // Instead, thumbCompleteUnsub calls itself inside its own callback.
       }
     },
     stopScanning() {
