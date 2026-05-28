@@ -10,6 +10,10 @@ export function AddTagToFile(arg1, arg2) {
   return window['go']['app']['App']['AddTagToFile'](arg1, arg2);
 }
 
+export function CancelThumbnailGeneration() {
+  return window['go']['app']['App']['CancelThumbnailGeneration']();
+}
+
 export function CleanupOrphanThumbnails() {
   return window['go']['app']['App']['CleanupOrphanThumbnails']();
 }
@@ -32,6 +36,10 @@ export function GenerateThumbnail(arg1) {
 
 export function GenerateThumbnailsForFiles(arg1) {
   return window['go']['app']['App']['GenerateThumbnailsForFiles'](arg1);
+}
+
+export function GenerateThumbnailsPool() {
+  return window['go']['app']['App']['GenerateThumbnailsPool']();
 }
 
 export function GetBatchMetadata(arg1) {

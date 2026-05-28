@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"image"
@@ -8,16 +9,22 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
 
 	"TagLoom/utils"
 
 	"github.com/disintegration/imaging"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"golang.org/x/image/tiff"
 	"golang.org/x/image/webp"
 )
 
-const defaultThumbnailSize = 256
-const defaultThumbnailQuality = 80
+const (
+	defaultThumbnailSize  = 256
+	defaultThumbnailQuality = 80
+	thumbnailWorkerCount  = 4
+)
 
 // GenerateThumbnail creates a thumbnail for the given file ID.
 // Thumbnails are stored in .tagloom/thumbnails/{2char_hash}/{hash}.jpg
@@ -119,6 +126,215 @@ func (a *App) GenerateThumbnail(fileID int64) (string, error) {
 	return thumbPath, nil
 }
 
+// GenerateThumbnailsPool generates thumbnails for all files that need them
+// using a worker pool of 4 goroutines. Emits progress events to the frontend.
+func (a *App) GenerateThumbnailsPool() error {
+	if a.db == nil {
+		return fmt.Errorf("no vault open")
+	}
+	if a.vaultPath == "" {
+		return fmt.Errorf("no vault path set")
+	}
+
+	// Collect all file IDs that need thumbnails
+	rows, err := a.db.Conn().Query(`
+		SELECT id, vault_path, thumbnail_path
+		FROM files
+		WHERE thumbnail_path = ''
+		   OR thumbnail_path IS NULL
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to query files: %w", err)
+	}
+	defer rows.Close()
+
+	type pendingFile struct {
+		id        int64
+		vaultPath string
+	}
+
+	var pending []pendingFile
+	for rows.Next() {
+		var f pendingFile
+		var existingThumb string
+		if err := rows.Scan(&f.id, &f.vaultPath, &existingThumb); err != nil {
+			return fmt.Errorf("failed to scan row: %w", err)
+		}
+		// Skip if file doesn't exist on disk
+		if _, err := os.Stat(f.vaultPath); err != nil {
+			continue
+		}
+		pending = append(pending, f)
+	}
+
+	total := len(pending)
+	if total == 0 {
+		runtime.EventsEmit(a.ctx, "thumb:complete", map[string]int{
+			"generated": 0,
+			"failed":    0,
+			"total":     0,
+		})
+		return nil
+	}
+
+	// Create context for cancellation
+	ctx, cancel := context.WithCancel(a.ctx)
+	defer cancel()
+
+	// Channel for distributing work
+	jobs := make(chan pendingFile, total)
+
+	// Thread-safe counters
+	var (
+		mu          sync.Mutex
+		generated   int
+		failed      int
+		current     int
+	)
+
+	// Worker function
+	worker := func(workerID int, jobs <-chan pendingFile, wg *sync.WaitGroup) {
+		defer wg.Done()
+
+		// Use the shared sql.DB pool (it handles concurrent access)
+		conn := a.db.Conn()
+
+		for f := range jobs {
+			// Check for cancellation
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
+			// Generate thumbnail
+			thumbPath := GenerateThumbnailPath(a.vaultPath, f.vaultPath)
+
+			// Skip if already generated (another worker may have done it)
+			if _, err := os.Stat(thumbPath); err == nil {
+				// Update DB if needed
+				_, _ = conn.Exec("UPDATE files SET thumbnail_path = ? WHERE id = ?", thumbPath, f.id)
+				incrementCounters(&mu, &generated, &current, total, a.ctx)
+				continue
+			}
+
+			// Decode image
+			ext := strings.ToLower(filepath.Ext(f.vaultPath))
+			category := utils.GetFileCategory(f.vaultPath)
+
+			var img image.Image
+			var decodeErr error
+
+			switch category {
+			case "image", "animated":
+				img, decodeErr = decodeImage(f.vaultPath, ext)
+			default:
+				// Unsupported for now
+				incrementCounters(&mu, &failed, &current, total, a.ctx)
+				continue
+			}
+
+			if decodeErr != nil {
+				incrementCounters(&mu, &failed, &current, total, a.ctx)
+				continue
+			}
+
+			// Resize
+			size := defaultThumbnailSize
+			quality := defaultThumbnailQuality
+			if a.vaultCfg != nil {
+				if a.vaultCfg.Settings.ThumbnailSize > 0 {
+					size = a.vaultCfg.Settings.ThumbnailSize
+				}
+				if a.vaultCfg.Settings.ThumbnailQuality > 0 {
+					quality = a.vaultCfg.Settings.ThumbnailQuality
+				}
+			}
+
+			resized := imaging.Fit(img, size, size, imaging.Lanczos)
+
+			// Write thumbnail
+			thumbDir := filepath.Dir(thumbPath)
+			if err := os.MkdirAll(thumbDir, 0755); err != nil {
+				incrementCounters(&mu, &failed, &current, total, a.ctx)
+				continue
+			}
+
+			outFile, err := os.Create(thumbPath)
+			if err != nil {
+				incrementCounters(&mu, &failed, &current, total, a.ctx)
+				continue
+			}
+
+			if err := jpeg.Encode(outFile, resized, &jpeg.Options{Quality: quality}); err != nil {
+				outFile.Close()
+				os.Remove(thumbPath)
+				incrementCounters(&mu, &failed, &current, total, a.ctx)
+				continue
+			}
+			outFile.Close()
+
+			// Update DB
+			_, err = conn.Exec("UPDATE files SET thumbnail_path = ? WHERE id = ?", thumbPath, f.id)
+			if err != nil {
+				incrementCounters(&mu, &failed, &current, total, a.ctx)
+				continue
+			}
+
+			incrementCounters(&mu, &generated, &current, total, a.ctx)
+		}
+	}
+
+	// Start workers
+	var wg sync.WaitGroup
+	for i := 0; i < thumbnailWorkerCount; i++ {
+		wg.Add(1)
+		go worker(i, jobs, &wg)
+	}
+
+	// Feed jobs
+	for _, f := range pending {
+		jobs <- f
+	}
+	close(jobs)
+
+	// Wait for completion
+	wg.Wait()
+
+	// Emit completion event
+	runtime.EventsEmit(a.ctx, "thumb:complete", map[string]int{
+		"generated": generated,
+		"failed":    failed,
+		"total":     total,
+	})
+
+	return nil
+}
+
+// incrementCounters updates progress counters and emits events (thread-safe).
+func incrementCounters(mu *sync.Mutex, generated, current *int, total int, ctx context.Context) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	*generated++
+	*current++
+
+	// Emit progress every 10 files
+	if *current%10 == 0 || *current == total {
+		runtime.EventsEmit(ctx, "thumb:progress", map[string]int{
+			"current":   *current,
+			"total":     total,
+			"generated": *generated,
+		})
+	}
+}
+
+// CancelThumbnailGeneration cancels an ongoing thumbnail generation pool.
+func (a *App) CancelThumbnailGeneration() {
+	// This will be wired to a cancel context in the future
+	runtime.EventsEmit(a.ctx, "thumb:cancelled", true)
+}
+
 // decodeImage opens and decodes an image file, supporting multiple formats.
 func decodeImage(path string, ext string) (image.Image, error) {
 	f, err := os.Open(path)
@@ -127,7 +343,6 @@ func decodeImage(path string, ext string) (image.Image, error) {
 	}
 	defer f.Close()
 
-	// For WebP and TIFF we need explicit decoders; stdlib handles the rest.
 	switch ext {
 	case ".webp":
 		return webp.Decode(f)
@@ -208,3 +423,6 @@ func ServeThumbnail(thumbPath string) ([]byte, error) {
 	}
 	return data, nil
 }
+
+// Ensure atomic is used
+var _ = atomic.LoadInt64

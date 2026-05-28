@@ -8,6 +8,8 @@ export function AddExcludedFolder(arg1:string):Promise<void>;
 
 export function AddTagToFile(arg1:number,arg2:number):Promise<void>;
 
+export function CancelThumbnailGeneration():Promise<void>;
+
 export function CleanupOrphanThumbnails():Promise<void>;
 
 export function CloseVault():Promise<void>;
@@ -19,6 +21,8 @@ export function DeleteTag(arg1:number):Promise<void>;
 export function GenerateThumbnail(arg1:number):Promise<string>;
 
 export function GenerateThumbnailsForFiles(arg1:Array<number>):Promise<number>;
+
+export function GenerateThumbnailsPool():Promise<void>;
 
 export function GetBatchMetadata(arg1:Array<number>):Promise<Array<app.FileMetadata>>;
 
@@ -48,7 +52,7 @@ export function RemoveExcludedFolder(arg1:string):Promise<void>;
 
 export function RemoveTagFromFile(arg1:number,arg2:number):Promise<void>;
 
-export function RescanVault():Promise<[number, number]>;
+export function RescanVault():Promise<number>;
 
 export function ScanVault():Promise<number>;
 

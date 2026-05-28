@@ -91,8 +91,8 @@ export const useVaultStore = defineStore('vault', {
       })
 
       try {
-        const [added, removed] = await RescanVault()
-        console.log('RescanVault result:', added, 'added,', removed, 'removed')
+        const added = await RescanVault()
+        console.log('RescanVault result:', added, 'added')
       } catch (e) {
         console.error('RescanVault failed:', e)
         this.isScanning = false

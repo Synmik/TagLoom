@@ -7,7 +7,7 @@ export interface AppBindings {
   CloseVault(): Promise<void>
   GetCurrentVault(): Promise<VaultInfo | null>
   ScanVault(): Promise<number>
-  RescanVault(): Promise<[number, number]>
+  RescanVault(): Promise<number>
 
   // Files
   GetFiles(filter: FileFilter, sort: SortOpts, page: number, limit: number): Promise<FilePage>

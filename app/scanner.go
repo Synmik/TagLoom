@@ -145,19 +145,19 @@ func isExcluded(path string, excluded map[string]bool) bool {
 }
 
 // RescanVault performs a diff scan, detecting added and removed files.
-// Returns {added, removed} counts.
-func (a *App) RescanVault() (int, int, error) {
+// Returns the number of added files. Removed count is sent via rescan:complete event.
+func (a *App) RescanVault() (int, error) {
 	if a.db == nil {
-		return 0, 0, fmt.Errorf("no vault open")
+		return 0, fmt.Errorf("no vault open")
 	}
 	if a.vaultPath == "" {
-		return 0, 0, fmt.Errorf("no vault path set")
+		return 0, fmt.Errorf("no vault path set")
 	}
 
 	// Load excluded folders
 	excludedFolders, err := a.GetExcludedFolders()
 	if err != nil {
-		return 0, 0, fmt.Errorf("failed to load excluded folders: %w", err)
+		return 0, fmt.Errorf("failed to load excluded folders: %w", err)
 	}
 	excludedSet := make(map[string]bool, len(excludedFolders))
 	for _, fp := range excludedFolders {
@@ -184,13 +184,13 @@ func (a *App) RescanVault() (int, int, error) {
 		return nil
 	})
 	if err != nil {
-		return 0, 0, fmt.Errorf("failed to walk directory: %w", err)
+		return 0, fmt.Errorf("failed to walk directory: %w", err)
 	}
 
 	// Step 2: Collect all files from the DB
 	rows, err := a.db.Conn().Query("SELECT vault_path FROM files")
 	if err != nil {
-		return 0, 0, fmt.Errorf("failed to query DB files: %w", err)
+		return 0, fmt.Errorf("failed to query DB files: %w", err)
 	}
 	defer rows.Close()
 
@@ -198,7 +198,7 @@ func (a *App) RescanVault() (int, int, error) {
 	for rows.Next() {
 		var vp string
 		if err := rows.Scan(&vp); err != nil {
-			return 0, 0, err
+			return 0, err
 		}
 		dbFiles[vp] = true
 	}
@@ -228,7 +228,7 @@ func (a *App) RescanVault() (int, int, error) {
 	// Step 4: Insert new files in a transaction
 	tx, err := a.db.Conn().Begin()
 	if err != nil {
-		return 0, 0, fmt.Errorf("failed to begin transaction: %w", err)
+		return 0, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
 	// Insert new files
@@ -239,7 +239,7 @@ func (a *App) RescanVault() (int, int, error) {
 		`)
 		if err != nil {
 			tx.Rollback()
-			return 0, 0, fmt.Errorf("failed to prepare insert: %w", err)
+			return 0, fmt.Errorf("failed to prepare insert: %w", err)
 		}
 
 		now := time.Now().Format(time.RFC3339)
@@ -248,7 +248,7 @@ func (a *App) RescanVault() (int, int, error) {
 			if err != nil {
 				stmt.Close()
 				tx.Rollback()
-				return 0, 0, fmt.Errorf("failed to insert %s: %w", path, err)
+				return 0, fmt.Errorf("failed to insert %s: %w", path, err)
 			}
 			// Progress every 50 inserts
 			if (i+1)%50 == 0 {
@@ -275,7 +275,7 @@ func (a *App) RescanVault() (int, int, error) {
 		delFileStmt, err := tx.Prepare("DELETE FROM files WHERE vault_path = ?")
 		if err != nil {
 			tx.Rollback()
-			return 0, 0, fmt.Errorf("failed to prepare delete: %w", err)
+			return 0, fmt.Errorf("failed to prepare delete: %w", err)
 		}
 
 		for _, p := range removed {
@@ -283,14 +283,14 @@ func (a *App) RescanVault() (int, int, error) {
 			if err != nil {
 				delFileStmt.Close()
 				tx.Rollback()
-				return 0, 0, fmt.Errorf("failed to delete %s: %w", p, err)
+				return 0, fmt.Errorf("failed to delete %s: %w", p, err)
 			}
 		}
 		delFileStmt.Close()
 	}
 
 	if err := tx.Commit(); err != nil {
-		return 0, 0, fmt.Errorf("failed to commit: %w", err)
+		return 0, fmt.Errorf("failed to commit: %w", err)
 	}
 
 	// Emit completion
@@ -299,7 +299,7 @@ func (a *App) RescanVault() (int, int, error) {
 		"removed": len(removed),
 	})
 
-	return len(added), len(removed), nil
+	return len(added), nil
 }
 
 // GetFolderTree returns the recursive folder tree for the vault.

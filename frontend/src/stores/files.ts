@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import type { File, FileUpdate, FilePage, FileFilter, SortOpts } from '../types/file'
-import { GetFiles, UpdateFile, SearchFiles, GenerateThumbnail, GetThumbnailData } from '../api/backend'
+import { GetFiles, UpdateFile, SearchFiles, GenerateThumbnail, GenerateThumbnailsPool, GetThumbnailData } from '../api/backend'
+import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime'
 
 export const useFilesStore = defineStore('files', {
   state: () => ({
@@ -111,6 +112,31 @@ export const useFilesStore = defineStore('files', {
     /** Clear the thumbnail cache */
     clearThumbnailCache() {
       this.thumbnailCache.clear()
+    },
+
+    /** Generate thumbnails for all files using a 4-worker pool */
+    async generateAllThumbnailsPool() {
+      this.isLoading = true
+
+      const progressUnsub = EventsOn('thumb:progress', (data: { current: number; total: number; generated: number }) => {
+        this.isLoading = false
+        console.log(`Thumbnail pool: ${data.current}/${data.total} (${data.generated} generated)`)
+      })
+
+      const completeUnsub = EventsOn('thumb:complete', (data: { generated: number; failed: number; total: number }) => {
+        this.isLoading = false
+        console.log(`Thumbnail pool complete: ${data.generated} generated, ${data.failed} failed out of ${data.total}`)
+      })
+
+      try {
+        await GenerateThumbnailsPool()
+      } catch (e) {
+        console.error('Thumbnail pool failed:', e)
+      } finally {
+        this.isLoading = false
+        progressUnsub()
+        completeUnsub()
+      }
     },
   },
 })
