@@ -8,6 +8,7 @@ import {
   GetVaultConfig,
   SetVaultConfig,
   ScanVault,
+  RescanVault,
 } from '../api/backend'
 // @ts-ignore - wails runtime is injected at build time
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime'
@@ -59,6 +60,50 @@ export const useVaultStore = defineStore('vault', {
       await SetVaultConfig(cfg as any)
       this.config = cfg
     },
+    async rescanVault() {
+      this.isScanning = true
+      this.isLoading = true
+      this.scanProgress = 0
+      this.scanTotal = 0
+      this.scanCurrent = 0
+
+      const diffUnsub = EventsOn('rescan:diff', (data: { added: number; removed: number; total: number }) => {
+        this.scanTotal = data.total
+        this.scanCurrent = 0
+        this.scanProgress = 0
+        console.log(`Rescan diff: +${data.added} -${data.removed} total=${data.total}`)
+      })
+
+      const progressUnsub = EventsOn('rescan:progress', (data: { phase: string; current: string; total: string }) => {
+        this.scanCurrent = parseInt(data.current, 10)
+        this.scanTotal = parseInt(data.total, 10)
+        if (this.scanTotal > 0) {
+          this.scanProgress = Math.round((this.scanCurrent / this.scanTotal) * 100)
+        }
+      })
+
+      const completeUnsub = EventsOn('rescan:complete', (data: { added: number; removed: number }) => {
+        this.scanProgress = 100
+        this.isScanning = false
+        this.isLoading = false
+        console.log(`Rescan complete: +${data.added} -${data.removed}`)
+        this.refreshCurrentVault()
+      })
+
+      try {
+        const [added, removed] = await RescanVault()
+        console.log('RescanVault result:', added, 'added,', removed, 'removed')
+      } catch (e) {
+        console.error('RescanVault failed:', e)
+        this.isScanning = false
+        this.isLoading = false
+      } finally {
+        diffUnsub()
+        progressUnsub()
+        completeUnsub()
+      }
+    },
+
     async scanVault() {
       this.isScanning = true
       this.isLoading = true

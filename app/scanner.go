@@ -145,13 +145,161 @@ func isExcluded(path string, excluded map[string]bool) bool {
 }
 
 // RescanVault performs a diff scan, detecting added and removed files.
-func (a *App) RescanVault() (int, error) {
+// Returns {added, removed} counts.
+func (a *App) RescanVault() (int, int, error) {
 	if a.db == nil {
-		return 0, fmt.Errorf("no vault open")
+		return 0, 0, fmt.Errorf("no vault open")
 	}
-	// TODO: Compare filesystem with DB records
-	// TODO: Insert new files, mark deleted ones
-	return 0, fmt.Errorf("not implemented")
+	if a.vaultPath == "" {
+		return 0, 0, fmt.Errorf("no vault path set")
+	}
+
+	// Load excluded folders
+	excludedFolders, err := a.GetExcludedFolders()
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to load excluded folders: %w", err)
+	}
+	excludedSet := make(map[string]bool, len(excludedFolders))
+	for _, fp := range excludedFolders {
+		excludedSet[strings.ToLower(filepath.Clean(fp))] = true
+	}
+
+	// Step 1: Collect all files from the filesystem
+	fsFiles := make(map[string]bool)
+	var fsPaths []string
+	err = filepath.WalkDir(a.vaultPath, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if d.IsDir() {
+			if isExcluded(path, excludedSet) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if utils.IsSupported(path) {
+			fsFiles[path] = true
+			fsPaths = append(fsPaths, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to walk directory: %w", err)
+	}
+
+	// Step 2: Collect all files from the DB
+	rows, err := a.db.Conn().Query("SELECT vault_path FROM files")
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to query DB files: %w", err)
+	}
+	defer rows.Close()
+
+	dbFiles := make(map[string]bool)
+	for rows.Next() {
+		var vp string
+		if err := rows.Scan(&vp); err != nil {
+			return 0, 0, err
+		}
+		dbFiles[vp] = true
+	}
+
+	// Step 3: Compute diff
+	var added []string
+	for _, p := range fsPaths {
+		if !dbFiles[p] {
+			added = append(added, p)
+		}
+	}
+
+	var removed []string
+	for p := range dbFiles {
+		if !fsFiles[p] {
+			removed = append(removed, p)
+		}
+	}
+
+	// Emit diff summary
+	runtime.EventsEmit(a.ctx, "rescan:diff", map[string]int{
+		"added":   len(added),
+		"removed": len(removed),
+		"total":   len(fsFiles),
+	})
+
+	// Step 4: Insert new files in a transaction
+	tx, err := a.db.Conn().Begin()
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	// Insert new files
+	if len(added) > 0 {
+		stmt, err := tx.Prepare(`
+			INSERT INTO files (vault_path, folder_path, indexed_at)
+			VALUES (?, ?, ?)
+		`)
+		if err != nil {
+			tx.Rollback()
+			return 0, 0, fmt.Errorf("failed to prepare insert: %w", err)
+		}
+
+		now := time.Now().Format(time.RFC3339)
+		for i, path := range added {
+			_, err := stmt.Exec(path, filepath.Dir(path), now)
+			if err != nil {
+				stmt.Close()
+				tx.Rollback()
+				return 0, 0, fmt.Errorf("failed to insert %s: %w", path, err)
+			}
+			// Progress every 50 inserts
+			if (i+1)%50 == 0 {
+				runtime.EventsEmit(a.ctx, "rescan:progress", map[string]string{
+					"phase":   "adding",
+					"current": fmt.Sprintf("%d", i+1),
+					"total":   fmt.Sprintf("%d", len(added)),
+				})
+			}
+		}
+		stmt.Close()
+	}
+
+	// Delete removed files (and their tags)
+	if len(removed) > 0 {
+		delStmt, err := tx.Prepare("DELETE FROM file_tags WHERE file_id = ?")
+		if err == nil {
+			for _, p := range removed {
+				delStmt.Exec(p) // ignore errors — cascade will handle it
+			}
+			delStmt.Close()
+		}
+
+		delFileStmt, err := tx.Prepare("DELETE FROM files WHERE vault_path = ?")
+		if err != nil {
+			tx.Rollback()
+			return 0, 0, fmt.Errorf("failed to prepare delete: %w", err)
+		}
+
+		for _, p := range removed {
+			_, err := delFileStmt.Exec(p)
+			if err != nil {
+				delFileStmt.Close()
+				tx.Rollback()
+				return 0, 0, fmt.Errorf("failed to delete %s: %w", p, err)
+			}
+		}
+		delFileStmt.Close()
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, 0, fmt.Errorf("failed to commit: %w", err)
+	}
+
+	// Emit completion
+	runtime.EventsEmit(a.ctx, "rescan:complete", map[string]int{
+		"added":   len(added),
+		"removed": len(removed),
+	})
+
+	return len(added), len(removed), nil
 }
 
 // GetFolderTree returns the recursive folder tree for the vault.

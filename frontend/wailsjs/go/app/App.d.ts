@@ -48,7 +48,7 @@ export function RemoveExcludedFolder(arg1:string):Promise<void>;
 
 export function RemoveTagFromFile(arg1:number,arg2:number):Promise<void>;
 
-export function RescanVault():Promise<number>;
+export function RescanVault():Promise<[number, number]>;
 
 export function ScanVault():Promise<number>;
 

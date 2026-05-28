@@ -7,7 +7,8 @@
           <div v-if="showMenu" class="app-menu">
             <button class="menu-item" @click="onOpenVault">📂 Open Vault</button>
             <button v-if="vaultStore.currentVault" class="menu-item" @click="onCloseVault">✕ Close Vault</button>
-            <button class="menu-item" @click="onScanVault">🔄 Scan Folder</button>
+            <button class="menu-item" @click="onRescanVault">🔄 Rescan Folder</button>
+            <button class="menu-item" @click="onFullScan">📂 Full Scan</button>
             <div class="menu-divider"></div>
             <button class="menu-item" @click="onVaultSettings">⚙ Vault Settings</button>
             <button class="menu-item" @click="onTagManager">🏷 Tag Manager</button>
@@ -68,7 +69,11 @@ const onCloseVault = async () => {
   showMenu.value = false
   await vaultStore.closeVault()
 }
-const onScanVault = async () => {
+const onRescanVault = async () => {
+  showMenu.value = false
+  await vaultStore.rescanVault()
+}
+const onFullScan = async () => {
   showMenu.value = false
   await vaultStore.scanVault()
 }
