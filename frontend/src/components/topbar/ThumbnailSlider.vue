@@ -17,16 +17,24 @@
 import { computed } from 'vue'
 import { useUIStore } from '../../stores/ui'
 import { useFilesStore } from '../../stores/files'
+import { useVaultStore } from '../../stores/vault'
 
 const uiStore = useUIStore()
 const filesStore = useFilesStore()
+const vaultStore = useVaultStore()
 
 const sizes = ['small', 'medium', 'large'] as const
 const sizeIndex = computed(() => sizes.indexOf(uiStore.gridSize))
 
 const onChange = (e: Event) => {
   const index = Number((e.target as HTMLInputElement).value)
-  uiStore.setGridSize(sizes[index])
+  const size = sizes[index]
+  uiStore.setGridSize(size)
+  // Persist grid size to vault config
+  if (vaultStore.config) {
+    vaultStore.config.settings.grid_thumbnail_size = size
+    vaultStore.saveConfig(vaultStore.config)
+  }
   filesStore.loadFiles()
 }
 </script>

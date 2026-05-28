@@ -76,13 +76,9 @@ func (a *App) GetFiles(filter db.FileFilter, sort db.SortOpts, page, limit int) 
 		formatPlaceholders := make([]string, len(filter.FileFormats))
 		for i, fmt_ := range filter.FileFormats {
 			formatPlaceholders[i] = "?"
-			args = append(args, "%"+fmt_)
+			args = append(args, "%."+fmt_+"%")
 		}
-		conditions = append(conditions, fmt.Sprintf("f.vault_path LIKE %s OR f.vault_path LIKE %s", 
-			strings.Join(formatPlaceholders, " OR f.vault_path LIKE "),
-			strings.Join(formatPlaceholders, " OR f.vault_path LIKE ")))
-		// Simpler approach: just use the placeholders directly
-		conditions[len(conditions)-1] = "(" + strings.Join(formatPlaceholders, " OR f.vault_path LIKE ") + ")"
+		conditions = append(conditions, "("+strings.Join(formatPlaceholders, " OR f.vault_path LIKE ")+")")
 	}
 	if filter.MinRating > 0 {
 		conditions = append(conditions, "f.rating >= ?")
