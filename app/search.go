@@ -3,7 +3,10 @@ package app
 import (
 	"database/sql"
 	"fmt"
+	"os"
+	"sort"
 	"strings"
+	"syscall"
 
 	"TagLoom/db"
 )
@@ -42,7 +45,7 @@ func (a *App) SearchFiles(query string, limit int) ([]db.File, error) {
 }
 
 // GetFiles returns a paginated list of files with optional filters and sorting.
-func (a *App) GetFiles(filter db.FileFilter, sort db.SortOpts, page, limit int) (*db.FilePage, error) {
+func (a *App) GetFiles(filter db.FileFilter, sortOpts db.SortOpts, page, limit int) (*db.FilePage, error) {
 	if a.db == nil {
 		return nil, fmt.Errorf("no vault open")
 	}
@@ -95,8 +98,8 @@ func (a *App) GetFiles(filter db.FileFilter, sort db.SortOpts, page, limit int) 
 	}
 
 	// Build sorting
-	sortField := sort.Field
-	sortOrder := sort.Order
+	sortField := sortOpts.Field
+	sortOrder := sortOpts.Order
 	if sortField == "" {
 		sortField = "indexed_at"
 	}
@@ -104,14 +107,15 @@ func (a *App) GetFiles(filter db.FileFilter, sort db.SortOpts, page, limit int) 
 		sortOrder = "desc"
 	}
 
-	// Map sort field to DB column
+	// Determine if this is a filesystem-based sort (value not stored in DB)
+	isFSSort := sortField == "date_created" || sortField == "file_size"
+
+	// Map sort field to DB column (for in-DB sorting)
 	sortColumn := map[string]string{
 		"name":       "f.name",
 		"rating":     "f.rating",
 		"indexed_at": "f.indexed_at",
 		"filename":   "f.vault_path",
-		"date_created": "f.vault_path", // fallback, actual date requires filesystem
-		"file_size":  "f.vault_path",   // fallback, actual size requires filesystem
 	}[sortField]
 	if sortColumn == "" {
 		sortColumn = "f.indexed_at"
@@ -125,7 +129,123 @@ func (a *App) GetFiles(filter db.FileFilter, sort db.SortOpts, page, limit int) 
 	row := a.db.Conn().QueryRow(countQuery, countArgs...)
 	_ = row.Scan(&totalCount)
 
-	// Fetch paginated results
+	// Filesystem-based sort: fetch all matching IDs+paths, stat files, sort in-memory, then paginate
+	if isFSSort {
+		type idPath struct {
+			id   int64
+			path string
+		}
+
+		// Fetch all matching file IDs and paths
+		allRows, err := a.db.Conn().Query(fmt.Sprintf("SELECT f.id, f.vault_path FROM files f %s", whereClause), countArgs...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to query files for FS sort: %w", err)
+		}
+		var allFiles []idPath
+		defer allRows.Close()
+		for allRows.Next() {
+			var ip idPath
+			if err := allRows.Scan(&ip.id, &ip.path); err != nil {
+				continue
+			}
+			allFiles = append(allFiles, ip)
+		}
+
+		// Stat each file and attach sort value
+		type idPathStat struct {
+			id      int64
+			path    string
+			size    int64
+			created int64 // Unix nanoseconds
+		}
+		var stats []idPathStat
+		for _, ip := range allFiles {
+			info, err := os.Stat(ip.path)
+			if err != nil {
+				continue // skip deleted files
+			}
+			var created int64
+			if sys, ok := info.Sys().(*syscall.Win32FileAttributeData); ok {
+				ct := sys.CreationTime
+				created = int64(ct.HighDateTime)<<32 | int64(ct.LowDateTime)
+				created = (created-116444736000000000)*100
+			} else {
+				created = info.ModTime().UnixNano()
+			}
+			stats = append(stats, idPathStat{id: ip.id, path: ip.path, size: info.Size(), created: created})
+		}
+
+		// Sort in-memory
+		switch sortField {
+		case "file_size":
+			if sortOrder == "asc" {
+				sort.Slice(stats, func(i, j int) bool { return stats[i].size < stats[j].size })
+			} else {
+				sort.Slice(stats, func(i, j int) bool { return stats[i].size > stats[j].size })
+			}
+		case "date_created":
+			if sortOrder == "asc" {
+				sort.Slice(stats, func(i, j int) bool { return stats[i].created < stats[j].created })
+			} else {
+				sort.Slice(stats, func(i, j int) bool { return stats[i].created > stats[j].created })
+			}
+		}
+
+		// Paginate: extract the IDs for this page
+		offset := page * limit
+		if offset >= len(stats) {
+			return &db.FilePage{Files: nil, TotalCount: totalCount, Page: page, Limit: limit}, nil
+		}
+		end := offset + limit
+		if end > len(stats) {
+			end = len(stats)
+		}
+		pageStats := stats[offset:end]
+
+		// Build ID list for query
+		idPlaceholders := make([]string, len(pageStats))
+		idArgs := make([]any, len(pageStats))
+		for i, s := range pageStats {
+			idPlaceholders[i] = "?"
+			idArgs[i] = s.id
+		}
+
+		// Fetch full records in sorted order
+		querySQL := fmt.Sprintf(`
+			SELECT f.id, f.vault_path, f.thumbnail_path, f.name, f.notes, f.link,
+			       f.rating, f.is_favorite, f.folder_path, f.indexed_at
+			FROM files f WHERE f.id IN (%s)
+		`, strings.Join(idPlaceholders, ","))
+		rows, err := a.db.Conn().Query(querySQL, idArgs...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to query files after FS sort: %w", err)
+		}
+		files, err := scanFiles(rows)
+		if err != nil {
+			return nil, err
+		}
+
+		// Re-order results to match the sorted ID sequence
+		fileMap := make(map[int64]db.File, len(files))
+		for _, f := range files {
+			fileMap[f.ID] = f
+		}
+		orderedFiles := make([]db.File, 0, len(pageStats))
+		for _, s := range pageStats {
+			if f, ok := fileMap[s.id]; ok {
+				orderedFiles = append(orderedFiles, f)
+			}
+		}
+
+		return &db.FilePage{
+			Files:      orderedFiles,
+			TotalCount: totalCount,
+			Page:       page,
+			Limit:      limit,
+		}, nil
+	}
+
+	// In-DB sort (name, rating, indexed_at, filename)
 	querySQL := fmt.Sprintf(`
 		SELECT f.id, f.vault_path, f.thumbnail_path, f.name, f.notes, f.link,
 		       f.rating, f.is_favorite, f.folder_path, f.indexed_at
