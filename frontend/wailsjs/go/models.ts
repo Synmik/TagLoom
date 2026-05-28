@@ -32,6 +32,24 @@ export namespace app {
 	        this.dominant_colors = source["dominant_colors"];
 	    }
 	}
+	export class ThumbnailInfo {
+	    file_id: number;
+	    thumbnail_path: string;
+	    exists: boolean;
+	    size_bytes: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ThumbnailInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.file_id = source["file_id"];
+	        this.thumbnail_path = source["thumbnail_path"];
+	        this.exists = source["exists"];
+	        this.size_bytes = source["size_bytes"];
+	    }
+	}
 
 }
 

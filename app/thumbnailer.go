@@ -384,6 +384,66 @@ func (a *App) CleanupOrphanThumbnails() error {
 	return fmt.Errorf("not implemented")
 }
 
+// GetThumbnailPath returns the thumbnail path for a file ID.
+// Used by the HTTP handler to serve thumbnails.
+func (a *App) GetThumbnailPath(fileID int64) (string, error) {
+	if a.db == nil {
+		return "", fmt.Errorf("no vault open")
+	}
+
+	row := a.db.Conn().QueryRow("SELECT thumbnail_path FROM files WHERE id = ?", fileID)
+	var thumbPath string
+	if err := row.Scan(&thumbPath); err != nil {
+		return "", fmt.Errorf("no thumbnail for file %d: %w", fileID, err)
+	}
+	if thumbPath == "" {
+		return "", fmt.Errorf("no thumbnail path for file %d", fileID)
+	}
+
+	// Verify file exists
+	if _, err := os.Stat(thumbPath); err != nil {
+		return "", fmt.Errorf("thumbnail file not found: %w", err)
+	}
+
+	return thumbPath, nil
+}
+
+// ThumbnailInfo holds metadata about a thumbnail.
+type ThumbnailInfo struct {
+	FileID        int64  `json:"file_id"`
+	ThumbnailPath string `json:"thumbnail_path"`
+	Exists        bool   `json:"exists"`
+	SizeBytes     int64  `json:"size_bytes"`
+}
+
+// GetThumbnailInfo returns metadata about a thumbnail.
+func (a *App) GetThumbnailInfo(fileID int64) (*ThumbnailInfo, error) {
+	if a.db == nil {
+		return nil, fmt.Errorf("no vault open")
+	}
+
+	row := a.db.Conn().QueryRow("SELECT thumbnail_path FROM files WHERE id = ?", fileID)
+	var thumbPath string
+	if err := row.Scan(&thumbPath); err != nil {
+		return nil, fmt.Errorf("no thumbnail for file %d: %w", fileID, err)
+	}
+
+	info := &ThumbnailInfo{
+		FileID:        fileID,
+		ThumbnailPath: thumbPath,
+	}
+
+	if thumbPath != "" {
+		stat, err := os.Stat(thumbPath)
+		if err == nil {
+			info.Exists = true
+			info.SizeBytes = stat.Size()
+		}
+	}
+
+	return info, nil
+}
+
 // GetThumbnailData reads a thumbnail file and returns it as a base64 data URL.
 // The frontend uses this to display thumbnails in <img> tags.
 func (a *App) GetThumbnailData(fileID int64) (string, error) {

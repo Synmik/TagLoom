@@ -82,6 +82,14 @@ export function GetThumbnailData(arg1) {
   return window['go']['app']['App']['GetThumbnailData'](arg1);
 }
 
+export function GetThumbnailInfo(arg1) {
+  return window['go']['app']['App']['GetThumbnailInfo'](arg1);
+}
+
+export function GetThumbnailPath(arg1) {
+  return window['go']['app']['App']['GetThumbnailPath'](arg1);
+}
+
 export function GetVaultConfig() {
   return window['go']['app']['App']['GetVaultConfig']();
 }

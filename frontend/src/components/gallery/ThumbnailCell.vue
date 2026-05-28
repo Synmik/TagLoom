@@ -27,6 +27,7 @@ const previewStore = usePreviewStore()
 const filesStore = useFilesStore()
 
 const thumbnailUrl = ref('')
+const isLoading = ref(true)
 
 const filename = computed(() => {
   const parts = props.file.vault_path.split(/[\\/]/)
@@ -39,8 +40,24 @@ const formatName = computed(() => {
 })
 
 onMounted(async () => {
-  const url = await filesStore.getThumbnail(props.file.id)
-  if (url) thumbnailUrl.value = url
+  // Try to load thumbnail via HTTP endpoint
+  const httpUrl = `/api/thumbnail/${props.file.id}`
+  
+  // Use HTTP endpoint if available, fallback to base64
+  const img = new Image()
+  img.onload = () => {
+    thumbnailUrl.value = httpUrl
+    isLoading.value = false
+  }
+  img.onerror = async () => {
+    // Fallback to base64 data URL
+    const dataUrl = await filesStore.getThumbnail(props.file.id)
+    if (dataUrl) {
+      thumbnailUrl.value = dataUrl
+    }
+    isLoading.value = false
+  }
+  img.src = httpUrl
 })
 
 const openPreview = () => {

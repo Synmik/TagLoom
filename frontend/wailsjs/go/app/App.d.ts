@@ -44,6 +44,10 @@ export function GetTags(arg1:string):Promise<Array<db.Tag>>;
 
 export function GetThumbnailData(arg1:number):Promise<string>;
 
+export function GetThumbnailInfo(arg1:number):Promise<app.ThumbnailInfo>;
+
+export function GetThumbnailPath(arg1:number):Promise<string>;
+
 export function GetVaultConfig():Promise<config.VaultConfig>;
 
 export function OpenVault(arg1:string):Promise<db.VaultInfo>;
