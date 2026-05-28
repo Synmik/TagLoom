@@ -4,16 +4,16 @@ package db
 // Only user-editable and structural fields are stored.
 // Read-only metadata (filename, size, resolution, etc.) is fetched on-demand from the filesystem.
 type File struct {
-	ID             int64  `json:"id"`
-	VaultPath      string `json:"vault_path"`
-	ThumbnailPath  string `json:"thumbnail_path"`
-	Name           string `json:"name"`
-	Notes          string `json:"notes"`
-	Link           string `json:"link"`
-	Rating         int    `json:"rating"`
-	IsFavorite     int    `json:"is_favorite"`
-	FolderPath     string `json:"folder_path"`
-	IndexedAt      string `json:"indexed_at"`
+	ID             int64   `json:"id"`
+	VaultPath      string  `json:"vault_path"`
+	ThumbnailPath  *string `json:"thumbnail_path"` // nullable in DB
+	Name           *string `json:"name"`           // nullable in DB
+	Notes          *string `json:"notes"`          // nullable in DB
+	Link           *string `json:"link"`           // nullable in DB
+	Rating         int     `json:"rating"`
+	IsFavorite     int     `json:"is_favorite"`
+	FolderPath     string  `json:"folder_path"`
+	IndexedAt      string  `json:"indexed_at"`
 }
 
 // FileUpdate contains fields that can be updated by the user.

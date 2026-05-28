@@ -3,10 +3,10 @@
 export interface File {
   id: number
   vault_path: string
-  thumbnail_path: string
-  name: string
-  notes: string
-  link: string
+  thumbnail_path?: string
+  name?: string
+  notes?: string
+  link?: string
   rating: number
   is_favorite: number
   folder_path: string

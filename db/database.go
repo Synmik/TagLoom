@@ -21,8 +21,8 @@ type Database struct {
 // It initializes the schema if the database is new.
 func NewDatabase(dbPath string) (*Database, error) {
 	// modernc.org/sqlite uses file: URI with query params for config
-	// ?_journal_mode=WAL&_cache_size=4096&_busy_timeout=5000
-	connStr := fmt.Sprintf("file:%s?_journal_mode=WAL&_cache_size=4096&_busy_timeout=5000", dbPath)
+	// WAL mode allows concurrent readers; busy_timeout gives writers time to wait
+	connStr := fmt.Sprintf("file:%s?_journal_mode=WAL&_cache_size=4096&_busy_timeout=30000", dbPath)
 	
 	conn, err := sql.Open("sqlite", connStr)
 	if err != nil {

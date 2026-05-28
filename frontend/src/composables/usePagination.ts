@@ -1,4 +1,4 @@
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref } from 'vue'
 import { useFilesStore } from '../stores/files'
 
 export function usePagination() {
@@ -9,12 +9,13 @@ export function usePagination() {
     if (loadingMore.value || filesStore.files.length >= filesStore.totalCount) return
     loadingMore.value = true
     filesStore.page++
-    await filesStore.loadFiles()
+    await filesStore.loadFiles({}, { field: 'indexed_at', order: 'desc' }, true) // append mode
     loadingMore.value = false
   }
 
   const resetPage = () => {
     filesStore.page = 0
+    filesStore.files = []
   }
 
   // Infinite scroll via IntersectionObserver

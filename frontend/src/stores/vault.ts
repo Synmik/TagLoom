@@ -33,6 +33,40 @@ export const useVaultStore = defineStore('vault', {
         const vault = await OpenVault(path)
         this.currentVault = vault
         await this.loadConfig()
+
+        // OpenVault triggers an auto-scan when file count is 0.
+        // Set isScanning so Gallery.vue's watch triggers a reload when it flips back.
+        this.isScanning = true
+        this.scanProgress = 0
+
+        const autoProgressUnsub = EventsOn('scan:progress', (data: { current: number; total: number }) => {
+          this.scanCurrent = data.current
+          this.scanTotal = data.total
+          if (data.total > 0) {
+            this.scanProgress = Math.round((data.current / data.total) * 100)
+          }
+        })
+
+        const autoCompleteUnsub = EventsOn('scan:complete', (count: number | { added: number; removed: number }) => {
+          this.scanProgress = 100
+          this.isScanning = false
+          this.isLoading = false
+          this.refreshCurrentVault()
+          console.log('Auto-scan complete:', count)
+        })
+
+        const autoErrorUnsub = EventsOn('scan:error', (data: { error: string }) => {
+          this.isScanning = false
+          this.isLoading = false
+          console.error('Auto-scan error:', data.error)
+        })
+
+        // Clean up listeners after 60 seconds
+        setTimeout(() => {
+          autoProgressUnsub()
+          autoCompleteUnsub()
+          autoErrorUnsub()
+        }, 60000)
       } finally {
         this.isLoading = false
       }

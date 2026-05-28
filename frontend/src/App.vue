@@ -6,6 +6,7 @@
       <Gallery />
       <RightPanel />
     </div>
+    <ScanProgressBar />
   </div>
 </template>
 
@@ -14,6 +15,7 @@ import TopBar from './components/topbar/TopBar.vue'
 import LeftPanel from './components/leftpanel/LeftPanel.vue'
 import Gallery from './components/gallery/Gallery.vue'
 import RightPanel from './components/rightpanel/RightPanel.vue'
+import ScanProgressBar from './components/common/ScanProgressBar.vue'
 </script>
 
 <style>

@@ -84,6 +84,24 @@ func (a *App) OpenVault(path string) (*db.VaultInfo, error) {
 	fileCount := 0
 	_ = a.db.Conn().QueryRow("SELECT COUNT(*) FROM files").Scan(&fileCount)
 
+	// Auto-scan if vault has no indexed files
+	if fileCount == 0 {
+		go func() {
+			// Small delay to let UI update first
+			time.Sleep(500 * time.Millisecond)
+			runtime.EventsEmit(a.ctx, "scan:started", map[string]string{
+				"vault_path": path,
+			})
+			count, err := a.ScanVault()
+			if err != nil {
+				runtime.EventsEmit(a.ctx, "scan:error", map[string]string{
+					"error": err.Error(),
+				})
+			}
+			runtime.EventsEmit(a.ctx, "scan:complete", count)
+		}()
+	}
+
 	return &db.VaultInfo{
 		Path:      path,
 		Name:      cfg.Name,

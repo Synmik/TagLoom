@@ -29,7 +29,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useFoldersStore } from '../../stores/folders'
-import { useFilesStore } from '../../stores/files'
+import { useFiltersStore } from '../../stores/filters'
 import type { FolderNode as FolderNodeType } from '../../types/vault'
 
 const props = defineProps<{
@@ -38,7 +38,7 @@ const props = defineProps<{
 }>()
 
 const foldersStore = useFoldersStore()
-const filesStore = useFilesStore()
+const filtersStore = useFiltersStore()
 
 const hasChildren = computed(() => props.node.children?.length > 0)
 const isExpanded = computed(() => foldersStore.expandedPaths.includes(props.node.path))
@@ -46,7 +46,8 @@ const isExpanded = computed(() => foldersStore.expandedPaths.includes(props.node
 const toggleExpand = () => foldersStore.toggleFolder(props.node.path)
 const selectFolder = () => {
   foldersStore.selectFolder(props.node.path)
-  filesStore.loadFiles({ folder_path: props.node.path } as any, { field: 'indexed_at', order: 'desc' })
+  // Route through filtersStore so Gallery.vue's watch triggers a proper reload
+  filtersStore.setFolderFilter(props.node.path)
 }
 const onContext = () => {
   // TODO: Context menu - "Exclude from indexing"

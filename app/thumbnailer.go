@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"sync/atomic"
 
 	"TagLoom/utils"
 
@@ -43,9 +42,16 @@ func (a *App) GenerateThumbnail(fileID int64) (string, error) {
 	`, fileID)
 
 	var id int64
-	var vaultPath, existingThumb string
+	var vaultPath string
+	var existingThumb *string // nullable in DB
 	if err := row.Scan(&id, &vaultPath, &existingThumb); err != nil {
 		return "", fmt.Errorf("failed to find file %d: %w", fileID, err)
+	}
+
+	// Dereference nullable thumbnail path
+	thumbStr := ""
+	if existingThumb != nil {
+		thumbStr = *existingThumb
 	}
 
 	// Check if file actually exists on disk
@@ -57,7 +63,7 @@ func (a *App) GenerateThumbnail(fileID int64) (string, error) {
 	thumbPath := GenerateThumbnailPath(a.vaultPath, vaultPath)
 
 	// If thumbnail already exists, check if source is newer
-	if existingThumb == thumbPath {
+	if thumbStr == thumbPath {
 		thumbStat, err1 := os.Stat(thumbPath)
 		srcStat, err2 := os.Stat(vaultPath)
 		if err1 == nil && err2 == nil && !srcStat.ModTime().After(thumbStat.ModTime()) {
@@ -126,8 +132,19 @@ func (a *App) GenerateThumbnail(fileID int64) (string, error) {
 	return thumbPath, nil
 }
 
+// thumbResult holds the outcome of processing one file's thumbnail.
+type thumbResult struct {
+	fileID    int64
+	thumbPath string
+	ok        bool // true if thumbnail was generated, false if failed
+}
+
 // GenerateThumbnailsPool generates thumbnails for all files that need them
 // using a worker pool of 4 goroutines. Emits progress events to the frontend.
+//
+// DB writes are batched after all workers finish to avoid SQLITE_BUSY from
+// concurrent writers — SQLite (even in WAL mode) only supports one writer
+// at a time.
 func (a *App) GenerateThumbnailsPool() error {
 	if a.db == nil {
 		return fmt.Errorf("no vault open")
@@ -156,7 +173,7 @@ func (a *App) GenerateThumbnailsPool() error {
 	var pending []pendingFile
 	for rows.Next() {
 		var f pendingFile
-		var existingThumb string
+		var existingThumb *string // nullable in DB
 		if err := rows.Scan(&f.id, &f.vaultPath, &existingThumb); err != nil {
 			return fmt.Errorf("failed to scan row: %w", err)
 		}
@@ -184,20 +201,28 @@ func (a *App) GenerateThumbnailsPool() error {
 	// Channel for distributing work
 	jobs := make(chan pendingFile, total)
 
-	// Thread-safe counters
+	// Collect results from workers
 	var (
-		mu          sync.Mutex
-		generated   int
-		failed      int
-		current     int
+		resultsMu   sync.Mutex
+		results     []thumbResult
+		processedMu sync.Mutex
+		processed   int
 	)
 
-	// Worker function
+	// Worker function — does image I/O only, returns results for batched DB update
 	worker := func(workerID int, jobs <-chan pendingFile, wg *sync.WaitGroup) {
 		defer wg.Done()
 
-		// Use the shared sql.DB pool (it handles concurrent access)
-		conn := a.db.Conn()
+		size := defaultThumbnailSize
+		quality := defaultThumbnailQuality
+		if a.vaultCfg != nil {
+			if a.vaultCfg.Settings.ThumbnailSize > 0 {
+				size = a.vaultCfg.Settings.ThumbnailSize
+			}
+			if a.vaultCfg.Settings.ThumbnailQuality > 0 {
+				quality = a.vaultCfg.Settings.ThumbnailQuality
+			}
+		}
 
 		for f := range jobs {
 			// Check for cancellation
@@ -207,14 +232,25 @@ func (a *App) GenerateThumbnailsPool() error {
 			default:
 			}
 
-			// Generate thumbnail
 			thumbPath := GenerateThumbnailPath(a.vaultPath, f.vaultPath)
 
 			// Skip if already generated (another worker may have done it)
 			if _, err := os.Stat(thumbPath); err == nil {
-				// Update DB if needed
-				_, _ = conn.Exec("UPDATE files SET thumbnail_path = ? WHERE id = ?", thumbPath, f.id)
-				incrementCounters(&mu, &generated, &current, total, a.ctx)
+				resultsMu.Lock()
+				results = append(results, thumbResult{fileID: f.id, thumbPath: thumbPath, ok: true})
+				resultsMu.Unlock()
+
+				processedMu.Lock()
+				processed++
+				cur := processed
+				processedMu.Unlock()
+
+				if cur%10 == 0 || cur == total {
+					runtime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
+						"current": cur,
+						"total":   total,
+					})
+				}
 				continue
 			}
 
@@ -229,59 +265,126 @@ func (a *App) GenerateThumbnailsPool() error {
 			case "image", "animated":
 				img, decodeErr = decodeImage(f.vaultPath, ext)
 			default:
-				// Unsupported for now
-				incrementCounters(&mu, &failed, &current, total, a.ctx)
+				// Unsupported
+				resultsMu.Lock()
+				results = append(results, thumbResult{fileID: f.id, ok: false})
+				resultsMu.Unlock()
+
+				processedMu.Lock()
+				processed++
+				cur := processed
+				processedMu.Unlock()
+
+				if cur%10 == 0 || cur == total {
+					runtime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
+						"current": cur,
+						"total":   total,
+					})
+				}
 				continue
 			}
 
 			if decodeErr != nil {
-				incrementCounters(&mu, &failed, &current, total, a.ctx)
+				resultsMu.Lock()
+				results = append(results, thumbResult{fileID: f.id, ok: false})
+				resultsMu.Unlock()
+
+				processedMu.Lock()
+				processed++
+				cur := processed
+				processedMu.Unlock()
+
+				if cur%10 == 0 || cur == total {
+					runtime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
+						"current": cur,
+						"total":   total,
+					})
+				}
 				continue
 			}
 
 			// Resize
-			size := defaultThumbnailSize
-			quality := defaultThumbnailQuality
-			if a.vaultCfg != nil {
-				if a.vaultCfg.Settings.ThumbnailSize > 0 {
-					size = a.vaultCfg.Settings.ThumbnailSize
-				}
-				if a.vaultCfg.Settings.ThumbnailQuality > 0 {
-					quality = a.vaultCfg.Settings.ThumbnailQuality
-				}
-			}
-
 			resized := imaging.Fit(img, size, size, imaging.Lanczos)
 
 			// Write thumbnail
 			thumbDir := filepath.Dir(thumbPath)
 			if err := os.MkdirAll(thumbDir, 0755); err != nil {
-				incrementCounters(&mu, &failed, &current, total, a.ctx)
+				resultsMu.Lock()
+				results = append(results, thumbResult{fileID: f.id, ok: false})
+				resultsMu.Unlock()
+
+				processedMu.Lock()
+				processed++
+				cur := processed
+				processedMu.Unlock()
+
+				if cur%10 == 0 || cur == total {
+					runtime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
+						"current": cur,
+						"total":   total,
+					})
+				}
 				continue
 			}
 
 			outFile, err := os.Create(thumbPath)
 			if err != nil {
-				incrementCounters(&mu, &failed, &current, total, a.ctx)
+				resultsMu.Lock()
+				results = append(results, thumbResult{fileID: f.id, ok: false})
+				resultsMu.Unlock()
+
+				processedMu.Lock()
+				processed++
+				cur := processed
+				processedMu.Unlock()
+
+				if cur%10 == 0 || cur == total {
+					runtime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
+						"current": cur,
+						"total":   total,
+					})
+				}
 				continue
 			}
 
 			if err := jpeg.Encode(outFile, resized, &jpeg.Options{Quality: quality}); err != nil {
 				outFile.Close()
 				os.Remove(thumbPath)
-				incrementCounters(&mu, &failed, &current, total, a.ctx)
+				resultsMu.Lock()
+				results = append(results, thumbResult{fileID: f.id, ok: false})
+				resultsMu.Unlock()
+
+				processedMu.Lock()
+				processed++
+				cur := processed
+				processedMu.Unlock()
+
+				if cur%10 == 0 || cur == total {
+					runtime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
+						"current": cur,
+						"total":   total,
+					})
+				}
 				continue
 			}
 			outFile.Close()
 
-			// Update DB
-			_, err = conn.Exec("UPDATE files SET thumbnail_path = ? WHERE id = ?", thumbPath, f.id)
-			if err != nil {
-				incrementCounters(&mu, &failed, &current, total, a.ctx)
-				continue
-			}
+			// Record success — DB update is batched after all workers finish
+			resultsMu.Lock()
+			results = append(results, thumbResult{fileID: f.id, thumbPath: thumbPath, ok: true})
+			resultsMu.Unlock()
 
-			incrementCounters(&mu, &generated, &current, total, a.ctx)
+			processedMu.Lock()
+			processed++
+			cur := processed
+			processedMu.Unlock()
+
+			if cur%10 == 0 || cur == total {
+				runtime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
+					"current": cur,
+					"total":   total,
+				})
+			}
 		}
 	}
 
@@ -298,8 +401,36 @@ func (a *App) GenerateThumbnailsPool() error {
 	}
 	close(jobs)
 
-	// Wait for completion
+	// Wait for all workers to finish
 	wg.Wait()
+
+	// Batch DB update — sequential writes avoid SQLITE_BUSY entirely
+	tx, err := a.db.Conn().Begin()
+	if err == nil {
+		stmt, prepErr := tx.Prepare("UPDATE files SET thumbnail_path = ? WHERE id = ?")
+		if prepErr == nil {
+			for _, r := range results {
+				if r.ok {
+					_, _ = stmt.Exec(r.thumbPath, r.fileID)
+				}
+			}
+			stmt.Close()
+		}
+		if commitErr := tx.Commit(); commitErr != nil {
+			fmt.Printf("thumbnail batch commit warning: %v\n", commitErr)
+		}
+	}
+
+	// Compute final counts
+	generated := 0
+	failed := 0
+	for _, r := range results {
+		if r.ok {
+			generated++
+		} else {
+			failed++
+		}
+	}
 
 	// Emit completion event
 	runtime.EventsEmit(a.ctx, "thumb:complete", map[string]int{
@@ -392,20 +523,20 @@ func (a *App) GetThumbnailPath(fileID int64) (string, error) {
 	}
 
 	row := a.db.Conn().QueryRow("SELECT thumbnail_path FROM files WHERE id = ?", fileID)
-	var thumbPath string
+	var thumbPath *string // nullable in DB
 	if err := row.Scan(&thumbPath); err != nil {
 		return "", fmt.Errorf("no thumbnail for file %d: %w", fileID, err)
 	}
-	if thumbPath == "" {
+	if thumbPath == nil || *thumbPath == "" {
 		return "", fmt.Errorf("no thumbnail path for file %d", fileID)
 	}
 
 	// Verify file exists
-	if _, err := os.Stat(thumbPath); err != nil {
+	if _, err := os.Stat(*thumbPath); err != nil {
 		return "", fmt.Errorf("thumbnail file not found: %w", err)
 	}
 
-	return thumbPath, nil
+	return *thumbPath, nil
 }
 
 // ThumbnailInfo holds metadata about a thumbnail.
@@ -423,18 +554,18 @@ func (a *App) GetThumbnailInfo(fileID int64) (*ThumbnailInfo, error) {
 	}
 
 	row := a.db.Conn().QueryRow("SELECT thumbnail_path FROM files WHERE id = ?", fileID)
-	var thumbPath string
+	var thumbPath *string // nullable in DB
 	if err := row.Scan(&thumbPath); err != nil {
 		return nil, fmt.Errorf("no thumbnail for file %d: %w", fileID, err)
 	}
 
 	info := &ThumbnailInfo{
-		FileID:        fileID,
-		ThumbnailPath: thumbPath,
+		FileID: fileID,
 	}
 
-	if thumbPath != "" {
-		stat, err := os.Stat(thumbPath)
+	if thumbPath != nil && *thumbPath != "" {
+		info.ThumbnailPath = *thumbPath
+		stat, err := os.Stat(*thumbPath)
 		if err == nil {
 			info.Exists = true
 			info.SizeBytes = stat.Size()
@@ -453,15 +584,15 @@ func (a *App) GetThumbnailData(fileID int64) (string, error) {
 
 	// Fetch thumbnail_path from DB
 	row := a.db.Conn().QueryRow("SELECT thumbnail_path FROM files WHERE id = ?", fileID)
-	var thumbPath string
+	var thumbPath *string // nullable in DB
 	if err := row.Scan(&thumbPath); err != nil {
 		return "", fmt.Errorf("no thumbnail for file %d: %w", fileID, err)
 	}
-	if thumbPath == "" {
+	if thumbPath == nil || *thumbPath == "" {
 		return "", fmt.Errorf("no thumbnail path for file %d", fileID)
 	}
 
-	data, err := os.ReadFile(thumbPath)
+	data, err := os.ReadFile(*thumbPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to read thumbnail: %w", err)
 	}
@@ -484,5 +615,4 @@ func ServeThumbnail(thumbPath string) ([]byte, error) {
 	return data, nil
 }
 
-// Ensure atomic is used
-var _ = atomic.LoadInt64
+

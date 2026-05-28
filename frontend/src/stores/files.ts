@@ -2,6 +2,8 @@ import { defineStore } from 'pinia'
 import type { File, FileUpdate, FilePage, FileFilter, SortOpts } from '../types/file'
 import { GetFiles, UpdateFile, SearchFiles, GenerateThumbnail, GenerateThumbnailsPool, GetThumbnailData } from '../api/backend'
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime'
+import { useFiltersStore } from './filters'
+import { useUIStore } from './ui'
 
 export const useFilesStore = defineStore('files', {
   state: () => ({
@@ -22,20 +24,37 @@ export const useFilesStore = defineStore('files', {
     async loadFiles(
       filter: Partial<FileFilter> = {},
       sort: SortOpts = { field: 'indexed_at', order: 'desc' },
+      append: boolean = false,
     ) {
       this.isLoading = true
       try {
+        // Use active filters from filtersStore, override with explicit filter
+        const filtersStore = useFiltersStore()
+        const activeFilter = filtersStore.asBackendFilter
+        const mergedFilter = { ...activeFilter, ...filter }
+
         const result: FilePage = await GetFiles(
-          { folder_path: '', tag_ids: [], file_formats: [], min_rating: 0, favorites_only: false, ...filter },
+          mergedFilter,
           sort,
           this.page,
           this.limit,
         )
-        this.files = result.files
+        if (append) {
+          this.files = [...this.files, ...result.files]
+        } else {
+          this.files = result.files
+        }
         this.totalCount = result.total_count
       } finally {
         this.isLoading = false
       }
+    },
+
+    /** Reset to page 0 and reload with current filters */
+    async reloadFiles() {
+      this.page = 0
+      this.files = []
+      await this.loadFiles()
     },
     selectFile(file: File, multi: boolean = false) {
       if (multi) {

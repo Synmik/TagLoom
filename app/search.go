@@ -207,6 +207,7 @@ func sanitizeFTSQuery(query string) string {
 }
 
 // scanFiles scans database rows into a slice of File structs.
+// Handles nullable columns (thumbnail_path, name, notes, link) via *string.
 func scanFiles(rows *sql.Rows) ([]db.File, error) {
 	var files []db.File
 	defer rows.Close()
@@ -218,6 +219,9 @@ func scanFiles(rows *sql.Rows) ([]db.File, error) {
 			return nil, err
 		}
 		files = append(files, f)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return files, nil
 }
