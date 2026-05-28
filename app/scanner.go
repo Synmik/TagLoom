@@ -9,6 +9,12 @@ import (
 	"TagLoom/utils"
 )
 
+// folderInfo holds a folder path and its file count for tree building.
+type folderInfo struct {
+	path  string
+	count int
+}
+
 // ScanVault performs a full re-scan of the vault directory.
 // It discovers all supported media files and indexes them.
 func (a *App) ScanVault(progress chan int) error {
@@ -36,9 +42,87 @@ func (a *App) GetFolderTree(path string) (*db.FolderNode, error) {
 	if a.db == nil {
 		return nil, fmt.Errorf("no vault open")
 	}
-	// TODO: Query files table grouped by folder_path
-	// TODO: Build tree structure
-	return nil, fmt.Errorf("not implemented")
+
+	// Query all unique folder paths with file counts
+	rows, err := a.db.Conn().Query(`
+		SELECT folder_path, COUNT(*) as cnt
+		FROM files
+		GROUP BY folder_path
+		ORDER BY folder_path
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query folder tree: %w", err)
+	}
+	defer rows.Close()
+
+	// Build a map of folder_path → node
+	var folders []folderInfo
+	for rows.Next() {
+		var fi folderInfo
+		if err := rows.Scan(&fi.path, &fi.count); err != nil {
+			return nil, err
+		}
+		folders = append(folders, fi)
+	}
+
+	// Build tree from flat list
+	return buildFolderTree(folders, path), nil
+}
+
+// buildFolderTree constructs a recursive tree from a flat list of folder paths.
+func buildFolderTree(folders []folderInfo, rootPath string) *db.FolderNode {
+	// Collect unique folder paths with counts
+	folderMap := make(map[string]*db.FolderNode)
+
+	for _, fi := range folders {
+		// Normalize path separators
+		normalized := filepath.ToSlash(fi.path)
+		name := filepath.Base(normalized)
+		if name == "" {
+			name = filepath.Base(fi.path)
+		}
+
+		node, exists := folderMap[fi.path]
+		if !exists {
+			node = &db.FolderNode{
+				Path:      fi.path,
+				Name:      name,
+				FileCount: fi.count,
+			}
+			folderMap[fi.path] = node
+		}
+	}
+
+	// Build parent-child relationships
+	var root *db.FolderNode
+	for _, node := range folderMap {
+		parentPath := filepath.Dir(node.Path)
+		// Check if parent is in our map
+		parent, hasParent := folderMap[parentPath]
+		if hasParent {
+			parent.Children = append(parent.Children, *node)
+		} else {
+			// Top-level folder
+			if root == nil {
+				root = &db.FolderNode{
+					Path:      rootPath,
+					Name:      filepath.Base(rootPath),
+					FileCount: 0,
+				}
+			}
+			root.Children = append(root.Children, *node)
+		}
+	}
+
+	if root == nil {
+		root = &db.FolderNode{
+			Path:      rootPath,
+			Name:      filepath.Base(rootPath),
+			FileCount: 0,
+		}
+	}
+
+	return root
 }
 
 // AddExcludedFolder adds a folder to the exclusion list.
@@ -46,7 +130,7 @@ func (a *App) AddExcludedFolder(path string) error {
 	if a.db == nil {
 		return fmt.Errorf("no vault open")
 	}
-	_, err := a.db.Conn().ExecContext(nil,
+	_, err := a.db.Conn().Exec(
 		"INSERT INTO excluded_folders (path, created_at) VALUES (?, datetime('now'))",
 		path,
 	)
@@ -58,7 +142,7 @@ func (a *App) RemoveExcludedFolder(path string) error {
 	if a.db == nil {
 		return fmt.Errorf("no vault open")
 	}
-	_, err := a.db.Conn().ExecContext(nil,
+	_, err := a.db.Conn().Exec(
 		"DELETE FROM excluded_folders WHERE path = ?",
 		path,
 	)

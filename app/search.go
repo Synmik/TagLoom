@@ -37,7 +37,6 @@ func (a *App) SearchFiles(query string, limit int) ([]db.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
 	return scanFiles(rows)
 }
@@ -54,10 +53,108 @@ func (a *App) GetFiles(filter db.FileFilter, sort db.SortOpts, page, limit int) 
 	if page < 0 {
 		page = 0
 	}
-	// TODO: Build dynamic query with filters (folder, tags, format, rating, favorites)
-	// TODO: Apply sorting (DB fields vs filesystem fields)
-	// TODO: Return paginated result
-	return nil, fmt.Errorf("not implemented")
+
+	// Build WHERE clause dynamically
+	var conditions []string
+	var args []any
+	argIdx := 1
+
+	if filter.FolderPath != "" {
+		conditions = append(conditions, fmt.Sprintf("f.folder_path = ?"))
+		args = append(args, filter.FolderPath)
+		argIdx++
+	}
+	if len(filter.TagIDs) > 0 {
+		// Files must have ALL specified tags (AND logic)
+		for _, tagID := range filter.TagIDs {
+			conditions = append(conditions, fmt.Sprintf("f.id IN (SELECT file_id FROM file_tags WHERE tag_id = ?)"))
+			args = append(args, tagID)
+			argIdx++
+		}
+	}
+	if len(filter.FileFormats) > 0 {
+		formatPlaceholders := make([]string, len(filter.FileFormats))
+		for i, fmt_ := range filter.FileFormats {
+			formatPlaceholders[i] = "?"
+			args = append(args, "%"+fmt_)
+		}
+		conditions = append(conditions, fmt.Sprintf("f.vault_path LIKE %s OR f.vault_path LIKE %s", 
+			strings.Join(formatPlaceholders, " OR f.vault_path LIKE "),
+			strings.Join(formatPlaceholders, " OR f.vault_path LIKE ")))
+		// Simpler approach: just use the placeholders directly
+		conditions[len(conditions)-1] = "(" + strings.Join(formatPlaceholders, " OR f.vault_path LIKE ") + ")"
+	}
+	if filter.MinRating > 0 {
+		conditions = append(conditions, "f.rating >= ?")
+		args = append(args, filter.MinRating)
+		argIdx++
+	}
+	if filter.FavoritesOnly {
+		conditions = append(conditions, "f.is_favorite = 1")
+	}
+
+	whereClause := ""
+	if len(conditions) > 0 {
+		whereClause = "WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	// Build sorting
+	sortField := sort.Field
+	sortOrder := sort.Order
+	if sortField == "" {
+		sortField = "indexed_at"
+	}
+	if sortOrder != "asc" && sortOrder != "desc" {
+		sortOrder = "desc"
+	}
+
+	// Map sort field to DB column
+	sortColumn := map[string]string{
+		"name":       "f.name",
+		"rating":     "f.rating",
+		"indexed_at": "f.indexed_at",
+		"filename":   "f.vault_path",
+		"date_created": "f.vault_path", // fallback, actual date requires filesystem
+		"file_size":  "f.vault_path",   // fallback, actual size requires filesystem
+	}[sortField]
+	if sortColumn == "" {
+		sortColumn = "f.indexed_at"
+	}
+
+	// Count total matching files
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM files f %s", whereClause)
+	var totalCount int
+	countArgs := make([]any, len(args))
+	copy(countArgs, args)
+	row := a.db.Conn().QueryRow(countQuery, countArgs...)
+	_ = row.Scan(&totalCount)
+
+	// Fetch paginated results
+	querySQL := fmt.Sprintf(`
+		SELECT f.id, f.vault_path, f.thumbnail_path, f.name, f.notes, f.link,
+		       f.rating, f.is_favorite, f.folder_path, f.indexed_at
+		FROM files f %s
+		ORDER BY %s %s
+		LIMIT ? OFFSET ?
+	`, whereClause, sortColumn, sortOrder)
+
+	queryArgs := append(args, limit, page*limit)
+	rows, err := a.db.Conn().Query(querySQL, queryArgs...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query files: %w", err)
+	}
+
+	files, err := scanFiles(rows)
+	if err != nil {
+		return nil, err
+	}
+
+	return &db.FilePage{
+		Files:      files,
+		TotalCount: totalCount,
+		Page:       page,
+		Limit:      limit,
+	}, nil
 }
 
 // GetFileByID returns a single file by its ID.
