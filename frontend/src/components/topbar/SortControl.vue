@@ -31,7 +31,7 @@ const sortBy = computed({
 const sortOrder = computed(() => uiStore.sortOrder)
 
 const applySort = () => {
-  filesStore.loadFiles(filtersStore.activeFilters, { field: uiStore.sortBy, order: uiStore.sortOrder })
+  filesStore.loadFiles(filtersStore.asBackendFilter, { field: uiStore.sortBy, order: uiStore.sortOrder })
 }
 const toggleOrder = () => {
   uiStore.toggleSortOrder()

@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import type { File, FileMetadata } from '../types/file'
 import type { Tag } from '../types/tag'
+import { GetFileMetadata, GetFileTags, UpdateFile } from '../api/backend'
 
 export const usePreviewStore = defineStore('preview', {
   state: () => ({
@@ -21,10 +22,9 @@ export const usePreviewStore = defineStore('preview', {
     async loadFileDetails(fileID: number) {
       this.isLoading = true
       try {
-        // @ts-ignore
         const [metadata, tags] = await Promise.all([
-          window.go.main.app.GetFileMetadata(fileID),
-          window.go.main.app.GetFileTags(fileID),
+          GetFileMetadata(fileID),
+          GetFileTags(fileID),
         ])
         this.metadata = metadata
         this.tags = tags
@@ -32,36 +32,39 @@ export const usePreviewStore = defineStore('preview', {
         this.isLoading = false
       }
     },
+    // Helper: build a full FileUpdate with defaults, then override the field
+    _updateField(field: string, value: any) {
+      if (!this.currentFile) return Promise.resolve()
+      const f = this.currentFile
+      return UpdateFile({
+        id: f.id,
+        name: field === 'name' ? value : f.name,
+        notes: field === 'notes' ? value : f.notes,
+        link: field === 'link' ? value : f.link,
+        rating: field === 'rating' ? value : f.rating,
+        is_favorite: field === 'is_favorite' ? value : f.is_favorite,
+      }).then(() => {
+        if (this.currentFile) {
+          (this.currentFile as any)[field] = value
+        }
+      })
+    },
     async updateName(value: string) {
-      if (!this.currentFile) return
-      // @ts-ignore
-      await window.go.main.app.UpdateFile({ id: this.currentFile.id, name: value })
-      this.currentFile.name = value
+      return this._updateField('name', value)
     },
     async updateNotes(value: string) {
-      if (!this.currentFile) return
-      // @ts-ignore
-      await window.go.main.app.UpdateFile({ id: this.currentFile.id, notes: value })
-      this.currentFile.notes = value
+      return this._updateField('notes', value)
     },
     async updateLink(value: string) {
-      if (!this.currentFile) return
-      // @ts-ignore
-      await window.go.main.app.UpdateFile({ id: this.currentFile.id, link: value })
-      this.currentFile.link = value
+      return this._updateField('link', value)
     },
     async setRating(rating: number) {
-      if (!this.currentFile) return
-      // @ts-ignore
-      await window.go.main.app.UpdateFile({ id: this.currentFile.id, rating })
-      this.currentFile.rating = rating
+      return this._updateField('rating', rating)
     },
     async toggleFavorite() {
       if (!this.currentFile) return
       const newFav = this.currentFile.is_favorite === 1 ? 0 : 1
-      // @ts-ignore
-      await window.go.main.app.UpdateFile({ id: this.currentFile.id, is_favorite: newFav })
-      this.currentFile.is_favorite = newFav
+      return this._updateField('is_favorite', newFav)
     },
   },
 })

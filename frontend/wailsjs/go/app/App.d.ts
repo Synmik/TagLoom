@@ -50,6 +50,8 @@ export function ScanVault(arg1:any):Promise<void>;
 
 export function SearchFiles(arg1:string,arg2:number):Promise<Array<db.File>>;
 
+export function SelectFolder():Promise<string>;
+
 export function SetVaultConfig(arg1:config.VaultConfig):Promise<void>;
 
 export function UpdateFile(arg1:db.FileUpdate):Promise<void>;

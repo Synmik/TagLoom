@@ -1,8 +1,8 @@
-// Wails v2 runtime type declarations
+// Wails v2 runtime type declarations — matches generated bindings in wailsjs/go/app/App.js
 interface WailsRuntime {
   go: {
-    main: {
-      app: Record<string, (...args: any[]) => any>
+    app: {
+      App: Record<string, (...args: any[]) => any>
     }
   }
 }

@@ -30,10 +30,7 @@ import { useVaultStore } from '../../stores/vault'
 const vaultStore = useVaultStore()
 const showTagManager = ref(false)
 
-const openVault = () => {
-  // TODO: Use wails dialog to select folder
-  // vaultStore.openVault(selectedPath)
-}
+const openVault = () => vaultStore.pickAndOpenVault()
 </script>
 
 <style scoped>

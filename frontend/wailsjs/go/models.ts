@@ -62,6 +62,7 @@ export namespace config {
 	    }
 	}
 	export class VaultConfig {
+	    name: string;
 	    version: number;
 	    created_at: string;
 	    settings: Settings;
@@ -72,6 +73,7 @@ export namespace config {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
 	        this.version = source["version"];
 	        this.created_at = source["created_at"];
 	        this.settings = this.convertValues(source["settings"], Settings);

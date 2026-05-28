@@ -1,22 +1,21 @@
 import { defineStore } from 'pinia'
 import type { FolderNode } from '../types/vault'
+import { GetCurrentVault, GetFolderTree } from '../api/backend'
 
 export const useFoldersStore = defineStore('folders', {
   state: () => ({
     tree: [] as FolderNode[],
     expandedPaths: [] as string[],
-    selectedPath: '' as string,
+    selectedPath: '',
     isLoading: false,
   }),
   actions: {
     async loadTree() {
       this.isLoading = true
       try {
-        // @ts-ignore
-        const vault = await window.go.main.app.GetCurrentVault()
+        const vault = await GetCurrentVault()
         if (vault) {
-          // @ts-ignore
-          const root = await window.go.main.app.GetFolderTree(vault.path)
+          const root = await GetFolderTree(vault.path)
           this.tree = root ? [root] : []
         }
       } finally {

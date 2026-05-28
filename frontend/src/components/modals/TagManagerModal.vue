@@ -57,7 +57,7 @@ const saveTag = async () => {
   await tagsStore.createTag({
     name: form.value.name,
     color: form.value.color,
-    parent_id: form.value.parentId,
+    parent_id: form.value.parentId ?? undefined,
     is_category: form.value.isCategory ? 1 : 0,
     sort_order: 0,
     aliases: form.value.aliases,

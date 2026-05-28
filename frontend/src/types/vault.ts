@@ -1,3 +1,5 @@
+// Aligns with generated Wails types in wailsjs/go/models.ts (db & config namespaces)
+
 export interface VaultInfo {
   path: string
   name: string
@@ -6,6 +8,7 @@ export interface VaultInfo {
 }
 
 export interface VaultConfig {
+  name: string
   version: number
   created_at: string
   settings: VaultSettings

@@ -94,6 +94,10 @@ export function SearchFiles(arg1, arg2) {
   return window['go']['app']['App']['SearchFiles'](arg1, arg2);
 }
 
+export function SelectFolder() {
+  return window['go']['app']['App']['SelectFolder']();
+}
+
 export function SetVaultConfig(arg1) {
   return window['go']['app']['App']['SetVaultConfig'](arg1);
 }

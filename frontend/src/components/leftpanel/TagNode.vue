@@ -34,7 +34,7 @@ const fileCount = computed(() => {
 
 const toggleFilter = () => {
   filtersStore.toggleTagFilter(props.tag.id)
-  filesStore.loadFiles(filtersStore.activeFilters, { field: 'indexed_at', order: 'desc' })
+  filesStore.loadFiles(filtersStore.asBackendFilter, { field: 'indexed_at', order: 'desc' })
 }
 </script>
 

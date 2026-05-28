@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import type { FileFilter } from '../types/file'
 
 export interface FilterState {
   folderPath: string
@@ -19,13 +20,24 @@ export const useFiltersStore = defineStore('filters', {
     } as FilterState,
   }),
   getters: {
-    hasActiveFilters: (state) => {
+    hasActiveFilters: (state: any) => {
       const f = state.activeFilters
       return f.folderPath !== '' ||
         f.tagIds.length > 0 ||
         f.fileFormats.length > 0 ||
         f.minRating > 0 ||
         f.favoritesOnly
+    },
+    /** Returns a snake-case FileFilter compatible with the Go backend */
+    asBackendFilter: (state: any): FileFilter => {
+      const f = state.activeFilters
+      return {
+        folder_path: f.folderPath,
+        tag_ids: f.tagIds,
+        file_formats: f.fileFormats,
+        min_rating: f.minRating,
+        favorites_only: f.favoritesOnly,
+      }
     },
   },
   actions: {

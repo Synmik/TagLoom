@@ -8,9 +8,10 @@ import (
 
 // VaultConfig holds vault-level settings.
 type VaultConfig struct {
-	Version    int    `json:"version"`
-	CreatedAt  string `json:"created_at"`
-	Settings   Settings `json:"settings"`
+	Name      string   `json:"name"`
+	Version   int      `json:"version"`
+	CreatedAt string   `json:"created_at"`
+	Settings  Settings `json:"settings"`
 }
 
 // Settings holds user-configurable options.
