@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import type { File, FileUpdate, FilePage, FileFilter, SortOpts } from '../types/file'
-import { GetFiles, UpdateFile, SearchFiles } from '../api/backend'
+import { GetFiles, UpdateFile, SearchFiles, GenerateThumbnail, GetThumbnailData } from '../api/backend'
 
 export const useFilesStore = defineStore('files', {
   state: () => ({
@@ -10,6 +10,8 @@ export const useFilesStore = defineStore('files', {
     page: 0,
     limit: 50,
     isLoading: false,
+    // Cache of fileID → data URL for thumbnails
+    thumbnailCache: new Map<number, string>(),
   }),
   getters: {
     hasSelection: (state: any) => state.selectedFiles.length > 0,
@@ -74,6 +76,41 @@ export const useFilesStore = defineStore('files', {
       const results = await SearchFiles(query, limit)
       this.files = results
       this.totalCount = results.length
+    },
+
+    /** Generate a thumbnail for a single file and return its data URL */
+    async generateThumbnail(fileID: number): Promise<string | null> {
+      try {
+        await GenerateThumbnail(fileID)
+        const dataUrl = await GetThumbnailData(fileID)
+        this.thumbnailCache.set(fileID, dataUrl)
+        return dataUrl
+      } catch (e) {
+        console.warn('Failed to generate thumbnail for', fileID, e)
+        return null
+      }
+    },
+
+    /** Get a cached thumbnail data URL, or generate one if missing */
+    async getThumbnail(fileID: number): Promise<string | null> {
+      const cached = this.thumbnailCache.get(fileID)
+      if (cached) return cached
+      return this.generateThumbnail(fileID)
+    },
+
+    /** Generate thumbnails for all currently loaded files */
+    async generateAllThumbnails() {
+      const fileIDs = this.files.map(f => f.id)
+      const results = await Promise.allSettled(
+        fileIDs.map(id => this.generateThumbnail(id))
+      )
+      const success = results.filter(r => r.status === 'fulfilled' && r.value !== null).length
+      console.log(`Generated ${success}/${fileIDs.length} thumbnails`)
+    },
+
+    /** Clear the thumbnail cache */
+    clearThumbnailCache() {
+      this.thumbnailCache.clear()
     },
   },
 })

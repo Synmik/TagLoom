@@ -20,7 +20,7 @@ export { AddTagToFile, RemoveTagFromFile, GetFileTags } from '../../wailsjs/go/a
 export { GetFileMetadata, GetBatchMetadata } from '../../wailsjs/go/app/App'
 
 // Thumbnails
-export { GenerateThumbnail, CleanupOrphanThumbnails } from '../../wailsjs/go/app/App'
+export { GenerateThumbnail, GetThumbnailData, CleanupOrphanThumbnails } from '../../wailsjs/go/app/App'
 
 // Excluded Folders
 export { GetExcludedFolders, AddExcludedFolder, RemoveExcludedFolder } from '../../wailsjs/go/app/App'

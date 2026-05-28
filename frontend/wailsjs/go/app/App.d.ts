@@ -18,6 +18,8 @@ export function DeleteTag(arg1:number):Promise<void>;
 
 export function GenerateThumbnail(arg1:number):Promise<string>;
 
+export function GenerateThumbnailsForFiles(arg1:Array<number>):Promise<number>;
+
 export function GetBatchMetadata(arg1:Array<number>):Promise<Array<app.FileMetadata>>;
 
 export function GetCurrentVault():Promise<db.VaultInfo>;
@@ -35,6 +37,8 @@ export function GetFiles(arg1:db.FileFilter,arg2:db.SortOpts,arg3:number,arg4:nu
 export function GetFolderTree(arg1:string):Promise<db.FolderNode>;
 
 export function GetTags(arg1:string):Promise<Array<db.Tag>>;
+
+export function GetThumbnailData(arg1:number):Promise<string>;
 
 export function GetVaultConfig():Promise<config.VaultConfig>;
 

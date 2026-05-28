@@ -15,14 +15,18 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useSelection } from '../../composables/useSelection'
 import { usePreviewStore } from '../../stores/preview'
+import { useFilesStore } from '../../stores/files'
 import type { File } from '../../types/file'
 
 const props = defineProps<{ file: File }>()
 const { isSelected, toggleSelection } = useSelection()
 const previewStore = usePreviewStore()
+const filesStore = useFilesStore()
+
+const thumbnailUrl = ref('')
 
 const filename = computed(() => {
   const parts = props.file.vault_path.split(/[\\/]/)
@@ -34,9 +38,9 @@ const formatName = computed(() => {
   return ext === 'JPG' || ext === 'JPEG' ? 'JPEG' : ext
 })
 
-const thumbnailUrl = computed(() => {
-  // TODO: Serve thumbnails via Wails asset server or file:// URL
-  return props.file.thumbnail_path || ''
+onMounted(async () => {
+  const url = await filesStore.getThumbnail(props.file.id)
+  if (url) thumbnailUrl.value = url
 })
 
 const openPreview = () => {

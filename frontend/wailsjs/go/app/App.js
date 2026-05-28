@@ -30,6 +30,10 @@ export function GenerateThumbnail(arg1) {
   return window['go']['app']['App']['GenerateThumbnail'](arg1);
 }
 
+export function GenerateThumbnailsForFiles(arg1) {
+  return window['go']['app']['App']['GenerateThumbnailsForFiles'](arg1);
+}
+
 export function GetBatchMetadata(arg1) {
   return window['go']['app']['App']['GetBatchMetadata'](arg1);
 }
@@ -64,6 +68,10 @@ export function GetFolderTree(arg1) {
 
 export function GetTags(arg1) {
   return window['go']['app']['App']['GetTags'](arg1);
+}
+
+export function GetThumbnailData(arg1) {
+  return window['go']['app']['App']['GetThumbnailData'](arg1);
 }
 
 export function GetVaultConfig() {
