@@ -19,12 +19,14 @@ import { computed, ref, onMounted } from 'vue'
 import { useSelection } from '../../composables/useSelection'
 import { usePreviewStore } from '../../stores/preview'
 import { useFilesStore } from '../../stores/files'
+import { useVaultStore } from '../../stores/vault'
 import type { File } from '../../types/file'
 
 const props = defineProps<{ file: File }>()
 const { isSelected, toggleSelection } = useSelection()
 const previewStore = usePreviewStore()
 const filesStore = useFilesStore()
+const vaultStore = useVaultStore()
 
 const thumbnailUrl = ref('')
 const isLoading = ref(true)
@@ -39,14 +41,22 @@ const formatName = computed(() => {
   return ext === 'JPG' || ext === 'JPEG' ? 'JPEG' : ext
 })
 
+const vaultPath = computed(() => vaultStore.currentVault?.path || '')
+
+const thumbnailUrlValue = computed(() => {
+  // Include vault path as cache-busting parameter so switching vaults
+  // forces the browser to fetch fresh thumbnails instead of serving
+  // stale cached images from the previous vault.
+  const vp = vaultPath.value
+  const bust = vp ? `&vp=${encodeURIComponent(vp)}` : ''
+  return `/api/thumbnail/${props.file.id}?nocache=${Date.now()}${bust}`
+})
+
 onMounted(async () => {
-  // Try to load thumbnail via HTTP endpoint
-  const httpUrl = `/api/thumbnail/${props.file.id}`
-  
   // Use HTTP endpoint if available, fallback to base64
   const img = new Image()
   img.onload = () => {
-    thumbnailUrl.value = httpUrl
+    thumbnailUrl.value = thumbnailUrlValue.value
     isLoading.value = false
   }
   img.onerror = async () => {
@@ -57,7 +67,7 @@ onMounted(async () => {
     }
     isLoading.value = false
   }
-  img.src = httpUrl
+  img.src = thumbnailUrlValue.value
 })
 
 const openPreview = () => {
