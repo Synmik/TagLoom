@@ -25,7 +25,7 @@ const { observeSentinel } = usePagination()
 const galleryRef = ref<HTMLElement | null>(null)
 const sentinel = ref<HTMLElement | null>(null)
 
-let cleanup: (() => void) | null = null
+let cleanup: (() => void) | undefined = undefined
 onMounted(async () => {
   await filesStore.loadFiles()
   cleanup = observeSentinel(sentinel.value)

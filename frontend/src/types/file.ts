@@ -42,11 +42,11 @@ export interface FilePage {
 }
 
 export interface FileFilter {
-  folder_path: string
-  tag_ids: number[]
-  file_formats: string[]
-  min_rating: number
-  favorites_only: boolean
+  folderPath: string
+  tagIds: number[]
+  fileFormats: string[]
+  minRating: number
+  favoritesOnly: boolean
 }
 
 export interface SortOpts {
