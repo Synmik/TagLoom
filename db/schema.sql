@@ -4,7 +4,7 @@
 
 CREATE TABLE IF NOT EXISTS files (
     id INTEGER PRIMARY KEY,
-    vault_path TEXT NOT NULL,
+    vault_path TEXT NOT NULL UNIQUE,
     thumbnail_path TEXT,
     name TEXT,
     notes TEXT,

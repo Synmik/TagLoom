@@ -69,8 +69,9 @@ func (a *App) ScanVault() (int, error) {
 	}
 
 	stmt, err := tx.Prepare(`
-		INSERT OR REPLACE INTO files (vault_path, folder_path, indexed_at)
+		INSERT INTO files (vault_path, folder_path, indexed_at)
 		VALUES (?, ?, ?)
+		ON CONFLICT(vault_path) DO UPDATE SET folder_path = excluded.folder_path, indexed_at = excluded.indexed_at
 	`)
 	if err != nil {
 		tx.Rollback()
@@ -446,8 +447,9 @@ func (a *App) indexFile(filePath string) error {
 	now := time.Now().Format(time.RFC3339)
 
 	_, err := a.db.Conn().Exec(`
-		INSERT OR REPLACE INTO files (vault_path, folder_path, indexed_at)
+		INSERT INTO files (vault_path, folder_path, indexed_at)
 		VALUES (?, ?, ?)
+		ON CONFLICT(vault_path) DO UPDATE SET folder_path = excluded.folder_path, indexed_at = excluded.indexed_at
 	`, filePath, folderPath, now)
 
 	return err

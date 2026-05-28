@@ -97,6 +97,11 @@ func (a *App) OpenVault(path string) (*db.VaultInfo, error) {
 				runtime.EventsEmit(a.ctx, "scan:error", map[string]string{
 					"error": err.Error(),
 				})
+			} else {
+				// Generate thumbnails after scan completes
+				if err := a.GenerateThumbnailsPool(); err != nil {
+					fmt.Printf("thumbnail generation warning: %v\n", err)
+				}
 			}
 			runtime.EventsEmit(a.ctx, "scan:complete", count)
 		}()

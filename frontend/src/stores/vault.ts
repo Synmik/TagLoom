@@ -52,17 +52,31 @@ export const useVaultStore = defineStore('vault', {
           EventsOff('scan:progress')
           EventsOff('scan:complete')
           EventsOff('scan:error')
+          EventsOff('thumb:progress')
+          EventsOff('thumb:complete')
 
           const autoProgressUnsub = EventsOn('scan:progress', (data: { current: number; total: number }) => {
             this.scanCurrent = data.current
             this.scanTotal = data.total
           })
 
+          const thumbProgressUnsub = EventsOn('thumb:progress', (data: { current: number; total: number }) => {
+            this.scanCurrent = data.current
+            this.scanTotal = data.total
+          })
+
           const autoCompleteUnsub = EventsOn('scan:complete', (count: number | { added: number; removed: number }) => {
+            // Scan done — thumbnails are generated next by backend
+            console.log('Auto-scan complete, generating thumbnails...')
+          })
+
+          const thumbCompleteUnsub = EventsOn('thumb:complete', (data: { generated: number; failed: number; total: number }) => {
+            this.scanCurrent = data.total
+            this.scanTotal = data.total
             this.isScanning = false
             this.isLoading = false
             this.refreshCurrentVault()
-            console.log('Auto-scan complete:', count)
+            console.log(`Auto-scan + thumbnails: ${data.generated} generated, ${data.failed} failed`)
           })
 
           const autoErrorUnsub = EventsOn('scan:error', (data: { error: string }) => {
@@ -74,7 +88,9 @@ export const useVaultStore = defineStore('vault', {
           // Clean up listeners after 60 seconds
           setTimeout(() => {
             autoProgressUnsub()
+            thumbProgressUnsub()
             autoCompleteUnsub()
+            thumbCompleteUnsub()
             autoErrorUnsub()
           }, 60000)
         }
@@ -125,10 +141,26 @@ export const useVaultStore = defineStore('vault', {
         this.scanTotal = parseInt(data.total, 10)
       })
 
-      const completeUnsub = EventsOn('rescan:complete', (data: { added: number; removed: number }) => {
+      const thumbProgressUnsub = EventsOn('thumb:progress', (data: { current: number; total: number }) => {
+        this.scanCurrent = data.current
+        this.scanTotal = data.total
+      })
+
+      const completeUnsub = EventsOn('rescan:complete', async (data: { added: number; removed: number }) => {
+        console.log(`Rescan complete: +${data.added} -${data.removed}, generating thumbnails...`)
+        try {
+          await import('../api/backend').then(m => m.GenerateThumbnailsPool())
+        } catch (e) {
+          console.error('Thumbnail generation failed:', e)
+        }
+      })
+
+      const thumbCompleteUnsub = EventsOn('thumb:complete', (data: { generated: number; failed: number; total: number }) => {
+        this.scanCurrent = data.total
+        this.scanTotal = data.total
         this.isScanning = false
         this.isLoading = false
-        console.log(`Rescan complete: +${data.added} -${data.removed}`)
+        console.log(`Thumbnails: ${data.generated} generated, ${data.failed} failed out of ${data.total}`)
         this.refreshCurrentVault()
       })
 
@@ -143,6 +175,8 @@ export const useVaultStore = defineStore('vault', {
         diffUnsub()
         progressUnsub()
         completeUnsub()
+        thumbProgressUnsub()
+        thumbCompleteUnsub()
       }
     },
 
@@ -152,18 +186,35 @@ export const useVaultStore = defineStore('vault', {
       this.scanTotal = 0
       this.scanCurrent = 0
 
-      // Listen for progress events
+      // Listen for scan progress events
       const progressUnsub = EventsOn('scan:progress', (data: { current: number; total: number }) => {
         this.scanCurrent = data.current
         this.scanTotal = data.total
       })
 
-      const completeUnsub = EventsOn('scan:complete', (count: number) => {
+      const thumbProgressUnsub = EventsOn('thumb:progress', (data: { current: number; total: number }) => {
+        this.scanCurrent = data.current
+        this.scanTotal = data.total
+      })
+
+      const completeUnsub = EventsOn('scan:complete', async (count: number) => {
         this.scanCurrent = count
         this.scanTotal = count
+        // Thumbnails are generated next — keep isScanning true
+        console.log('Scan complete, generating thumbnails...')
+        try {
+          await import('../api/backend').then(m => m.GenerateThumbnailsPool())
+        } catch (e) {
+          console.error('Thumbnail generation failed:', e)
+        }
+      })
+
+      const thumbCompleteUnsub = EventsOn('thumb:complete', (data: { generated: number; failed: number; total: number }) => {
+        this.scanCurrent = data.total
+        this.scanTotal = data.total
         this.isScanning = false
         this.isLoading = false
-        // Refresh vault info to get updated file count
+        console.log(`Thumbnails: ${data.generated} generated, ${data.failed} failed out of ${data.total}`)
         this.refreshCurrentVault()
       })
 
@@ -177,6 +228,8 @@ export const useVaultStore = defineStore('vault', {
       } finally {
         progressUnsub()
         completeUnsub()
+        thumbProgressUnsub()
+        thumbCompleteUnsub()
       }
     },
     stopScanning() {
