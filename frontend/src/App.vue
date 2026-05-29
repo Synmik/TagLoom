@@ -11,11 +11,19 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import TopBar from './components/topbar/TopBar.vue'
 import LeftPanel from './components/leftpanel/LeftPanel.vue'
 import Gallery from './components/gallery/Gallery.vue'
 import RightPanel from './components/rightpanel/RightPanel.vue'
 import ScanProgressBar from './components/common/ScanProgressBar.vue'
+import { usePreviewStore } from './stores/preview'
+import { useTagsStore } from './stores/tags'
+
+onMounted(() => {
+  usePreviewStore()._syncSelection()
+  useTagsStore()._watchVault()
+})
 </script>
 
 <style>

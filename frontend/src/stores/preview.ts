@@ -1,7 +1,9 @@
-import { defineStore } from 'pinia'
+import { defineStore, storeToRefs } from 'pinia'
+import { watch } from 'vue'
 import type { File, FileMetadata } from '../types/file'
 import type { Tag } from '../types/tag'
 import { GetFileMetadata, GetFileTags, UpdateFile } from '../api/backend'
+import { useFilesStore } from './files'
 
 export const usePreviewStore = defineStore('preview', {
   state: () => ({
@@ -18,6 +20,25 @@ export const usePreviewStore = defineStore('preview', {
       if (file) {
         await this.loadFileDetails(file.id)
       }
+    },
+
+    /** Sync with filesStore selection — auto-loads preview when single file is selected */
+    _syncSelection() {
+      const filesStore = useFilesStore()
+      const { selectedFiles } = storeToRefs(filesStore)
+
+      watch(selectedFiles, (files) => {
+        if (files.length === 1) {
+          this.setFile(files[0])
+        } else if (files.length === 0) {
+          // Don't clear — keep last file visible until user explicitly deselects
+        } else {
+          // Multi-select: clear preview
+          this.currentFile = null
+          this.metadata = null
+          this.tags = []
+        }
+      })
     },
     async loadFileDetails(fileID: number) {
       this.isLoading = true

@@ -1,4 +1,5 @@
-import { defineStore } from 'pinia'
+import { defineStore, storeToRefs } from 'pinia'
+import { watch } from 'vue'
 import type { Tag, TagCreate, TagUpdate } from '../types/tag'
 import {
   GetTags,
@@ -10,6 +11,7 @@ import {
   RemoveTagFromFile,
   GetFileTags,
 } from '../api/backend'
+import { useVaultStore } from './vault'
 
 export const useTagsStore = defineStore('tags', {
   state: () => ({
@@ -28,24 +30,35 @@ export const useTagsStore = defineStore('tags', {
         this.isLoading = false
       }
     },
+
+    /** Reload tags whenever the vault changes */
+    _watchVault() {
+      const vaultStore = useVaultStore()
+      const { currentVault } = storeToRefs(vaultStore)
+
+      watch(currentVault, async (vault) => {
+        if (vault) {
+          await this.loadTags()
+        } else {
+          this.tags = []
+          this.tagCounts = {}
+        }
+      })
+    },
     async loadTagCounts() {
       this.tagCounts = await GetAllTagFileCounts()
     },
     async createTag(tag: TagCreate) {
-      const newTag = await CreateTag(tag)
-      this.tags.push(newTag)
-      return newTag
+      await CreateTag(tag)
+      await this.loadTags()
     },
     async updateTag(tag: TagUpdate) {
       await UpdateTag(tag)
-      const index = this.tags.findIndex(t => t.id === tag.id)
-      if (index >= 0) {
-        Object.assign(this.tags[index], tag)
-      }
+      await this.loadTags()
     },
     async deleteTag(id: number) {
       await DeleteTag(id)
-      this.tags = this.tags.filter(t => t.id !== id)
+      await this.loadTags()
     },
     async addTagToFile(fileID: number, tagID: number) {
       await AddTagToFile(fileID, tagID)

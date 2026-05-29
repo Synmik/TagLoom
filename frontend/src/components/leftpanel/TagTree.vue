@@ -10,7 +10,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed } from 'vue'
 import TagNode from './TagNode.vue'
 import { useTagsStore } from '../../stores/tags'
 import type { Tag } from '../../types/tag'
@@ -18,7 +18,6 @@ import type { Tag } from '../../types/tag'
 const emit = defineEmits<{ edit: [tag: Tag] }>()
 
 const tagsStore = useTagsStore()
-onMounted(() => tagsStore.loadTags())
 
 const rootTags = computed(() => {
   return tagsStore.tags.filter(t => !t.parent_id)
