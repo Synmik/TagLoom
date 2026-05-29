@@ -158,6 +158,50 @@ func (a *App) RemoveTagFromFile(fileID, tagID int64) error {
 	return err
 }
 
+// GetTagFileCount returns the number of files associated with a tag.
+func (a *App) GetTagFileCount(tagID int64) (int, error) {
+	if a.db == nil {
+		return 0, fmt.Errorf("no vault open")
+	}
+
+	var count int
+	err := a.db.Conn().QueryRow(`
+		SELECT COUNT(*) FROM file_tags WHERE tag_id = ?
+	`, tagID).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+// GetAllTagFileCounts returns a map of tag_id -> file_count for all tags.
+// More efficient than calling GetTagFileCount per tag.
+func (a *App) GetAllTagFileCounts() (map[int64]int, error) {
+	if a.db == nil {
+		return nil, fmt.Errorf("no vault open")
+	}
+
+	counts := make(map[int64]int)
+
+	rows, err := a.db.Conn().Query(`
+		SELECT tag_id, COUNT(*) FROM file_tags GROUP BY tag_id
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var tagID int64
+		var count int
+		if err := rows.Scan(&tagID, &count); err != nil {
+			return nil, err
+		}
+		counts[tagID] = count
+	}
+	return counts, nil
+}
+
 // GetFileTags returns all tags associated with a file.
 func (a *App) GetFileTags(fileID int64) ([]db.Tag, error) {
 	if a.db == nil {

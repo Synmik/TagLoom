@@ -24,6 +24,8 @@ export function GenerateThumbnailsForFiles(arg1:Array<number>):Promise<number>;
 
 export function GenerateThumbnailsPool():Promise<void>;
 
+export function GetAllTagFileCounts():Promise<Record<number, number>>;
+
 export function GetBatchMetadata(arg1:Array<number>):Promise<Array<app.FileMetadata>>;
 
 export function GetCurrentVault():Promise<db.VaultInfo>;
@@ -39,6 +41,8 @@ export function GetFileTags(arg1:number):Promise<Array<db.Tag>>;
 export function GetFiles(arg1:db.FileFilter,arg2:db.SortOpts,arg3:number,arg4:number):Promise<db.FilePage>;
 
 export function GetFolderTree(arg1:string):Promise<db.FolderNode>;
+
+export function GetTagFileCount(arg1:number):Promise<number>;
 
 export function GetTags(arg1:string):Promise<Array<db.Tag>>;
 

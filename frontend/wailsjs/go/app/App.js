@@ -42,6 +42,10 @@ export function GenerateThumbnailsPool() {
   return window['go']['app']['App']['GenerateThumbnailsPool']();
 }
 
+export function GetAllTagFileCounts() {
+  return window['go']['app']['App']['GetAllTagFileCounts']();
+}
+
 export function GetBatchMetadata(arg1) {
   return window['go']['app']['App']['GetBatchMetadata'](arg1);
 }
@@ -72,6 +76,10 @@ export function GetFiles(arg1, arg2, arg3, arg4) {
 
 export function GetFolderTree(arg1) {
   return window['go']['app']['App']['GetFolderTree'](arg1);
+}
+
+export function GetTagFileCount(arg1) {
+  return window['go']['app']['App']['GetTagFileCount'](arg1);
 }
 
 export function GetTags(arg1) {

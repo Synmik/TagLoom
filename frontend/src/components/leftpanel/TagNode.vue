@@ -15,11 +15,13 @@
 import { ref, computed } from 'vue'
 import { useFiltersStore } from '../../stores/filters'
 import { useFilesStore } from '../../stores/files'
+import { useTagsStore } from '../../stores/tags'
 import type { Tag } from '../../types/tag'
 
 const props = defineProps<{ tag: Tag }>()
 const filtersStore = useFiltersStore()
 const filesStore = useFilesStore()
+const tagsStore = useTagsStore()
 const showContextMenu = ref(false)
 
 const displayName = computed(() => {
@@ -28,8 +30,7 @@ const displayName = computed(() => {
 })
 
 const fileCount = computed(() => {
-  // TODO: Query file count for this tag
-  return 0
+  return tagsStore.tagCounts[props.tag.id] ?? 0
 })
 
 const toggleFilter = () => {

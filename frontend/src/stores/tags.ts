@@ -5,6 +5,7 @@ import {
   CreateTag,
   UpdateTag,
   DeleteTag,
+  GetAllTagFileCounts,
   AddTagToFile,
   RemoveTagFromFile,
   GetFileTags,
@@ -14,6 +15,7 @@ export const useTagsStore = defineStore('tags', {
   state: () => ({
     tags: [] as Tag[],
     categories: [] as string[],
+    tagCounts: {} as Record<number, number>,
     isLoading: false,
   }),
   actions: {
@@ -21,9 +23,13 @@ export const useTagsStore = defineStore('tags', {
       this.isLoading = true
       try {
         this.tags = await GetTags('')
+        await this.loadTagCounts()
       } finally {
         this.isLoading = false
       }
+    },
+    async loadTagCounts() {
+      this.tagCounts = await GetAllTagFileCounts()
     },
     async createTag(tag: TagCreate) {
       const newTag = await CreateTag(tag)
@@ -43,9 +49,11 @@ export const useTagsStore = defineStore('tags', {
     },
     async addTagToFile(fileID: number, tagID: number) {
       await AddTagToFile(fileID, tagID)
+      await this.loadTagCounts()
     },
     async removeTagFromFile(fileID: number, tagID: number) {
       await RemoveTagFromFile(fileID, tagID)
+      await this.loadTagCounts()
     },
     async getFileTags(fileID: number): Promise<Tag[]> {
       return await GetFileTags(fileID)
