@@ -29,9 +29,9 @@ const thumbnailUrl = computed(() => props.file.thumbnail_path || '')
 const tagsText = computed(() => '—') // TODO: Load tags for this file
 const fileSize = computed(() => '—') // TODO: Fetch from metadata
 
-const handleClick = (e: MouseEvent) => {
+const handleClick = async (e: MouseEvent) => {
   if (!e.ctrlKey && !e.shiftKey) {
-    previewStore.setFile(props.file)
+    await previewStore.setFile(props.file)
   }
   toggleSelection(props.file, e.ctrlKey, e.shiftKey)
 }

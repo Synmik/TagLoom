@@ -70,10 +70,10 @@ onMounted(async () => {
   img.src = thumbnailUrlValue.value
 })
 
-const handleClick = (e: MouseEvent) => {
+const handleClick = async (e: MouseEvent) => {
   // Single click (no modifiers): select file AND open its preview in the right panel
   if (!e.ctrlKey && !e.shiftKey) {
-    previewStore.setFile(props.file)
+    await previewStore.setFile(props.file)
   }
   toggleSelection(props.file, e.ctrlKey, e.shiftKey)
 }

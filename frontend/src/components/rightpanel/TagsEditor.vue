@@ -3,7 +3,7 @@
     <label class="field-label">Tags</label>
     <div class="tags-container">
       <TagChip
-        v-for="tag in previewStore.tags"
+        v-for="tag in fileTags"
         :key="tag.id"
         :tag="tag"
         @remove="removeTag"
@@ -79,8 +79,10 @@ const canCreate = computed(() => {
   return q.length > 0 && !filteredTags.value.length
 })
 
+const fileTags = computed(() => previewStore.tags || [])
+
 const alreadyAttached = (tagId: number) => {
-  return previewStore.tags.some(t => t.id === tagId)
+  return fileTags.value.some(t => t.id === tagId)
 }
 
 const openPicker = () => {
@@ -102,18 +104,22 @@ const handleEnter = () => {
   }
 }
 
-const addTag = (tagId: number) => {
-  if (previewStore.currentFile) {
-    tagsStore.addTagToFile(previewStore.currentFile.id, tagId)
-    previewStore.loadFileDetails(previewStore.currentFile.id)
+const addTag = async (tagId: number) => {
+  if (!previewStore.currentFile) return
+  // Skip if already attached
+  if (fileTags.value.some(t => t.id === tagId)) {
+    closePicker()
+    return
   }
+  await tagsStore.addTagToFile(previewStore.currentFile.id, tagId)
+  await previewStore.loadFileDetails(previewStore.currentFile.id)
   closePicker()
 }
 
-const removeTag = (tagId: number) => {
+const removeTag = async (tagId: number) => {
   if (previewStore.currentFile) {
-    tagsStore.removeTagFromFile(previewStore.currentFile.id, tagId)
-    previewStore.loadFileDetails(previewStore.currentFile.id)
+    await tagsStore.removeTagFromFile(previewStore.currentFile.id, tagId)
+    await previewStore.loadFileDetails(previewStore.currentFile.id)
   }
 }
 

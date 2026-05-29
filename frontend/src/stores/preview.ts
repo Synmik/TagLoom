@@ -11,9 +11,15 @@ export const usePreviewStore = defineStore('preview', {
     metadata: null as FileMetadata | null,
     tags: [] as Tag[],
     isLoading: false,
+    _loadSeq: 0, // monotonic counter to discard stale loadFileDetails responses
   }),
   actions: {
     async setFile(file: File | null) {
+      // Skip if the same file is already loaded — prevents duplicate calls
+      // from both handleClick and the _syncSelection watcher racing
+      if (file && this.currentFile && this.currentFile.id === file.id) {
+        return
+      }
       this.currentFile = file
       this.metadata = null
       this.tags = []
@@ -39,14 +45,21 @@ export const usePreviewStore = defineStore('preview', {
     },
     async loadFileDetails(fileID: number) {
       this.isLoading = true
-      try {
-        const [metadata, tags] = await Promise.all([
-          GetFileMetadata(fileID),
-          GetFileTags(fileID),
-        ])
+      const seq = ++this._loadSeq
+      // Fetch metadata and tags independently so one failure doesn't block the other
+      const metadataPromise = GetFileMetadata(fileID).catch((e) => {
+        console.warn(`[previewStore] metadata fetch failed for ${fileID}:`, e)
+        return null
+      })
+      const tagsPromise = GetFileTags(fileID).catch((e) => {
+        console.warn(`[previewStore] tags fetch failed for ${fileID}:`, e)
+        return []
+      })
+      const [metadata, tags] = await Promise.all([metadataPromise, tagsPromise])
+      // Only apply if no newer load has started
+      if (seq === this._loadSeq) {
         this.metadata = metadata
-        this.tags = tags
-      } finally {
+        this.tags = Array.isArray(tags) ? tags : []
         this.isLoading = false
       }
     },

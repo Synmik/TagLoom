@@ -1,7 +1,7 @@
 <template>
   <span class="tag-chip" :style="{ background: chipColor }">
     <span class="tag-text">{{ displayName }}</span>
-    <button class="remove-btn" @click="$emit('remove', tag.id)">×</button>
+    <button class="remove-btn" @click.stop="$emit('remove', tag.id)">×</button>
   </span>
 </template>
 
