@@ -78,6 +78,10 @@ export function GetFolderTree(arg1) {
   return window['go']['app']['App']['GetFolderTree'](arg1);
 }
 
+export function GetOriginalFilePath(arg1) {
+  return window['go']['app']['App']['GetOriginalFilePath'](arg1);
+}
+
 export function GetTagFileCount(arg1) {
   return window['go']['app']['App']['GetTagFileCount'](arg1);
 }

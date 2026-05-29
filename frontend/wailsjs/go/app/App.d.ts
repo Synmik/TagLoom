@@ -42,6 +42,8 @@ export function GetFiles(arg1:db.FileFilter,arg2:db.SortOpts,arg3:number,arg4:nu
 
 export function GetFolderTree(arg1:string):Promise<db.FolderNode>;
 
+export function GetOriginalFilePath(arg1:number):Promise<string>;
+
 export function GetTagFileCount(arg1:number):Promise<number>;
 
 export function GetTags(arg1:string):Promise<Array<db.Tag>>;

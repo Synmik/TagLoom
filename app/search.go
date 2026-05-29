@@ -273,6 +273,20 @@ func (a *App) GetFiles(filter db.FileFilter, sortOpts db.SortOpts, page, limit i
 	}, nil
 }
 
+// GetOriginalFilePath returns the absolute path of the original file on disk.
+func (a *App) GetOriginalFilePath(id int64) (string, error) {
+	if a.db == nil {
+		return "", fmt.Errorf("no vault open")
+	}
+
+	var vaultPath string
+	err := a.db.Conn().QueryRow("SELECT vault_path FROM files WHERE id = ?", id).Scan(&vaultPath)
+	if err != nil {
+		return "", fmt.Errorf("file not found: %w", err)
+	}
+	return vaultPath, nil
+}
+
 // GetFileByID returns a single file by its ID.
 func (a *App) GetFileByID(id int64) (*db.File, error) {
 	if a.db == nil {

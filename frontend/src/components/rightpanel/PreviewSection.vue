@@ -18,7 +18,9 @@ const previewStore = usePreviewStore()
 
 const imageUrl = computed(() => {
   const file = previewStore.currentFile
-  return file?.thumbnail_path || ''
+  if (!file) return ''
+  // Use the original file via the HTTP endpoint
+  return `/api/original/${file.id}`
 })
 
 const formatName = computed(() => {

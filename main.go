@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"TagLoom/app"
@@ -85,6 +86,61 @@ func main() {
 						}
 
 						w.Header().Set("Content-Type", "image/jpeg")
+						w.Header().Set("Cache-Control", "max-age=3600")
+						w.Write(data)
+						return
+					}
+
+					// Check if this is an original file request
+					if strings.HasPrefix(r.URL.Path, "/api/original/") {
+						fileIDStr := strings.TrimPrefix(r.URL.Path, "/api/original/")
+						if fileIDStr == "" {
+							http.Error(w, "Missing file ID", http.StatusBadRequest)
+							return
+						}
+
+						var fileID int64
+						fmt.Sscanf(fileIDStr, "%d", &fileID)
+
+						filePath, err := appInstance.GetOriginalFilePath(fileID)
+						if err != nil {
+							http.Error(w, err.Error(), http.StatusNotFound)
+							return
+						}
+
+						data, err := os.ReadFile(filePath)
+						if err != nil {
+							http.Error(w, "File not found", http.StatusNotFound)
+							return
+						}
+
+						// Detect content type from extension
+						ext := strings.ToLower(filepath.Ext(filePath))
+						contentType := "application/octet-stream"
+						switch ext {
+						case ".jpg", ".jpeg":
+							contentType = "image/jpeg"
+						case ".png":
+							contentType = "image/png"
+						case ".gif":
+							contentType = "image/gif"
+						case ".webp":
+							contentType = "image/webp"
+						case ".bmp":
+							contentType = "image/bmp"
+						case ".tiff", ".tif":
+							contentType = "image/tiff"
+						case ".svg":
+							contentType = "image/svg+xml"
+						case ".mp4":
+							contentType = "video/mp4"
+						case ".webm":
+							contentType = "video/webm"
+						case ".mov":
+							contentType = "video/quicktime"
+						}
+
+						w.Header().Set("Content-Type", contentType)
 						w.Header().Set("Cache-Control", "max-age=3600")
 						w.Write(data)
 						return
