@@ -92,7 +92,7 @@ const openPreview = () => {
 .thumbnail-wrapper {
   position: relative; aspect-ratio: 1; background: #1e1e1e; overflow: hidden;
 }
-.thumbnail { width: 100%; height: 100%; object-fit: cover; }
+.thumbnail { width: 100%; height: 100%; object-fit: contain; }
 .format-badge {
   position: absolute; top: 4px; left: 4px;
   background: rgba(0,0,0,0.7); color: #fff; font-size: 9px;

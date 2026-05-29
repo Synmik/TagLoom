@@ -15,7 +15,7 @@ export const useUIStore = defineStore('ui', {
   }),
   getters: {
     gridPixelSize: (state) => {
-      const sizes = { small: 128, medium: 256, large: 384 }
+      const sizes = { small: 128, medium: 192, large: 256 }
       return sizes[state.gridSize]
     },
   },
