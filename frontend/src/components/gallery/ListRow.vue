@@ -2,7 +2,7 @@
   <div
     class="list-row"
     :class="{ selected: isSelected(file) }"
-    @click="(e) => toggleSelection(file, e.ctrlKey, e.shiftKey)"
+    @click="(e) => handleClick(e)"
     @dblclick="openPreview"
   >
     <span class="col-thumb"><img :src="thumbnailUrl" class="thumb" /></span>
@@ -28,6 +28,13 @@ const filename = computed(() => props.file.vault_path.split(/[\\/]/).pop() || ''
 const thumbnailUrl = computed(() => props.file.thumbnail_path || '')
 const tagsText = computed(() => '—') // TODO: Load tags for this file
 const fileSize = computed(() => '—') // TODO: Fetch from metadata
+
+const handleClick = (e: MouseEvent) => {
+  if (!e.ctrlKey && !e.shiftKey) {
+    previewStore.setFile(props.file)
+  }
+  toggleSelection(props.file, e.ctrlKey, e.shiftKey)
+}
 
 const openPreview = () => previewStore.setFile(props.file)
 </script>

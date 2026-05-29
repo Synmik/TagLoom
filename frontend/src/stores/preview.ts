@@ -33,10 +33,7 @@ export const usePreviewStore = defineStore('preview', {
         } else if (files.length === 0) {
           // Don't clear — keep last file visible until user explicitly deselects
         } else {
-          // Multi-select: clear preview
-          this.currentFile = null
-          this.metadata = null
-          this.tags = []
+          // Multi-select: keep showing the last single-selected file's details
         }
       })
     },

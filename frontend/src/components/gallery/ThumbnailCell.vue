@@ -2,7 +2,7 @@
   <div
     class="thumbnail-cell"
     :class="{ selected: isSelected(file) }"
-    @click="(e) => toggleSelection(file, e.ctrlKey, e.shiftKey)"
+    @click="(e) => handleClick(e)"
     @dblclick="openPreview"
   >
     <div class="thumbnail-wrapper">
@@ -69,6 +69,14 @@ onMounted(async () => {
   }
   img.src = thumbnailUrlValue.value
 })
+
+const handleClick = (e: MouseEvent) => {
+  // Single click (no modifiers): select file AND open its preview in the right panel
+  if (!e.ctrlKey && !e.shiftKey) {
+    previewStore.setFile(props.file)
+  }
+  toggleSelection(props.file, e.ctrlKey, e.shiftKey)
+}
 
 const openPreview = () => {
   previewStore.setFile(props.file)
