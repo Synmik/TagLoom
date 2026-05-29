@@ -4,7 +4,6 @@ import (
 	"embed"
 	"database/sql"
 	"fmt"
-	"log"
 
 	_ "modernc.org/sqlite"
 )
@@ -63,50 +62,8 @@ func (d *Database) Conn() *sql.DB {
 	return d.conn
 }
 
-// SeedDefaultTags inserts default meta tags and color tags if the tags table is empty.
+// SeedDefaultTags is a no-op — no default tags are seeded.
+// Users create their own tags via the TagManagerModal.
 func (d *Database) SeedDefaultTags() error {
-	var count int
-	err := d.conn.QueryRow("SELECT COUNT(*) FROM tags").Scan(&count)
-	if err != nil {
-		return fmt.Errorf("failed to count tags: %w", err)
-	}
-	if count > 0 {
-		return nil // Already seeded
-	}
-
-	log.Println("Seeding default tags...")
-	stmt, err := d.conn.Prepare(`
-		INSERT INTO tags (name, color, is_category, sort_order, created_at)
-		VALUES (?, ?, 0, ?, datetime('now'))
-	`)
-	if err != nil {
-		return fmt.Errorf("failed to prepare seed statement: %w", err)
-	}
-	defer stmt.Close()
-
-	defaultTags := []struct {
-		Name  string
-		Color string
-		Order int
-	}{
-		{"★★", "", 1},
-		{"★★★", "", 2},
-		{"★★★★", "", 3},
-		{"★★★★★", "", 4},
-		{"♥ Favorite", "#FF4444", 5},
-		{"🟥 Red", "#FF0000", 10},
-		{"🟦 Blue", "#0000FF", 11},
-		{"🟩 Green", "#00FF00", 12},
-		{"🟨 Yellow", "#FFFF00", 13},
-		{"🟪 Purple", "#800080", 14},
-		{"⬛ Black", "#000000", 15},
-		{"⬜ White", "#FFFFFF", 16},
-	}
-
-	for _, t := range defaultTags {
-		if _, err := stmt.Exec(t.Name, t.Color, t.Order); err != nil {
-			return fmt.Errorf("failed to insert tag %q: %w", t.Name, err)
-		}
-	}
 	return nil
 }

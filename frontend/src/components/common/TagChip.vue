@@ -1,16 +1,26 @@
 <template>
   <span class="tag-chip" :style="{ background: chipColor }">
-    <span class="tag-text">{{ tag.name }}</span>
+    <span class="tag-text">{{ displayName }}</span>
     <button class="remove-btn" @click="$emit('remove', tag.id)">×</button>
   </span>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useTagsStore } from '../../stores/tags'
 import type { Tag } from '../../types/tag'
 
 const props = defineProps<{ tag: Tag }>()
 defineEmits<{ remove: [tagId: number] }>()
+
+const tagsStore = useTagsStore()
+
+const displayName = computed(() => {
+  if (!props.tag.parent_id) return props.tag.name
+  const parent = tagsStore.tags.find(t => t.id === props.tag.parent_id)
+  if (!parent) return props.tag.name
+  return `${props.tag.name} (${parent.name})`
+})
 
 const chipColor = computed(() => {
   if (props.tag.color) return props.tag.color + '33' // 20% opacity
