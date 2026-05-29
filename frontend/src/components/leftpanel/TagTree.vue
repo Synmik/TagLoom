@@ -1,7 +1,7 @@
 <template>
   <div class="tag-tree">
     <template v-for="category in categories" :key="category.name">
-      <TagCategory :category="category" />
+      <TagCategory :category="category" @edit="emit('edit', $event)" />
     </template>
   </div>
 </template>
@@ -11,6 +11,8 @@ import { computed, onMounted } from 'vue'
 import TagCategory from './TagCategory.vue'
 import { useTagsStore } from '../../stores/tags'
 import type { Tag } from '../../types/tag'
+
+const emit = defineEmits<{ edit: [tag: Tag] }>()
 
 const tagsStore = useTagsStore()
 onMounted(() => tagsStore.loadTags())

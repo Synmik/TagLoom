@@ -3,7 +3,7 @@
     class="tag-node"
     :class="{ selected: filtersStore.activeFilters.tagIds.includes(tag.id) }"
     @click="toggleFilter"
-    @contextmenu.prevent="showContextMenu = true"
+    @contextmenu.prevent="handleContextMenu"
   >
     <span class="color-dot" :style="{ background: tag.color || '#666' }"></span>
     <span class="tag-name">{{ displayName }}</span>
@@ -12,21 +12,24 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
 import { useFiltersStore } from '../../stores/filters'
 import { useFilesStore } from '../../stores/files'
 import { useTagsStore } from '../../stores/tags'
 import type { Tag } from '../../types/tag'
 
 const props = defineProps<{ tag: Tag }>()
+const emit = defineEmits<{ edit: [tag: Tag] }>()
+
 const filtersStore = useFiltersStore()
 const filesStore = useFilesStore()
 const tagsStore = useTagsStore()
-const showContextMenu = ref(false)
 
 const displayName = computed(() => {
-  // TODO: Resolve parent tag name for "child (parent)" display
-  return props.tag.name
+  if (!props.tag.parent_id) return props.tag.name
+  const parent = tagsStore.tags.find(t => t.id === props.tag.parent_id)
+  if (!parent) return props.tag.name
+  return `${props.tag.name} (${parent.name})`
 })
 
 const fileCount = computed(() => {
@@ -36,6 +39,10 @@ const fileCount = computed(() => {
 const toggleFilter = () => {
   filtersStore.toggleTagFilter(props.tag.id)
   filesStore.loadFiles(filtersStore.asBackendFilter, { field: 'indexed_at', order: 'desc' })
+}
+
+const handleContextMenu = () => {
+  emit('edit', props.tag)
 }
 </script>
 

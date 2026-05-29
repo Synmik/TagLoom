@@ -1,5 +1,5 @@
 <template>
-  <section class="tags-section">
+  <section class="tags-section" ref="sectionRef">
     <label class="field-label">Tags</label>
     <div class="tags-container">
       <TagChip
@@ -8,27 +8,46 @@
         :tag="tag"
         @remove="removeTag"
       />
-      <button class="add-tag-btn" @click="showPicker = true">+</button>
+      <button class="add-tag-btn" @click="openPicker">+</button>
     </div>
     <div v-if="showPicker" class="tag-picker">
-      <input v-model="searchQuery" placeholder="Search or create tag…" class="picker-input" />
+      <input
+        ref="inputRef"
+        v-model="searchQuery"
+        placeholder="Search or create tag…"
+        class="picker-input"
+        @keydown.enter.prevent="handleEnter"
+        @keydown.escape="closePicker"
+      />
       <div class="picker-results">
         <div
-          v-for="tag in filteredTags"
-          :key="tag.id"
-          class="picker-item"
-          @click="addTag(tag.id)"
+          v-if="canCreate && !filteredTags.length"
+          class="picker-item create-item"
+          @click="createTag"
         >
-          <span class="color-dot" :style="{ background: tag.color || '#666' }"></span>
-          {{ tag.name }}
+          <span class="create-icon">+</span>
+          Create "<strong>{{ searchQuery }}</strong>"
         </div>
+        <template v-else>
+          <div
+            v-for="tag in filteredTags"
+            :key="tag.id"
+            class="picker-item"
+            :class="{ disabled: alreadyAttached(tag.id) }"
+            @click="addTag(tag.id)"
+          >
+            <span class="color-dot" :style="{ background: tag.color || '#666' }"></span>
+            {{ tag.name }}
+            <span v-if="alreadyAttached(tag.id)" class="attached-badge">✓</span>
+          </div>
+        </template>
       </div>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import TagChip from '../common/TagChip.vue'
 import { usePreviewStore } from '../../stores/preview'
 import { useTagsStore } from '../../stores/tags'
@@ -37,19 +56,58 @@ const previewStore = usePreviewStore()
 const tagsStore = useTagsStore()
 const showPicker = ref(false)
 const searchQuery = ref('')
+const inputRef = ref<HTMLInputElement | null>(null)
+const sectionRef = ref<HTMLElement | null>(null)
+
+// Ensure tags are loaded when picker opens
+watch(() => showPicker.value, async (open) => {
+  if (open) {
+    await tagsStore.loadTags()
+    await nextTick()
+    inputRef.value?.focus()
+  }
+})
 
 const filteredTags = computed(() => {
-  const q = searchQuery.value.toLowerCase()
+  const q = searchQuery.value.trim().toLowerCase()
+  if (!q) return tagsStore.tags
   return tagsStore.tags.filter(t => t.name.toLowerCase().includes(q))
 })
+
+const canCreate = computed(() => {
+  const q = searchQuery.value.trim()
+  return q.length > 0 && !filteredTags.value.length
+})
+
+const alreadyAttached = (tagId: number) => {
+  return previewStore.tags.some(t => t.id === tagId)
+}
+
+const openPicker = () => {
+  searchQuery.value = ''
+  showPicker.value = true
+}
+
+const closePicker = () => {
+  showPicker.value = false
+  searchQuery.value = ''
+}
+
+const handleEnter = () => {
+  if (canCreate.value) {
+    createTag()
+  } else if (filteredTags.value.length) {
+    const first = filteredTags.value.find(t => !alreadyAttached(t.id)) || filteredTags.value[0]
+    addTag(first.id)
+  }
+}
 
 const addTag = (tagId: number) => {
   if (previewStore.currentFile) {
     tagsStore.addTagToFile(previewStore.currentFile.id, tagId)
     previewStore.loadFileDetails(previewStore.currentFile.id)
   }
-  showPicker.value = false
-  searchQuery.value = ''
+  closePicker()
 }
 
 const removeTag = (tagId: number) => {
@@ -57,6 +115,25 @@ const removeTag = (tagId: number) => {
     tagsStore.removeTagFromFile(previewStore.currentFile.id, tagId)
     previewStore.loadFileDetails(previewStore.currentFile.id)
   }
+}
+
+const createTag = async () => {
+  const name = searchQuery.value.trim()
+  if (!name) return
+  await tagsStore.createTag({
+    name,
+    color: '',
+    is_category: 0,
+    sort_order: 0,
+    aliases: '',
+  })
+  // After creating, attach it to the current file
+  const newTag = tagsStore.tags.find(t => t.name === name)
+  if (newTag && previewStore.currentFile) {
+    await tagsStore.addTagToFile(previewStore.currentFile.id, newTag.id)
+    await previewStore.loadFileDetails(previewStore.currentFile.id)
+  }
+  closePicker()
 }
 </script>
 
@@ -79,5 +156,10 @@ const removeTag = (tagId: number) => {
   cursor: pointer; border-radius: 3px; font-size: 12px; color: #ccc;
 }
 .picker-item:hover { background: #3a3a3a; }
-.color-dot { width: 8px; height: 8px; border-radius: 50%; }
+.picker-item.disabled { opacity: 0.4; cursor: default; }
+.picker-item.disabled:hover { background: transparent; }
+.create-item { color: #5b8af5; font-style: italic; }
+.create-icon { color: #5b8af5; font-weight: bold; }
+.color-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.attached-badge { margin-left: auto; color: #5b8af5; font-size: 11px; }
 </style>

@@ -5,7 +5,7 @@
       <span class="category-name">{{ category.name }}</span>
     </div>
     <div v-if="isExpanded" class="category-tags">
-      <TagNode v-for="tag in category.tags" :key="tag.id" :tag="tag" />
+      <TagNode v-for="tag in category.tags" :key="tag.id" :tag="tag" @edit="emit('edit', $event)" />
     </div>
   </div>
 </template>
@@ -15,9 +15,10 @@ import { ref } from 'vue'
 import TagNode from './TagNode.vue'
 import type { Tag } from '../../types/tag'
 
-defineProps<{
+const props = defineProps<{
   category: { name: string; tags: Tag[] }
 }>()
+const emit = defineEmits<{ edit: [tag: Tag] }>()
 
 const isExpanded = ref(true)
 const toggle = () => { isExpanded.value = !isExpanded.value }

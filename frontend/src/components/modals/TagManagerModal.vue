@@ -2,13 +2,13 @@
   <div class="modal-overlay" @click.self="$emit('close')">
     <div class="modal">
       <div class="modal-header">
-        <h3>Tag Manager</h3>
+        <h3>{{ isEditing ? 'Edit Tag' : 'Create Tag' }}</h3>
         <button class="close-btn" @click="$emit('close')">✕</button>
       </div>
       <div class="modal-body">
         <div class="form-group">
           <label>Name</label>
-          <input v-model="form.name" placeholder="Tag name" class="form-input" />
+          <input v-model="form.name" placeholder="Tag name" class="form-input" @keyup.enter="saveTag" />
         </div>
         <div class="form-group">
           <label>Color</label>
@@ -18,7 +18,7 @@
           <label>Parent Tag</label>
           <select v-model="form.parentId" class="form-select">
             <option :value="null">None (root)</option>
-            <option v-for="tag in tagsStore.tags" :key="tag.id" :value="tag.id">{{ tag.name }}</option>
+            <option v-for="tag in parentTags" :key="tag.id" :value="tag.id">{{ tag.name }}</option>
           </select>
         </div>
         <div class="form-group">
@@ -30,19 +30,29 @@
             <input type="checkbox" v-model="form.isCategory" /> Is Category
           </label>
         </div>
-        <button class="save-btn" @click="saveTag">Create Tag</button>
+        <div class="form-actions">
+          <button class="save-btn" @click="saveTag">{{ isEditing ? 'Save' : 'Create' }}</button>
+          <button v-if="isEditing" class="delete-btn" @click="deleteTag">Delete</button>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, watch } from 'vue'
 import ColorPicker from '../common/ColorPicker.vue'
 import { useTagsStore } from '../../stores/tags'
+import type { Tag } from '../../types/tag'
 
 const tagsStore = useTagsStore()
-defineEmits<{ close: [] }>()
+const emit = defineEmits<{ close: [] }>()
+
+const props = defineProps<{
+  tag?: Tag | null
+}>()
+
+const isEditing = computed(() => !!props.tag)
 
 const form = ref({
   name: '',
@@ -52,17 +62,59 @@ const form = ref({
   isCategory: false,
 })
 
+// Populate form when editing an existing tag
+watch(() => props.tag, (tag) => {
+  if (tag) {
+    form.value = {
+      name: tag.name,
+      color: tag.color || '',
+      parentId: tag.parent_id ?? null,
+      aliases: '',
+      isCategory: tag.is_category === 1,
+    }
+  } else {
+    form.value = { name: '', color: '', parentId: null, aliases: '', isCategory: false }
+  }
+}, { immediate: true })
+
+// Exclude the current tag from parent dropdown to avoid self-reference
+const parentTags = computed(() => {
+  const allTags = tagsStore.tags
+  if (!props.tag) return allTags
+  return allTags.filter(t => t.id !== props.tag!.id)
+})
+
 const saveTag = async () => {
   if (!form.value.name.trim()) return
-  await tagsStore.createTag({
-    name: form.value.name,
-    color: form.value.color,
-    parent_id: form.value.parentId ?? undefined,
-    is_category: form.value.isCategory ? 1 : 0,
-    sort_order: 0,
-    aliases: form.value.aliases,
-  })
-  form.value = { name: '', color: '', parentId: null, aliases: '', isCategory: false }
+
+  if (isEditing.value && props.tag) {
+    await tagsStore.updateTag({
+      id: props.tag.id,
+      name: form.value.name.trim(),
+      color: form.value.color,
+      parent_id: form.value.parentId ?? undefined,
+      is_category: form.value.isCategory ? 1 : 0,
+      sort_order: 0,
+      aliases: form.value.aliases,
+    })
+  } else {
+    await tagsStore.createTag({
+      name: form.value.name.trim(),
+      color: form.value.color,
+      parent_id: form.value.parentId ?? undefined,
+      is_category: form.value.isCategory ? 1 : 0,
+      sort_order: 0,
+      aliases: form.value.aliases,
+    })
+  }
+  emit('close')
+}
+
+const deleteTag = async () => {
+  if (!props.tag) return
+  if (!confirm(`Delete tag "${props.tag.name}"? Files will lose this tag.`)) return
+  await tagsStore.deleteTag(props.tag.id)
+  emit('close')
 }
 </script>
 
@@ -83,8 +135,15 @@ const saveTag = async () => {
   border-radius: 4px; padding: 6px 8px; font-size: 13px; outline: none;
 }
 .checkbox { flex-direction: row; align-items: center; gap: 6px; }
+.form-actions { display: flex; gap: 8px; margin-top: 4px; }
 .save-btn {
-  background: #5b8af5; color: #fff; border: none; border-radius: 4px;
-  padding: 8px; cursor: pointer; font-size: 13px; margin-top: 4px;
+  flex: 1; background: #5b8af5; color: #fff; border: none; border-radius: 4px;
+  padding: 8px; cursor: pointer; font-size: 13px;
 }
+.save-btn:hover { background: #4a7ae4; }
+.delete-btn {
+  background: #5a2a2a; color: #ff6b6b; border: none; border-radius: 4px;
+  padding: 8px 12px; cursor: pointer; font-size: 13px;
+}
+.delete-btn:hover { background: #6a3a3a; }
 </style>
