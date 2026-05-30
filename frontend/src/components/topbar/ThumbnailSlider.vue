@@ -28,13 +28,9 @@ const sizeIndex = computed(() => sizes.indexOf(uiStore.gridSize))
 
 const onChange = (e: Event) => {
   const index = Number((e.target as HTMLInputElement).value)
-  const size = sizes[index]
+  const size = sizes[index] as 'small' | 'medium' | 'large'
   uiStore.setGridSize(size)
-  // Persist grid size to vault config
-  if (vaultStore.config) {
-    vaultStore.config.settings.grid_thumbnail_size = size
-    vaultStore.saveConfig(vaultStore.config)
-  }
+  vaultStore.persistGridSize(size)
   filesStore.loadFiles()
 }
 </script>

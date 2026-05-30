@@ -132,10 +132,21 @@ export const useVaultStore = defineStore('vault', {
     },
     async loadConfig() {
       this.config = await GetVaultConfig()
+      // Sync persisted grid_thumbnail_size to the UI store
+      if (this.config?.settings?.grid_thumbnail_size) {
+        const { useUIStore } = await import('./ui')
+        useUIStore().setGridSize(this.config.settings.grid_thumbnail_size as any)
+      }
     },
     async saveConfig(cfg: VaultConfig) {
       await SetVaultConfig(cfg as any)
       this.config = cfg
+    },
+    /** Persist a grid size change to the vault config */
+    async persistGridSize(size: string) {
+      if (!this.config?.settings) return
+      this.config.settings.grid_thumbnail_size = size
+      await SetVaultConfig(this.config as any)
     },
     async rescanVault() {
       this.isScanning = true
