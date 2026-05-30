@@ -26,7 +26,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useFiltersStore } from '../../stores/filters'
-import { useFilesStore } from '../../stores/files'
 import { useTagsStore } from '../../stores/tags'
 import type { Tag } from '../../types/tag'
 
@@ -34,7 +33,6 @@ const props = defineProps<{ tag: Tag }>()
 const emit = defineEmits<{ edit: [tag: Tag] }>()
 
 const filtersStore = useFiltersStore()
-const filesStore = useFilesStore()
 const tagsStore = useTagsStore()
 const isExpanded = ref(true)
 
@@ -55,8 +53,8 @@ const toggleExpand = () => { isExpanded.value = !isExpanded.value }
 
 const toggleFilter = () => {
   filtersStore.toggleTagFilter(props.tag.id)
-  filesStore.loadFiles(filtersStore.asBackendFilter, { field: 'indexed_at', order: 'desc' })
-}
+  // Gallery.vue watcher handles reload automatically
+  }
 
 const handleContextMenu = () => {
   emit('edit', props.tag)

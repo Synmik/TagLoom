@@ -6,10 +6,14 @@ export function usePagination() {
   const loadingMore = ref(false)
 
   const loadMore = async () => {
-    if (loadingMore.value || filesStore.files.length >= filesStore.totalCount) return
+    const files = filesStore.files || []
+    if (loadingMore.value || files.length >= filesStore.totalCount) return
+    // Don't load more if gallery is empty (totalCount is 0) — avoid triggering
+    // infinite scroll on empty states
+    if (filesStore.totalCount === 0) return
     loadingMore.value = true
     filesStore.page++
-    await filesStore.loadFiles({}, { field: 'indexed_at', order: 'desc' }, true) // append mode
+    await filesStore.loadFiles()
     loadingMore.value = false
   }
 

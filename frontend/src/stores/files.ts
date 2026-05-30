@@ -3,7 +3,6 @@ import type { File, FileUpdate, FilePage, FileFilter, SortOpts } from '../types/
 import { GetFiles, UpdateFile, SearchFiles, GenerateThumbnail, GenerateThumbnailsPool, GetThumbnailData } from '../api/backend'
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime'
 import { useFiltersStore } from './filters'
-import { useUIStore } from './ui'
 
 export const useFilesStore = defineStore('files', {
   state: () => ({
@@ -28,23 +27,30 @@ export const useFilesStore = defineStore('files', {
     ) {
       this.isLoading = true
       try {
-        // Use active filters from filtersStore, override with explicit filter
         const filtersStore = useFiltersStore()
         const activeFilter = filtersStore.asBackendFilter
         const mergedFilter = { ...activeFilter, ...filter }
 
-        const result: FilePage = await GetFiles(
-          mergedFilter,
-          sort,
-          this.page,
-          this.limit,
-        )
+        const result: FilePage = await Promise.race([
+          GetFiles(mergedFilter, sort, this.page, this.limit),
+          new Promise<FilePage>((_, reject) =>
+            setTimeout(() => reject(new Error('GetFiles timeout (2s)')), 2000)
+          ),
+        ])
+        // Go returns nil slice → null in JS; result itself can also be null
+        const fileArray: File[] = result && Array.isArray(result.files) ? result.files : []
         if (append) {
-          this.files = [...this.files, ...result.files]
+          this.files = [...this.files, ...fileArray]
         } else {
-          this.files = result.files
+          this.files = fileArray
         }
-        this.totalCount = result.total_count
+        this.totalCount = result?.total_count ?? 0
+      } catch (e) {
+        console.error('filesStore.loadFiles failed:', e)
+        if (!append) {
+          this.files = []
+          this.totalCount = 0
+        }
       } finally {
         this.isLoading = false
       }
@@ -93,9 +99,20 @@ export const useFilesStore = defineStore('files', {
       await this.updateFile({ id: file.id, is_favorite: newFav })
     },
     async searchFiles(query: string, limit: number = 100) {
-      const results = await SearchFiles(query, limit)
-      this.files = results
-      this.totalCount = results.length
+      this.isLoading = true
+      try {
+        const results = await SearchFiles(query, limit)
+        // Go returns nil slice → null in JS when no results
+        const fileArray: File[] = Array.isArray(results) ? results : []
+        this.files = fileArray
+        this.totalCount = fileArray.length
+      } catch (e) {
+        console.error('filesStore.searchFiles failed:', e)
+        this.files = []
+        this.totalCount = 0
+      } finally {
+        this.isLoading = false
+      }
     },
 
     /** Generate a thumbnail for a single file and return its data URL */

@@ -1,19 +1,24 @@
 <template>
   <main class="gallery" ref="galleryRef">
     <!-- Loading state -->
-    <div v-if="filesStore.isLoading && filesStore.files.length === 0" class="loading">
+    <div v-if="filesStore.isLoading && (!filesStore.files || filesStore.files.length === 0)" class="loading">
       <div class="spinner"></div>
       <span>Loading files…</span>
     </div>
 
     <!-- Empty state -->
     <EmptyState
-      v-else-if="filesStore.files.length === 0 && !filesStore.isLoading"
-      :message="vaultStore.currentVault ? 'No files in vault' : 'Open a vault to get started'"
+      v-else-if="(!filesStore.files || filesStore.files.length === 0) && !filesStore.isLoading"
+      :icon="emptyState.icon"
+      :title="emptyState.title"
+      :description="emptyState.description"
+      :action-text="emptyState.actionText"
+      :action-variant="emptyState.actionVariant"
+      @action="handleEmptyStateAction"
     />
 
     <!-- File count bar -->
-    <div v-if="filesStore.files.length > 0" class="file-count-bar">
+    <div v-if="filesStore.files && filesStore.files.length > 0" class="file-count-bar">
       <span>{{ filesStore.files.length }} / {{ filesStore.totalCount }} files</span>
       <span v-if="filesStore.isLoading" class="loading-more">Loading more…</span>
     </div>
@@ -28,7 +33,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import ThumbnailGrid from './ThumbnailGrid.vue'
 import ListView from './ListView.vue'
 import EmptyState from '../common/EmptyState.vue'
@@ -47,6 +52,75 @@ const { loadingMore, loadMore, resetPage, observeSentinel } = usePagination()
 const galleryRef = ref<HTMLElement | null>(null)
 const sentinel = ref<HTMLElement | null>(null)
 
+interface EmptyStateConfig {
+  icon: string
+  title: string
+  description: string
+  actionText?: string
+  actionVariant?: 'primary' | 'secondary'
+}
+
+const emptyState = computed<EmptyStateConfig>(() => {
+  // No vault open at all
+  if (!vaultStore.currentVault) {
+    return {
+      icon: '📂',
+      title: 'No vault open',
+      description: 'Open or create a vault to get started',
+      actionText: 'Open Vault',
+      actionVariant: 'primary',
+    }
+  }
+
+  // Vault open — search returned no results
+  if (filtersStore.hasActiveSearch) {
+    return {
+      icon: '🔍',
+      title: 'No results found',
+      description: 'No files match your search query',
+      actionText: 'Clear search',
+      actionVariant: 'secondary',
+    }
+  }
+
+  // Vault open — active filters but no matching files (totalCount === 0)
+  if (filtersStore.hasActiveFilters) {
+    return {
+      icon: '🔍',
+      title: 'No matching files',
+      description: 'No files match your current filters',
+      actionText: 'Clear filters',
+      actionVariant: 'secondary',
+    }
+  }
+
+  // Vault open but genuinely empty
+  return {
+    icon: '📁',
+    title: 'No files in this vault',
+    description: 'The vault appears empty — rescan to index files',
+    actionText: 'Rescan vault',
+    actionVariant: 'secondary',
+  }
+})
+
+function handleEmptyStateAction() {
+  const state = emptyState.value
+
+  if (state.actionText === 'Open Vault') {
+    vaultStore.pickAndOpenVault()
+  } else if (state.actionText === 'Clear filters') {
+    filtersStore.clearFilters()
+    resetPage()
+    loadGallery()
+  } else if (state.actionText === 'Clear search') {
+    filtersStore.activeFilters.searchQuery = ''
+    filesStore.loadFiles()
+  } else if (state.actionText === 'Rescan vault') {
+    vaultStore.rescanVault()
+  }
+}
+
 let cleanup: (() => void) | undefined = undefined
 
 onMounted(async () => {
@@ -56,9 +130,15 @@ onMounted(async () => {
 
 onUnmounted(() => cleanup?.())
 
-// Reload when filters change
+// Reload when non-search filters change (searchQuery is handled by useSearch composable)
 watch(
-  () => filtersStore.activeFilters,
+  () => ({
+    folderPath: filtersStore.activeFilters.folderPath,
+    tagIds: [...filtersStore.activeFilters.tagIds],
+    fileFormats: [...filtersStore.activeFilters.fileFormats],
+    minRating: filtersStore.activeFilters.minRating,
+    favoritesOnly: filtersStore.activeFilters.favoritesOnly,
+  }),
   async () => {
     resetPage()
     await loadGallery()

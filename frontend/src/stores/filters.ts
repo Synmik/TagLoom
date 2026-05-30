@@ -7,6 +7,7 @@ export interface FilterState {
   fileFormats: string[]
   minRating: number
   favoritesOnly: boolean
+  searchQuery: string
 }
 
 export const useFiltersStore = defineStore('filters', {
@@ -17,6 +18,7 @@ export const useFiltersStore = defineStore('filters', {
       fileFormats: [] as string[],
       minRating: 0,
       favoritesOnly: false,
+      searchQuery: '',
     } as FilterState,
   }),
   getters: {
@@ -26,7 +28,11 @@ export const useFiltersStore = defineStore('filters', {
         f.tagIds.length > 0 ||
         f.fileFormats.length > 0 ||
         f.minRating > 0 ||
-        f.favoritesOnly
+        f.favoritesOnly ||
+        f.searchQuery.trim() !== ''
+    },
+    hasActiveSearch: (state: any) => {
+      return state.activeFilters.searchQuery.trim() !== ''
     },
     /** Returns a snake-case FileFilter compatible with the Go backend */
     asBackendFilter: (state: any): FileFilter => {
@@ -65,13 +71,12 @@ export const useFiltersStore = defineStore('filters', {
       this.activeFilters.favoritesOnly = favoritesOnly
     },
     clearFilters() {
-      this.activeFilters = {
-        folderPath: '',
-        tagIds: [],
-        fileFormats: [],
-        minRating: 0,
-        favoritesOnly: false,
-      }
+      this.activeFilters.folderPath = ''
+      this.activeFilters.tagIds = []
+      this.activeFilters.fileFormats = []
+      this.activeFilters.minRating = 0
+      this.activeFilters.favoritesOnly = false
+      this.activeFilters.searchQuery = ''
     },
   },
 })
