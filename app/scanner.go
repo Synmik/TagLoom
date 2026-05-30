@@ -13,12 +13,6 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-// folderInfo holds a folder path and its file count for tree building.
-type folderInfo struct {
-	path  string
-	count int
-}
-
 // ScanVault performs a full re-scan of the vault directory.
 // It discovers all supported media files and indexes them.
 // Emits "scan:progress" events with {current, total} payload.
@@ -319,9 +313,14 @@ func (a *App) RescanVault() (int, error) {
 }
 
 // GetFolderTree returns the recursive folder tree for the vault.
-func (a *App) GetFolderTree(path string) (*db.FolderNode, error) {
+func (a *App) GetFolderTree(path string) *db.FolderNode {
 	if a.db == nil {
-		return nil, fmt.Errorf("no vault open")
+		return &db.FolderNode{
+			Path:     path,
+			Name:     filepath.Base(path),
+			FileCount: 0,
+			Children: []db.FolderNode{},
+		}
 	}
 
 	// Query all unique folder paths with file counts
@@ -332,78 +331,101 @@ func (a *App) GetFolderTree(path string) (*db.FolderNode, error) {
 		ORDER BY folder_path
 	`)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query folder tree: %w", err)
+		fmt.Fprintf(os.Stderr, "failed to query folder tree: %v\n", err)
+		return &db.FolderNode{
+			Path:     path,
+			Name:     filepath.Base(path),
+			FileCount: 0,
+			Children: []db.FolderNode{},
+		}
 	}
 	defer rows.Close()
 
-	// Build a map of folder_path → node
-	var folders []folderInfo
+	// Build a map of folder_path → file count
+	folderCounts := make(map[string]int)
 	for rows.Next() {
-		var fi folderInfo
-		if err := rows.Scan(&fi.path, &fi.count); err != nil {
-			return nil, err
+		var fPath string
+		var count int
+		if err := rows.Scan(&fPath, &count); err != nil {
+			continue
 		}
-		folders = append(folders, fi)
+		folderCounts[fPath] = count
 	}
 
-	// Build tree from flat list
-	return buildFolderTree(folders, path), nil
+	// Build a children map: parentPath → []childPath.
+	// Also ensure intermediate folders (no direct files but contain subfolders) are included.
+	childrenOf := make(map[string][]string)
+	for fPath := range folderCounts {
+		// Skip the vault root itself — it's the top of the tree, not a child of anything
+		if fPath == path {
+			continue
+		}
+		parentPath := resolveParent(fPath, path)
+		childrenOf[parentPath] = append(childrenOf[parentPath], fPath)
+	}
+
+	// Discover intermediate folders: parents that exist as directory nodes but have
+	// no files directly in them. Loop until no new folders are found.
+	for {
+		var newFolders []string
+		for parent := range childrenOf {
+			if _, exists := folderCounts[parent]; exists || parent == path {
+				continue
+			}
+			// This parent folder has no files — it's an intermediate directory
+			folderCounts[parent] = 0
+			newFolders = append(newFolders, parent)
+		}
+		if len(newFolders) == 0 {
+			break
+		}
+		for _, fPath := range newFolders {
+			parentPath := resolveParent(fPath, path)
+			childrenOf[parentPath] = append(childrenOf[parentPath], fPath)
+		}
+	}
+
+	// Build the tree recursively from the children map
+	return buildFolderTree(folderCounts, childrenOf, path, make(map[string]bool))
 }
 
-// buildFolderTree constructs a recursive tree from a flat list of folder paths.
-func buildFolderTree(folders []folderInfo, rootPath string) *db.FolderNode {
-	// Collect unique folder paths with counts
-	folderMap := make(map[string]*db.FolderNode)
+// buildFolderTree recursively constructs the folder tree.
+// Uses a children-map + recursive approach to avoid value-copy bugs with Go slices
+// when building nested trees from value-type []FolderNode.
+// The `seen` map guards against cycles (e.g. a folder listed as its own child).
+func buildFolderTree(counts map[string]int, childrenOf map[string][]string, path string, seen map[string]bool) *db.FolderNode {
+	name := filepath.Base(path)
+	count := counts[path]
 
-	for _, fi := range folders {
-		// Normalize path separators
-		normalized := filepath.ToSlash(fi.path)
-		name := filepath.Base(normalized)
-		if name == "" {
-			name = filepath.Base(fi.path)
-		}
-
-		node, exists := folderMap[fi.path]
-		if !exists {
-			node = &db.FolderNode{
-				Path:      fi.path,
-				Name:      name,
-				FileCount: fi.count,
-			}
-			folderMap[fi.path] = node
-		}
+	children := childrenOf[path]
+	node := &db.FolderNode{
+		Path:      path,
+		Name:      name,
+		FileCount: count,
+		Children:  make([]db.FolderNode, 0, len(children)),
 	}
 
-	// Build parent-child relationships
-	var root *db.FolderNode
-	for _, node := range folderMap {
-		parentPath := filepath.Dir(node.Path)
-		// Check if parent is in our map
-		parent, hasParent := folderMap[parentPath]
-		if hasParent {
-			parent.Children = append(parent.Children, *node)
-		} else {
-			// Top-level folder
-			if root == nil {
-				root = &db.FolderNode{
-					Path:      rootPath,
-					Name:      filepath.Base(rootPath),
-					FileCount: 0,
-				}
-			}
-			root.Children = append(root.Children, *node)
+	seen[path] = true
+	for _, childPath := range children {
+		if seen[childPath] {
+			continue // Skip cycles (e.g. folder listed as its own child)
 		}
+		node.Children = append(node.Children, *buildFolderTree(counts, childrenOf, childPath, seen))
 	}
 
-	if root == nil {
-		root = &db.FolderNode{
-			Path:      rootPath,
-			Name:      filepath.Base(rootPath),
-			FileCount: 0,
-		}
-	}
+	return node
+}
 
-	return root
+// resolveParent returns the parent of fPath, clamped to the vault root.
+// If filepath.Dir(fPath) is outside the vault (e.g. the drive root), returns vaultPath.
+// Also guards against self-parent (e.g. drive roots where Dir(x) == x).
+func resolveParent(fPath string, vaultPath string) string {
+	parentPath := filepath.Dir(fPath)
+	rel, err := filepath.Rel(vaultPath, parentPath)
+	if err != nil || strings.HasPrefix(rel, "..") {
+		return vaultPath
+	}
+	return parentPath
 }
 
 // AddExcludedFolder adds a folder to the exclusion list.

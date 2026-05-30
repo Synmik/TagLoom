@@ -1,6 +1,8 @@
-import { defineStore } from 'pinia'
+import { defineStore, storeToRefs } from 'pinia'
+import { watch } from 'vue'
 import type { FolderNode } from '../types/vault'
 import { GetCurrentVault, GetFolderTree } from '../api/backend'
+import { useVaultStore } from './vault'
 
 export const useFoldersStore = defineStore('folders', {
   state: () => ({
@@ -17,10 +19,28 @@ export const useFoldersStore = defineStore('folders', {
         if (vault) {
           const root = await GetFolderTree(vault.path)
           this.tree = root ? [root] : []
+        } else {
+          this.tree = []
         }
       } finally {
         this.isLoading = false
       }
+    },
+
+    /** Reload folder tree whenever the vault changes — called from App.vue onMounted */
+    _watchVault() {
+      const vaultStore = useVaultStore()
+      const { currentVault } = storeToRefs(vaultStore)
+
+      watch(currentVault, async (vault) => {
+        if (vault) {
+          await this.loadTree()
+        } else {
+          this.tree = []
+          this.expandedPaths = []
+          this.selectedPath = ''
+        }
+      })
     },
     toggleFolder(path: string) {
       const index = this.expandedPaths.indexOf(path)

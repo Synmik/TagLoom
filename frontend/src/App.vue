@@ -19,10 +19,12 @@ import RightPanel from './components/rightpanel/RightPanel.vue'
 import ScanProgressBar from './components/common/ScanProgressBar.vue'
 import { usePreviewStore } from './stores/preview'
 import { useTagsStore } from './stores/tags'
+import { useFoldersStore } from './stores/folders'
 
 onMounted(() => {
   usePreviewStore()._syncSelection()
   useTagsStore()._watchVault()
+  useFoldersStore()._watchVault()
 })
 </script>
 
