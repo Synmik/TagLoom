@@ -45,9 +45,14 @@ const isExpanded = computed(() => foldersStore.expandedPaths.includes(props.node
 
 const toggleExpand = () => foldersStore.toggleFolder(props.node.path)
 const selectFolder = () => {
-  foldersStore.selectFolder(props.node.path)
-  // Route through filtersStore so Gallery.vue's watch triggers a proper reload
-  filtersStore.setFolderFilter(props.node.path)
+  // Toggle: clicking the same selected folder deselects it → shows all files
+  if (foldersStore.selectedPath === props.node.path) {
+    foldersStore.clearSelection()
+    filtersStore.setFolderFilter('')
+  } else {
+    foldersStore.selectFolder(props.node.path)
+    filtersStore.setFolderFilter(props.node.path)
+  }
 }
 const onContext = () => {
   // TODO: Context menu - "Exclude from indexing"
