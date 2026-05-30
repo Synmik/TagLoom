@@ -20,11 +20,13 @@ import ScanProgressBar from './components/common/ScanProgressBar.vue'
 import { usePreviewStore } from './stores/preview'
 import { useTagsStore } from './stores/tags'
 import { useFoldersStore } from './stores/folders'
+import { useVaultStore } from './stores/vault'
 
-onMounted(() => {
+onMounted(async () => {
   usePreviewStore()._syncSelection()
   useTagsStore()._watchVault()
   useFoldersStore()._watchVault()
+  await useVaultStore().autoOpenLastVault()
 })
 </script>
 

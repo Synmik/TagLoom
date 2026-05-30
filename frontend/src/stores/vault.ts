@@ -5,6 +5,7 @@ import {
   OpenVault,
   CloseVault,
   SelectFolder,
+  GetLastVaultPath,
   GetVaultConfig,
   SetVaultConfig,
   ScanVault,
@@ -30,12 +31,34 @@ export const useVaultStore = defineStore('vault', {
     },
   },
   actions: {
+    /** Auto-open the last vault from global app settings */
+    async autoOpenLastVault() {
+      const lastPath = await GetLastVaultPath()
+      if (!lastPath) return
+      await this._doOpenVault(lastPath)
+    },
+
     /** Prompt user to pick a folder, then open it as a vault */
     async pickAndOpenVault() {
       this.isLoading = true
       try {
         const path = await SelectFolder()
         if (!path) return // User cancelled
+        await this._doOpenVault(path)
+      } finally {
+        this.isLoading = false
+      }
+    },
+
+    /** Open a vault at the given path */
+    async openVault(path: string) {
+      await this._doOpenVault(path)
+    },
+
+    /** Internal: open a vault and wire up scan event listeners */
+    async _doOpenVault(path: string) {
+      this.isLoading = true
+      try {
         const vault = await OpenVault(path)
         this.currentVault = vault
         await this.loadConfig()
@@ -94,16 +117,6 @@ export const useVaultStore = defineStore('vault', {
             autoErrorUnsub()
           }, 60000)
         }
-      } finally {
-        this.isLoading = false
-      }
-    },
-    async openVault(path: string) {
-      this.isLoading = true
-      try {
-        const vault = await OpenVault(path)
-        this.currentVault = vault
-        await this.loadConfig()
       } finally {
         this.isLoading = false
       }

@@ -80,6 +80,12 @@ func (a *App) OpenVault(path string) (*db.VaultInfo, error) {
 	a.vaultPath = path
 	a.vaultCfg = cfg
 
+	// Save as last opened vault in global app settings
+	if a.appCfg != nil {
+		a.appCfg.LastVaultPath = path
+		_ = config.SaveAppSettings(a.appCfg)
+	}
+
 	// Count indexed files
 	fileCount := 0
 	_ = a.db.Conn().QueryRow("SELECT COUNT(*) FROM files").Scan(&fileCount)

@@ -78,6 +78,10 @@ export function GetFolderTree(arg1) {
   return window['go']['app']['App']['GetFolderTree'](arg1);
 }
 
+export function GetLastVaultPath() {
+  return window['go']['app']['App']['GetLastVaultPath']();
+}
+
 export function GetOriginalFilePath(arg1) {
   return window['go']['app']['App']['GetOriginalFilePath'](arg1);
 }
