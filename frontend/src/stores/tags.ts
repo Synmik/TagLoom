@@ -59,6 +59,15 @@ export const useTagsStore = defineStore('tags', {
     async deleteTag(id: number) {
       await DeleteTag(id)
       await this.loadTags()
+      // Remove deleted tag from active filters so the gallery doesn't query a stale tag
+      const { useFiltersStore } = await import('./filters')
+      const { useFilesStore } = await import('./files')
+      const filtersStore = useFiltersStore()
+      const idx = filtersStore.activeFilters.tagIds.indexOf(id)
+      if (idx >= 0) {
+        filtersStore.activeFilters.tagIds.splice(idx, 1)
+        await useFilesStore().reloadFiles()
+      }
     },
     async addTagToFile(fileID: number, tagID: number) {
       await AddTagToFile(fileID, tagID)
