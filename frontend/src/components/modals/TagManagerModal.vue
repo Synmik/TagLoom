@@ -8,7 +8,8 @@
       <div class="modal-body">
         <div class="form-group">
           <label>Name</label>
-          <input v-model="form.name" placeholder="Tag name" class="form-input" @keyup.enter="saveTag" />
+          <input v-model="form.name" placeholder="Tag name" class="form-input" :class="{ 'input-error': nameError }" @keyup.enter="saveTag" />
+          <span v-if="nameError" class="error-text">{{ nameError }}</span>
         </div>
         <div class="form-group">
           <label>Color</label>
@@ -84,8 +85,22 @@ const parentTags = computed(() => {
   return allTags.filter(t => t.id !== props.tag!.id)
 })
 
+// Check for case-insensitive name collision ("App" vs "app")
+const nameError = computed(() => {
+  const name = form.value.name.trim().toLowerCase()
+  if (!name) return ''
+  const duplicate = tagsStore.tags.find(
+    t => t.name.toLowerCase() === name && t.id !== (props.tag?.id ?? -1)
+  )
+  if (duplicate) {
+    return `Tag "${duplicate.name}" already exists (case-insensitive)`
+  }
+  return ''
+})
+
 const saveTag = async () => {
   if (!form.value.name.trim()) return
+  if (nameError.value) return
 
   if (isEditing.value && props.tag) {
     await tagsStore.updateTag({
@@ -133,6 +148,12 @@ const deleteTag = async () => {
 .form-input, .form-select {
   background: #2a2a2a; border: 1px solid #444; color: #fff;
   border-radius: 4px; padding: 6px 8px; font-size: 13px; outline: none;
+}
+.input-error {
+  border-color: #ff6b6b;
+}
+.error-text {
+  color: #ff6b6b; font-size: 11px; margin-top: 2px;
 }
 .checkbox { flex-direction: row; align-items: center; gap: 6px; }
 .form-actions { display: flex; gap: 8px; margin-top: 4px; }

@@ -42,9 +42,22 @@ func (a *App) GetTags(category string) ([]db.Tag, error) {
 }
 
 // CreateTag creates a new tag.
+// Tag names are case-insensitive: "App" and "app" are treated as the same tag.
 func (a *App) CreateTag(tag *db.TagCreate) (*db.Tag, error) {
 	if a.db == nil {
 		return nil, fmt.Errorf("no vault open")
+	}
+
+	// Check for case-insensitive duplicate
+	var existing db.Tag
+	err := a.db.Conn().QueryRow(`
+		SELECT id, name, color, parent_id, is_category, sort_order, created_at
+		FROM tags WHERE LOWER(name) = LOWER(?)
+	`, tag.Name).Scan(&existing.ID, &existing.Name, &existing.Color, &existing.ParentID,
+		&existing.IsCategory, &existing.SortOrder, &existing.CreatedAt)
+	if err == nil {
+		// Tag with this name (case-insensitive) already exists — return it
+		return &existing, nil
 	}
 
 	now := time.Now().Format(time.RFC3339)
@@ -82,12 +95,26 @@ func (a *App) CreateTag(tag *db.TagCreate) (*db.Tag, error) {
 }
 
 // UpdateTag updates an existing tag.
+// Tag name changes are case-insensitive: renaming to a name that already exists
+// (ignoring case) returns an error.
 func (a *App) UpdateTag(tag *db.TagUpdate) error {
 	if a.db == nil {
 		return fmt.Errorf("no vault open")
 	}
 
-	_, err := a.db.Conn().Exec(`
+	// Check for case-insensitive duplicate (excluding self)
+	var count int
+	err := a.db.Conn().QueryRow(`
+		SELECT COUNT(*) FROM tags WHERE LOWER(name) = LOWER(?) AND id != ?
+	`, tag.Name, tag.ID).Scan(&count)
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		return fmt.Errorf("tag name %q already exists (case-insensitive)", tag.Name)
+	}
+
+	_, err = a.db.Conn().Exec(`
 		UPDATE tags SET
 			name = ?, color = ?, parent_id = ?, is_category = ?, sort_order = ?
 		WHERE id = ?

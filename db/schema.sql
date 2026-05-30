@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS files (
 
 CREATE TABLE IF NOT EXISTS tags (
     id INTEGER PRIMARY KEY,
-    name TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
     color TEXT,
     parent_id INTEGER,
     is_category INTEGER DEFAULT 0,
@@ -26,12 +26,18 @@ CREATE TABLE IF NOT EXISTS tags (
     FOREIGN KEY (parent_id) REFERENCES tags(id)
 );
 
+-- Case-insensitive unique index for tag names ("App" and "app" are the same tag)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tags_name_nocase ON tags(LOWER(name));
+
 CREATE TABLE IF NOT EXISTS tag_aliases (
     tag_id INTEGER NOT NULL,
-    alias TEXT UNIQUE NOT NULL,
+    alias TEXT NOT NULL,
     PRIMARY KEY (tag_id, alias),
     FOREIGN KEY (tag_id) REFERENCES tags(id)
 );
+
+-- Case-insensitive unique index for tag aliases
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tag_aliases_alias_nocase ON tag_aliases(LOWER(alias));
 
 CREATE TABLE IF NOT EXISTS file_tags (
     file_id INTEGER NOT NULL,

@@ -46,7 +46,15 @@ func NewDatabase(dbPath string) (*Database, error) {
 		return nil, fmt.Errorf("failed to execute schema: %w", err)
 	}
 
-	return &Database{conn: conn}, nil
+	db := &Database{conn: conn}
+
+	// Run migrations for existing databases (no-op for new ones)
+	if err := db.MigrateCaseInsensitiveTagIndexes(); err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("failed to run migrations: %w", err)
+	}
+
+	return db, nil
 }
 
 // Close closes the database connection.
@@ -60,6 +68,15 @@ func (d *Database) Close() error {
 // Conn returns the underlying *sql.DB connection.
 func (d *Database) Conn() *sql.DB {
 	return d.conn
+}
+
+// MigrateCaseInsensitiveTagIndexes ensures that existing databases have
+// case-insensitive unique indexes on tags.name and tag_aliases.alias.
+// New databases get these from schema.sql; this handles upgrades.
+func (d *Database) MigrateCaseInsensitiveTagIndexes() error {
+	_, _ = d.conn.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_tags_name_nocase ON tags(LOWER(name))")
+	_, err := d.conn.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_tag_aliases_alias_nocase ON tag_aliases(LOWER(alias))")
+	return err
 }
 
 // SeedDefaultTags is a no-op — no default tags are seeded.

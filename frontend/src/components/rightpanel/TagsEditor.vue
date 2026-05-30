@@ -133,8 +133,9 @@ const createTag = async () => {
     sort_order: 0,
     aliases: '',
   })
-  // After creating, attach it to the current file
-  const newTag = tagsStore.tags.find(t => t.name === name)
+  // After creating (or finding existing case-insensitive match), attach to current file
+  // Use case-insensitive lookup since the backend may return an existing tag
+  const newTag = tagsStore.tags.find(t => t.name.toLowerCase() === name.toLowerCase())
   if (newTag && previewStore.currentFile) {
     await tagsStore.addTagToFile(previewStore.currentFile.id, newTag.id)
     await previewStore.loadFileDetails(previewStore.currentFile.id)
