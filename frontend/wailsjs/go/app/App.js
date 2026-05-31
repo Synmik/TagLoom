@@ -10,6 +10,10 @@ export function AddTagToFile(arg1, arg2) {
   return window['go']['app']['App']['AddTagToFile'](arg1, arg2);
 }
 
+export function AddTagsToFiles(arg1, arg2) {
+  return window['go']['app']['App']['AddTagsToFiles'](arg1, arg2);
+}
+
 export function CancelThumbnailGeneration() {
   return window['go']['app']['App']['CancelThumbnailGeneration']();
 }
@@ -122,6 +126,10 @@ export function RemoveTagFromFile(arg1, arg2) {
   return window['go']['app']['App']['RemoveTagFromFile'](arg1, arg2);
 }
 
+export function RemoveTagsFromFiles(arg1, arg2) {
+  return window['go']['app']['App']['RemoveTagsFromFiles'](arg1, arg2);
+}
+
 export function RescanVault() {
   return window['go']['app']['App']['RescanVault']();
 }
@@ -136,6 +144,14 @@ export function SearchFiles(arg1, arg2) {
 
 export function SelectFolder() {
   return window['go']['app']['App']['SelectFolder']();
+}
+
+export function SetFavoriteForFiles(arg1, arg2) {
+  return window['go']['app']['App']['SetFavoriteForFiles'](arg1, arg2);
+}
+
+export function SetRatingForFiles(arg1, arg2) {
+  return window['go']['app']['App']['SetRatingForFiles'](arg1, arg2);
 }
 
 export function SetVaultConfig(arg1) {

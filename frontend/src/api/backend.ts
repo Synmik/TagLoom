@@ -24,3 +24,6 @@ export { GenerateThumbnail, GenerateThumbnailsPool, CancelThumbnailGeneration, G
 
 // Excluded Folders
 export { GetExcludedFolders, AddExcludedFolder, RemoveExcludedFolder } from '../../wailsjs/go/app/App'
+
+// Batch Operations
+export { AddTagsToFiles, RemoveTagsFromFiles, SetRatingForFiles, SetFavoriteForFiles } from '../../wailsjs/go/app/App'

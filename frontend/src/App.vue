@@ -8,6 +8,9 @@
     </div>
     <ScanProgressBar />
     <FilePreviewModal v-if="previewStore.previewModalOpen" @close="previewStore.closeFullPreview" />
+    <BatchEditModal v-if="uiStore.showBatchEdit" @close="uiStore.closeBatchEdit" />
+    <VaultSettingsModal v-if="uiStore.showVaultSettings" @close="uiStore.closeVaultSettings" />
+    <TagManagerModal v-if="uiStore.showTagManager" @close="uiStore.closeTagManager" />
   </div>
 </template>
 
@@ -19,12 +22,17 @@ import Gallery from './components/gallery/Gallery.vue'
 import RightPanel from './components/rightpanel/RightPanel.vue'
 import ScanProgressBar from './components/common/ScanProgressBar.vue'
 import FilePreviewModal from './components/modals/FilePreviewModal.vue'
+import BatchEditModal from './components/modals/BatchEditModal.vue'
+import VaultSettingsModal from './components/modals/VaultSettingsModal.vue'
+import TagManagerModal from './components/modals/TagManagerModal.vue'
 import { usePreviewStore } from './stores/preview'
+import { useUIStore } from './stores/ui'
 import { useTagsStore } from './stores/tags'
 import { useFoldersStore } from './stores/folders'
 import { useVaultStore } from './stores/vault'
 
 const previewStore = usePreviewStore()
+const uiStore = useUIStore()
 
 onMounted(async () => {
   previewStore._syncSelection()

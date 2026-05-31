@@ -38,6 +38,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useVaultStore } from '../../stores/vault'
+import { useUIStore } from '../../stores/ui'
 import SearchBar from './SearchBar.vue'
 import ThumbnailSlider from './ThumbnailSlider.vue'
 import SortControl from './SortControl.vue'
@@ -49,6 +50,7 @@ const Quit = (): void => {
 }
 
 const vaultStore = useVaultStore()
+const uiStore = useUIStore()
 const showMenu = ref(false)
 const menuRef = ref<HTMLElement | null>(null)
 
@@ -77,8 +79,8 @@ const onFullScan = async () => {
   showMenu.value = false
   await vaultStore.scanVault()
 }
-const onVaultSettings = () => { showMenu.value = false; /* TODO: open modal */ }
-const onTagManager = () => { showMenu.value = false; /* TODO: open modal */ }
+const onVaultSettings = () => { showMenu.value = false; uiStore.openVaultSettings() }
+const onTagManager = () => { showMenu.value = false; uiStore.openTagManager() }
 const onExit = () => {
   showMenu.value = false
   Quit()

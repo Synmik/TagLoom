@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import type { File, FileUpdate, FilePage, FileFilter, SortOpts } from '../types/file'
-import { GetFiles, UpdateFile, SearchFiles, GenerateThumbnail, GenerateThumbnailsPool, GetThumbnailData } from '../api/backend'
+import { GetFiles, UpdateFile, SearchFiles, GenerateThumbnail, GenerateThumbnailsPool, GetThumbnailData, AddTagsToFiles, RemoveTagsFromFiles, SetRatingForFiles, SetFavoriteForFiles } from '../api/backend'
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime'
 import { useFiltersStore } from './filters'
 
@@ -148,6 +148,45 @@ export const useFilesStore = defineStore('files', {
     /** Clear the thumbnail cache */
     clearThumbnailCache() {
       this.thumbnailCache.clear()
+    },
+
+    // ── Batch operations ──
+
+    /** Add tags to all selected files in a single backend call */
+    async batchAddTags(tagIDs: number[]) {
+      const fileIDs = this.selectedFiles.map(f => f.id)
+      if (fileIDs.length === 0 || tagIDs.length === 0) return
+      await AddTagsToFiles(fileIDs, tagIDs)
+    },
+
+    /** Remove tags from all selected files in a single backend call */
+    async batchRemoveTags(tagIDs: number[]) {
+      const fileIDs = this.selectedFiles.map(f => f.id)
+      if (fileIDs.length === 0 || tagIDs.length === 0) return
+      await RemoveTagsFromFiles(fileIDs, tagIDs)
+    },
+
+    /** Set rating on all selected files */
+    async batchSetRating(rating: number) {
+      const fileIDs = this.selectedFiles.map(f => f.id)
+      if (fileIDs.length === 0) return
+      await SetRatingForFiles(fileIDs, rating)
+      // Optimistic update
+      for (const file of this.selectedFiles) {
+        file.rating = rating
+      }
+    },
+
+    /** Set favorite flag on all selected files */
+    async batchSetFavorite(isFavorite: boolean) {
+      const fileIDs = this.selectedFiles.map(f => f.id)
+      if (fileIDs.length === 0) return
+      await SetFavoriteForFiles(fileIDs, isFavorite ? 1 : 0)
+      // Optimistic update
+      const favValue = isFavorite ? 1 : 0
+      for (const file of this.selectedFiles) {
+        file.is_favorite = favValue
+      }
     },
 
     /** Generate thumbnails for all files using a 4-worker pool */

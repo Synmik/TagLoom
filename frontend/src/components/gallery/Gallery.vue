@@ -20,7 +20,16 @@
     <!-- File count bar -->
     <div v-if="filesStore.files && filesStore.files.length > 0" class="file-count-bar">
       <span>{{ filesStore.files.length }} / {{ filesStore.totalCount }} files</span>
-      <span v-if="filesStore.isLoading" class="loading-more">Loading more…</span>
+      <div class="count-bar-right">
+        <button
+          v-if="filesStore.hasSelection"
+          class="batch-edit-btn"
+          @click="onBatchEdit"
+        >
+          Batch Edit ({{ filesStore.selectionCount }})
+        </button>
+        <span v-if="filesStore.isLoading" class="loading-more">Loading more…</span>
+      </div>
     </div>
 
     <!-- Grid / List view -->
@@ -41,13 +50,20 @@ import { useUIStore } from '../../stores/ui'
 import { useFilesStore } from '../../stores/files'
 import { useVaultStore } from '../../stores/vault'
 import { useFiltersStore } from '../../stores/filters'
+import { useTagsStore } from '../../stores/tags'
 import { usePagination } from '../../composables/usePagination'
 
 const uiStore = useUIStore()
 const filesStore = useFilesStore()
 const vaultStore = useVaultStore()
 const filtersStore = useFiltersStore()
+const tagsStore = useTagsStore()
 const { loadingMore, loadMore, resetPage, observeSentinel } = usePagination()
+
+function onBatchEdit() {
+  tagsStore.loadTags()
+  uiStore.openBatchEdit()
+}
 
 const galleryRef = ref<HTMLElement | null>(null)
 const sentinel = ref<HTMLElement | null>(null)
@@ -224,6 +240,23 @@ async function loadGallery() {
   color: #888;
   border-bottom: 1px solid #222;
   margin-bottom: 8px;
+}
+.count-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.batch-edit-btn {
+  background: #5b8af5;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.batch-edit-btn:hover {
+  background: #4a7ae4;
 }
 
 .loading-more {

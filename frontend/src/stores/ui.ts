@@ -12,6 +12,9 @@ export const useUIStore = defineStore('ui', {
     sortOrder: 'desc' as 'asc' | 'desc',
     leftPanelWidth: 280,
     rightPanelWidth: 320,
+    showBatchEdit: false,
+    showVaultSettings: false,
+    showTagManager: false,
   }),
   getters: {
     gridPixelSize: (state) => {
@@ -40,6 +43,24 @@ export const useUIStore = defineStore('ui', {
     },
     toggleSortOrder() {
       this.sortOrder = this.sortOrder === 'asc' ? 'desc' : 'asc'
+    },
+    openBatchEdit() {
+      this.showBatchEdit = true
+    },
+    closeBatchEdit() {
+      this.showBatchEdit = false
+    },
+    openVaultSettings() {
+      this.showVaultSettings = true
+    },
+    closeVaultSettings() {
+      this.showVaultSettings = false
+    },
+    openTagManager() {
+      this.showTagManager = true
+    },
+    closeTagManager() {
+      this.showTagManager = false
     },
   },
 })

@@ -8,6 +8,8 @@ export function AddExcludedFolder(arg1:string):Promise<void>;
 
 export function AddTagToFile(arg1:number,arg2:number):Promise<void>;
 
+export function AddTagsToFiles(arg1:Array<number>,arg2:Array<number>):Promise<void>;
+
 export function CancelThumbnailGeneration():Promise<void>;
 
 export function CleanupOrphanThumbnails():Promise<void>;
@@ -64,6 +66,8 @@ export function RemoveExcludedFolder(arg1:string):Promise<void>;
 
 export function RemoveTagFromFile(arg1:number,arg2:number):Promise<void>;
 
+export function RemoveTagsFromFiles(arg1:Array<number>,arg2:Array<number>):Promise<void>;
+
 export function RescanVault():Promise<number>;
 
 export function ScanVault():Promise<number>;
@@ -71,6 +75,10 @@ export function ScanVault():Promise<number>;
 export function SearchFiles(arg1:string,arg2:number):Promise<Array<db.File>>;
 
 export function SelectFolder():Promise<string>;
+
+export function SetFavoriteForFiles(arg1:Array<number>,arg2:number):Promise<void>;
+
+export function SetRatingForFiles(arg1:Array<number>,arg2:number):Promise<void>;
 
 export function SetVaultConfig(arg1:config.VaultConfig):Promise<void>;
 
