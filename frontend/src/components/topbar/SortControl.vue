@@ -6,7 +6,7 @@
       <option value="name">Name</option>
       <option value="file_size">File Size</option>
       <option value="rating">Rating</option>
-      <option value="date_created">Date Created</option>
+      <option value="date_modified">Date Modified</option>
     </select>
     <button @click="toggleOrder" class="order-btn" :title="sortOrder === 'asc' ? 'Ascending' : 'Descending'">
       {{ sortOrder === 'asc' ? '↑' : '↓' }}

@@ -53,6 +53,10 @@ func NewDatabase(dbPath string) (*Database, error) {
 		conn.Close()
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
+	if err := db.MigrateAddDateModified(); err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("failed to run migrations: %w", err)
+	}
 
 	return db, nil
 }
@@ -76,6 +80,18 @@ func (d *Database) Conn() *sql.DB {
 func (d *Database) MigrateCaseInsensitiveTagIndexes() error {
 	_, _ = d.conn.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_tags_name_nocase ON tags(LOWER(name))")
 	_, err := d.conn.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_tag_aliases_alias_nocase ON tag_aliases(LOWER(alias))")
+	return err
+}
+
+// MigrateAddDateModified adds the date_modified column to the files table
+// for existing databases that were created before the column existed.
+func (d *Database) MigrateAddDateModified() error {
+	var exists int
+	err := d.conn.QueryRow("SELECT COUNT(*) FROM pragma_table_info('files') WHERE name='date_modified'").Scan(&exists)
+	if err != nil || exists > 0 {
+		return nil // column already exists or can't check
+	}
+	_, err = d.conn.Exec("ALTER TABLE files ADD COLUMN date_modified TEXT NOT NULL DEFAULT ''")
 	return err
 }
 

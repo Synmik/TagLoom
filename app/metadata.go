@@ -1,3 +1,5 @@
+//go:build windows
+
 package app
 
 import (
@@ -8,9 +10,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"TagLoom/utils"
+
 	"github.com/rwcarlsen/goexif/exif"
 )
 
@@ -73,12 +77,12 @@ func (a *App) GetFileMetadata(fileID int64) (*FileMetadata, error) {
 	category := utils.GetFileCategory(file.VaultPath)
 
 	metadata := &FileMetadata{
-		Filename:         utils.GetFilename(file.VaultPath),
-		Extension:        ext,
-		FormatName:       utils.GetFormatName(file.VaultPath),
-		MimeType:         mimeTypeMap[ext],
-		SizeBytes:        info.Size(),
-		DateModified:     info.ModTime().Format("2006-01-02 15:04:05"),
+		Filename:     utils.GetFilename(file.VaultPath),
+		Extension:    ext,
+		FormatName:   utils.GetFormatName(file.VaultPath),
+		MimeType:     mimeTypeMap[ext],
+		SizeBytes:    info.Size(),
+		DateModified: info.ModTime().Format("2006-01-02 15:04:05"),
 	}
 
 	// Get file creation time from Windows
@@ -291,16 +295,39 @@ func getVideoDimensions(path string, ext string) (int, int, error) {
 	return 0, 0, fmt.Errorf("video dimensions require FFmpeg")
 }
 
-// getFileCreationTime attempts to get the file creation time on Windows.
+// getFileCreationTime extracts the original creation time.
+// Priority: EXIF DateTimeOriginal > Windows CreationTime > ModTime.
 func getFileCreationTime(path string) string {
+	// Try EXIF first (for JPEG, TIFF, PNG, WebP)
+	if nanos := utils.GetCreationTimeNanos(path); nanos > 0 {
+		return time.Unix(0, nanos).Format("2006-01-02 15:04:05")
+	}
+
+	// Try Windows CreationTime
+	if t := getWindowsCreationTime(path); t != "" {
+		return t
+	}
+
+	// Last resort: ModTime
 	info, err := os.Stat(path)
 	if err != nil {
 		return ""
 	}
 
-	// On Windows, we can try to get birth time via syscall
-	// For now, use mod time as fallback
 	return info.ModTime().Format("2006-01-02 15:04:05")
+}
+
+// getWindowsCreationTime reads the file creation time from Windows.
+func getWindowsCreationTime(path string) string {
+	info, err := os.Stat(path)
+	if err != nil {
+		return ""
+	}
+	sys := info.Sys()
+	if win, ok := sys.(*syscall.Win32FileAttributeData); ok {
+		return time.Unix(0, win.CreationTime.Nanoseconds()).Format("2006-01-02 15:04:05")
+	}
+	return ""
 }
 
 // GetBatchMetadata extracts lightweight metadata for a batch of files.

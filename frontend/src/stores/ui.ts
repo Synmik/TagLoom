@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 
 export type ViewMode = 'grid' | 'list'
 export type GridSize = 'small' | 'medium' | 'large'
-export type SortField = 'indexed_at' | 'filename' | 'name' | 'file_size' | 'rating' | 'date_created'
+export type SortField = 'indexed_at' | 'filename' | 'name' | 'file_size' | 'rating' | 'date_modified'
 
 export const useUIStore = defineStore('ui', {
   state: () => ({

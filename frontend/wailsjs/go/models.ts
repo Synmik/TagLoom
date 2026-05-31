@@ -130,6 +130,7 @@ export namespace db {
 	    rating: number;
 	    is_favorite: number;
 	    folder_path: string;
+	    date_modified: string;
 	    indexed_at: string;
 	
 	    static createFrom(source: any = {}) {
@@ -147,6 +148,7 @@ export namespace db {
 	        this.rating = source["rating"];
 	        this.is_favorite = source["is_favorite"];
 	        this.folder_path = source["folder_path"];
+	        this.date_modified = source["date_modified"];
 	        this.indexed_at = source["indexed_at"];
 	    }
 	}

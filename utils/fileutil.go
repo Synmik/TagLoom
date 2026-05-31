@@ -1,8 +1,12 @@
 package utils
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
+	"time"
+
+	"github.com/rwcarlsen/goexif/exif"
 )
 
 // SupportedExtensions maps file categories to their extensions.
@@ -53,4 +57,44 @@ func GetFormatName(path string) string {
 // GetFilename extracts the filename from a full path.
 func GetFilename(path string) string {
 	return filepath.Base(path)
+}
+
+// GetCreationTimeNanos returns the file creation time from EXIF metadata.
+// Returns 0 if no EXIF data is available.
+func GetCreationTimeNanos(path string) int64 {
+	return getEXIFCreationTime(path)
+}
+
+// getEXIFCreationTime extracts the original creation time from EXIF metadata.
+// Returns Unix nanoseconds, or 0 if not available.
+func getEXIFCreationTime(path string) int64 {
+	f, err := os.Open(path)
+	if err != nil {
+		return 0
+	}
+	defer f.Close()
+
+	exifReader, err := exif.Decode(f)
+	if err != nil {
+		return 0
+	}
+
+	// Try tags in priority order: DateTimeOriginal, DateTimeDigitized, DateTime
+	for _, tagName := range []string{"DateTimeOriginal", "DateTimeDigitized", "DateTime"} {
+		tagVal, err := exifReader.Get(exif.FieldName(tagName))
+		if err != nil {
+			continue
+		}
+		s, err := tagVal.StringVal()
+		if err != nil || s == "" {
+			continue
+		}
+		// EXIF date format: "2006:01:02 15:04:05"
+		t, err := time.Parse("2006:01:02 15:04:05", s)
+		if err != nil {
+			continue
+		}
+		return t.UnixNano()
+	}
+	return 0
 }
