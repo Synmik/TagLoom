@@ -24,12 +24,18 @@
       />
     </template>
   </div>
+  <ContextMenu :visible="visible" :x="x" :y="y" :items="items" @close="close" />
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useFoldersStore } from '../../stores/folders'
 import { useFiltersStore } from '../../stores/filters'
+import { useContextMenu, type ContextMenuItem } from '../../composables/useContextMenu'
+import { ClipboardSetText } from '../../../wailsjs/runtime/runtime'
+import { AddExcludedFolder } from '../../api/backend'
+import { useToast } from '../../composables/useToast'
+import ContextMenu from '../common/ContextMenu.vue'
 import type { FolderNode as FolderNodeType } from '../../types/vault'
 
 const props = defineProps<{
@@ -39,6 +45,8 @@ const props = defineProps<{
 
 const foldersStore = useFoldersStore()
 const filtersStore = useFiltersStore()
+const { success, error: toastError } = useToast()
+const { visible, x, y, items, open, close } = useContextMenu()
 
 const hasChildren = computed(() => props.node.children?.length > 0)
 const isExpanded = computed(() => foldersStore.expandedPaths.includes(props.node.path))
@@ -54,8 +62,36 @@ const selectFolder = () => {
     filtersStore.setFolderFilter(props.node.path)
   }
 }
-const onContext = () => {
-  // TODO: Context menu - "Exclude from indexing"
+const onContext = (e: MouseEvent) => {
+  const menuItems: ContextMenuItem[] = [
+    {
+      type: 'item',
+      label: 'Exclude from indexing',
+      icon: '🚫',
+      action: async () => {
+        try {
+          await AddExcludedFolder(props.node.path)
+          success(`Excluded "${props.node.name}"`)
+        } catch (err: any) {
+          toastError(err.message || 'Failed to exclude folder')
+        }
+      },
+    },
+    { type: 'divider' },
+    {
+      type: 'item',
+      label: 'Copy path',
+      icon: '📂',
+      action: () => {
+        ClipboardSetText(props.node.path).then((ok) => {
+          if (ok) success('Path copied')
+          else toastError('Failed to copy path')
+        })
+      },
+    },
+  ]
+
+  open(e, menuItems)
 }
 </script>
 

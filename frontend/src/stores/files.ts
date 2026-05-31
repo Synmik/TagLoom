@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import type { File, FileUpdate, FilePage, FileFilter, SortOpts } from '../types/file'
-import { GetFiles, UpdateFile, SearchFiles, GenerateThumbnail, GenerateThumbnailsPool, GetThumbnailData, AddTagsToFiles, RemoveTagsFromFiles, SetRatingForFiles, SetFavoriteForFiles } from '../api/backend'
+import { GetFiles, UpdateFile, SearchFiles, GenerateThumbnail, GenerateThumbnailsPool, GetThumbnailData, AddTagsToFiles, RemoveTagsFromFiles, SetRatingForFiles, SetFavoriteForFiles, DeleteFile } from '../api/backend'
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime'
 import { useFiltersStore } from './filters'
 
@@ -187,6 +187,22 @@ export const useFilesStore = defineStore('files', {
       for (const file of this.selectedFiles) {
         file.is_favorite = favValue
       }
+    },
+
+    /** Delete a file from the vault index (DB only, not from disk) */
+    async deleteFile(fileID: number) {
+      await DeleteFile(fileID)
+      // Remove from local state
+      const index = this.files.findIndex(f => f.id === fileID)
+      if (index >= 0) {
+        this.files.splice(index, 1)
+      }
+      // Remove from selection if selected
+      const selIndex = this.selectedFiles.findIndex(f => f.id === fileID)
+      if (selIndex >= 0) {
+        this.selectedFiles.splice(selIndex, 1)
+      }
+      this.totalCount--
     },
 
     /** Generate thumbnails for all files using a 4-worker pool */

@@ -484,6 +484,33 @@ func (a *App) GetExcludedFolders() ([]string, error) {
 	return folders, nil
 }
 
+// DeleteFile removes a file from the vault index (DB only, does NOT delete the actual file on disk).
+func (a *App) DeleteFile(fileID int64) error {
+	if a.db == nil {
+		return fmt.Errorf("no vault open")
+	}
+
+	tx, err := a.db.Conn().Begin()
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Remove tag associations
+	_, err = tx.Exec("DELETE FROM file_tags WHERE file_id = ?", fileID)
+	if err != nil {
+		return fmt.Errorf("delete file_tags: %w", err)
+	}
+
+	// Remove from files table
+	_, err = tx.Exec("DELETE FROM files WHERE id = ?", fileID)
+	if err != nil {
+		return fmt.Errorf("delete file: %w", err)
+	}
+
+	return tx.Commit()
+}
+
 // indexFile inserts a single file into the database.
 func (a *App) indexFile(filePath string) error {
 	if !utils.IsSupported(filePath) {

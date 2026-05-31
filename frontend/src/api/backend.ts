@@ -7,7 +7,7 @@ export { GetVaultConfig, SetVaultConfig } from '../../wailsjs/go/app/App'
 export { ScanVault, RescanVault } from '../../wailsjs/go/app/App'
 
 // Files
-export { GetFiles, GetFileByID, UpdateFile, SearchFiles } from '../../wailsjs/go/app/App'
+export { GetFiles, GetFileByID, UpdateFile, SearchFiles, DeleteFile } from '../../wailsjs/go/app/App'
 
 // Folders
 export { GetFolderTree } from '../../wailsjs/go/app/App'

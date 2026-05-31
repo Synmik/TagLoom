@@ -4,6 +4,7 @@
     :class="{ selected: isSelected(file) }"
     @click="(e) => handleClick(e)"
     @dblclick="openPreview"
+    @contextmenu.prevent="onContextMenu"
   >
     <div class="thumbnail-wrapper">
       <img :src="thumbnailUrl" :alt="filename" class="thumbnail" loading="lazy" />
@@ -12,21 +13,30 @@
     </div>
     <div class="file-name">{{ filename }}</div>
   </div>
+  <ContextMenu :visible="visible" :x="x" :y="y" :items="items" @close="close" />
 </template>
 
 <script setup lang="ts">
 import { computed, ref, onMounted } from 'vue'
 import { useSelection } from '../../composables/useSelection'
+import { useContextMenu, type ContextMenuItem } from '../../composables/useContextMenu'
 import { usePreviewStore } from '../../stores/preview'
 import { useFilesStore } from '../../stores/files'
+import { useUIStore } from '../../stores/ui'
 import { useVaultStore } from '../../stores/vault'
+import { ClipboardSetText } from '../../../wailsjs/runtime/runtime'
+import { useToast } from '../../composables/useToast'
+import ContextMenu from '../common/ContextMenu.vue'
 import type { File } from '../../types/file'
 
 const props = defineProps<{ file: File }>()
 const { isSelected, toggleSelection } = useSelection()
 const previewStore = usePreviewStore()
 const filesStore = useFilesStore()
+const uiStore = useUIStore()
 const vaultStore = useVaultStore()
+const { success, error: toastError } = useToast()
+const { visible, x, y, items, open, close } = useContextMenu()
 
 const thumbnailUrl = ref('')
 const isLoading = ref(true)
@@ -81,6 +91,70 @@ const handleClick = async (e: MouseEvent) => {
 const openPreview = () => {
   previewStore.setFile(props.file)
   previewStore.openFullPreview()
+}
+
+// ── Context menu ──────────────────────────────────────────────────
+
+const copyToClipboard = async (text: string, label: string) => {
+  const ok = await ClipboardSetText(text)
+  if (ok) {
+    success(`${label} copied`)
+  } else {
+    toastError(`Failed to copy ${label.toLowerCase()}`)
+  }
+}
+
+const onContextMenu = (e: MouseEvent) => {
+  // Ensure this file is selected before opening batch edit
+  if (!isSelected(props.file)) {
+    toggleSelection(props.file, false, false)
+  }
+
+  const menuItems: ContextMenuItem[] = [
+    {
+      type: 'item',
+      label: props.file.is_favorite === 1 ? 'Remove from favorites' : 'Add to favorites',
+      icon: '♥',
+      action: async () => {
+        await filesStore.toggleFavorite(props.file)
+      },
+    },
+    { type: 'divider' },
+    {
+      type: 'item',
+      label: 'Copy filename',
+      icon: '📄',
+      action: () => copyToClipboard(filename.value, 'Filename'),
+    },
+    {
+      type: 'item',
+      label: 'Copy path',
+      icon: '📂',
+      action: () => copyToClipboard(props.file.vault_path, 'Path'),
+    },
+    { type: 'divider' },
+    {
+      type: 'item',
+      label: 'Batch edit',
+      icon: '✏️',
+      action: () => {
+        uiStore.openBatchEdit()
+      },
+    },
+    { type: 'divider' },
+    {
+      type: 'item',
+      label: 'Delete from vault',
+      icon: '🗑️',
+      action: async () => {
+        await filesStore.deleteFile(props.file.id)
+        success('File removed from vault')
+        await filesStore.reloadFiles()
+      },
+    },
+  ]
+
+  open(e, menuItems)
 }
 </script>
 
