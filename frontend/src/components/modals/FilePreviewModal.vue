@@ -13,13 +13,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 import { usePreviewStore } from '../../stores/preview'
 import { useFilesStore } from '../../stores/files'
 
 const previewStore = usePreviewStore()
 const filesStore = useFilesStore()
-defineEmits<{ close: [] }>()
+const emit = defineEmits<{ close: [] }>()
 
 const imageUrl = computed(() => {
   const file = previewStore.currentFile
@@ -32,6 +32,15 @@ const navigate = (direction: number) => {
   const nextIndex = (index + direction + filesStore.files.length) % filesStore.files.length
   previewStore.setFile(filesStore.files[nextIndex])
 }
+
+const onKeydown = (e: KeyboardEvent) => {
+  if (e.key === 'ArrowLeft') navigate(-1)
+  else if (e.key === 'ArrowRight') navigate(1)
+  else if (e.key === 'Escape') emit('close')
+}
+
+onMounted(() => window.addEventListener('keydown', onKeydown))
+onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 </script>
 
 <style scoped>

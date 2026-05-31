@@ -2,8 +2,7 @@
   <section class="field-section">
     <label class="field-label">Name</label>
     <input
-      :value="previewStore.currentFile?.name || ''"
-      @input="updateName"
+      v-model="localName"
       placeholder="Enter name…"
       class="field-input"
     />
@@ -11,9 +10,26 @@
 </template>
 
 <script setup lang="ts">
+import { shallowRef, watch } from 'vue'
 import { usePreviewStore } from '../../stores/preview'
+
 const previewStore = usePreviewStore()
-const updateName = (e: Event) => previewStore.updateName((e.target as HTMLInputElement).value)
+
+// Local copy — synced from store when file changes
+const localName = shallowRef('')
+
+watch(
+  () => previewStore.currentFile?.name,
+  (val) => { localName.value = val || '' },
+)
+
+// Debounced auto-save (500ms)
+watch(localName, (value, _prev, onCleanup) => {
+  const timer = setTimeout(() => {
+    previewStore.updateName(value)
+  }, 500)
+  onCleanup(() => clearTimeout(timer))
+})
 </script>
 
 <style scoped>

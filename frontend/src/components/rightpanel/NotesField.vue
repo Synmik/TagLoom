@@ -2,8 +2,7 @@
   <section class="field-section">
     <label class="field-label">Notes</label>
     <textarea
-      :value="previewStore.currentFile?.notes || ''"
-      @input="updateNotes"
+      v-model="localNotes"
       placeholder="Add notes…"
       class="field-textarea"
       rows="4"
@@ -12,9 +11,24 @@
 </template>
 
 <script setup lang="ts">
+import { shallowRef, watch } from 'vue'
 import { usePreviewStore } from '../../stores/preview'
+
 const previewStore = usePreviewStore()
-const updateNotes = (e: Event) => previewStore.updateNotes((e.target as HTMLTextAreaElement).value)
+
+const localNotes = shallowRef('')
+
+watch(
+  () => previewStore.currentFile?.notes,
+  (val) => { localNotes.value = val || '' },
+)
+
+watch(localNotes, (value, _prev, onCleanup) => {
+  const timer = setTimeout(() => {
+    previewStore.updateNotes(value)
+  }, 500)
+  onCleanup(() => clearTimeout(timer))
+})
 </script>
 
 <style scoped>
