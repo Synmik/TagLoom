@@ -21,10 +21,63 @@ func (a *App) SearchFiles(query string, limit int) ([]db.File, error) {
 		limit = 100
 	}
 
-	// FTS5 search on name and notes
-	// Filename search is handled via vault_path LIKE match
-	ftsQuery := sanitizeFTSQuery(query)
+	// FTS5 search on name and notes — split into words so each term is searched
+	// (FTS5 uses space as a term separator, so "red sunset" matches both terms)
+	ftsWords := strings.Fields(query)
+	for i, w := range ftsWords {
+		ftsWords[i] = sanitizeFTSQuery(w)
+	}
+	ftsQuery := strings.Join(ftsWords, " ")
+	if ftsQuery == "" {
+		ftsQuery = "*"
+	}
 
+	// Tag search: split query into words and match each against tag names and aliases.
+	// "red sunset" → find files tagged with "red" OR "sunset" (or any partial match).
+	tagWords := strings.Fields(query)
+	var tagConditions []string
+	for _, w := range tagWords {
+		if len(w) < 2 {
+			continue
+		}
+		// Escape LIKE special characters in the word
+		escaped := strings.ReplaceAll(w, "%", "\\%")
+		escaped = strings.ReplaceAll(escaped, "_", "\\_")
+		pattern := "%" + escaped + "%"
+		tagConditions = append(tagConditions,
+			fmt.Sprintf("(LOWER(t.name) LIKE %q OR LOWER(a.alias) LIKE %q)", pattern, pattern),
+		)
+	}
+	// Cap tag conditions to avoid excessively large queries
+	if len(tagConditions) > 10 {
+		tagConditions = tagConditions[:10]
+	}
+
+	// Build the full query with all match conditions
+	if len(tagConditions) > 0 {
+		tagClause := "f.id IN (SELECT ft.file_id FROM file_tags ft JOIN tags t ON ft.tag_id = t.id LEFT JOIN tag_aliases a ON a.tag_id = t.id WHERE " +
+			strings.Join(tagConditions, " OR ") + ")"
+
+		querySQL := fmt.Sprintf(`
+			SELECT f.id, f.vault_path, f.thumbnail_path, f.name, f.notes, f.link,
+			       f.rating, f.is_favorite, f.folder_path, f.date_modified, f.indexed_at
+			FROM files f
+			WHERE f.id IN (
+				SELECT rowid FROM files_fts WHERE files_fts MATCH %q
+			)
+			OR f.vault_path LIKE %q
+			OR %s
+			LIMIT ?
+		`, ftsQuery, "%"+query+"%", tagClause)
+
+		rows, err := a.db.Conn().Query(querySQL, limit)
+		if err != nil {
+			return nil, err
+		}
+		return scanFiles(rows)
+	}
+
+	// No valid tag words — fall back to FTS + filename only
 	querySQL := fmt.Sprintf(`
 		SELECT f.id, f.vault_path, f.thumbnail_path, f.name, f.notes, f.link,
 		       f.rating, f.is_favorite, f.folder_path, f.date_modified, f.indexed_at
