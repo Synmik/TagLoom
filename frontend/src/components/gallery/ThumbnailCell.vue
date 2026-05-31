@@ -80,6 +80,7 @@ const handleClick = async (e: MouseEvent) => {
 
 const openPreview = () => {
   previewStore.setFile(props.file)
+  previewStore.openFullPreview()
 }
 </script>
 

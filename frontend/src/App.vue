@@ -7,6 +7,7 @@
       <RightPanel />
     </div>
     <ScanProgressBar />
+    <FilePreviewModal v-if="previewStore.previewModalOpen" @close="previewStore.closeFullPreview" />
   </div>
 </template>
 
@@ -17,13 +18,16 @@ import LeftPanel from './components/leftpanel/LeftPanel.vue'
 import Gallery from './components/gallery/Gallery.vue'
 import RightPanel from './components/rightpanel/RightPanel.vue'
 import ScanProgressBar from './components/common/ScanProgressBar.vue'
+import FilePreviewModal from './components/modals/FilePreviewModal.vue'
 import { usePreviewStore } from './stores/preview'
 import { useTagsStore } from './stores/tags'
 import { useFoldersStore } from './stores/folders'
 import { useVaultStore } from './stores/vault'
 
+const previewStore = usePreviewStore()
+
 onMounted(async () => {
-  usePreviewStore()._syncSelection()
+  previewStore._syncSelection()
   useTagsStore()._watchVault()
   useFoldersStore()._watchVault()
   await useVaultStore().autoOpenLastVault()

@@ -1,6 +1,6 @@
 <template>
   <section class="preview-section">
-    <div class="preview-image" @click="openFullPreview">
+    <div class="preview-image" @dblclick="previewStore.openFullPreview">
       <img v-if="imageUrl" :src="imageUrl" alt="Preview" />
       <span v-else class="no-preview">No preview</span>
     </div>
@@ -30,9 +30,7 @@ const formatName = computed(() => {
   return ext === 'JPG' || ext === 'JPEG' ? 'JPEG' : ext
 })
 
-const openFullPreview = () => {
-  // TODO: Open FilePreviewModal
-}
+// Double-click is wired directly to previewStore.openFullPreview in template
 </script>
 
 <style scoped>

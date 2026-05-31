@@ -21,7 +21,10 @@ const previewStore = usePreviewStore()
 const filesStore = useFilesStore()
 defineEmits<{ close: [] }>()
 
-const imageUrl = computed(() => previewStore.currentFile?.thumbnail_path || '')
+const imageUrl = computed(() => {
+  const file = previewStore.currentFile
+  return file ? `/api/original/${file.id}` : ''
+})
 
 const navigate = (direction: number) => {
   if (!previewStore.currentFile) return

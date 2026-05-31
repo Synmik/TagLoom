@@ -11,6 +11,7 @@ export const usePreviewStore = defineStore('preview', {
     metadata: null as FileMetadata | null,
     tags: [] as Tag[],
     isLoading: false,
+    previewModalOpen: false,
     _loadSeq: 0, // monotonic counter to discard stale loadFileDetails responses
   }),
   actions: {
@@ -96,6 +97,13 @@ export const usePreviewStore = defineStore('preview', {
       if (!this.currentFile) return
       const newFav = this.currentFile.is_favorite === 1 ? 0 : 1
       return this._updateField('is_favorite', newFav)
+    },
+
+    openFullPreview() {
+      this.previewModalOpen = true
+    },
+    closeFullPreview() {
+      this.previewModalOpen = false
     },
   },
 })
