@@ -24,7 +24,8 @@ export const useTagsStore = defineStore('tags', {
     async loadTags() {
       this.isLoading = true
       try {
-        this.tags = await GetTags('')
+        const result = await GetTags('')
+        this.tags = Array.isArray(result) ? result : []
         await this.loadTagCounts()
       } finally {
         this.isLoading = false

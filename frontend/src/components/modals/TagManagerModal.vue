@@ -80,7 +80,7 @@ watch(() => props.tag, (tag) => {
 
 // Exclude the current tag from parent dropdown to avoid self-reference
 const parentTags = computed(() => {
-  const allTags = tagsStore.tags
+  const allTags = tagsStore.tags || []
   if (!props.tag) return allTags
   return allTags.filter(t => t.id !== props.tag!.id)
 })
@@ -89,7 +89,8 @@ const parentTags = computed(() => {
 const nameError = computed(() => {
   const name = form.value.name.trim().toLowerCase()
   if (!name) return ''
-  const duplicate = tagsStore.tags.find(
+  const allTags = tagsStore.tags || []
+  const duplicate = allTags.find(
     t => t.name.toLowerCase() === name && t.id !== (props.tag?.id ?? -1)
   )
   if (duplicate) {
