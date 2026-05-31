@@ -7,6 +7,7 @@
       <RightPanel />
     </div>
     <ScanProgressBar />
+    <ToastContainer />
     <FilePreviewModal v-if="previewStore.previewModalOpen" @close="previewStore.closeFullPreview" />
     <BatchEditModal v-if="uiStore.showBatchEdit" @close="uiStore.closeBatchEdit" />
     <VaultSettingsModal v-if="uiStore.showVaultSettings" @close="uiStore.closeVaultSettings" />
@@ -21,6 +22,7 @@ import LeftPanel from './components/leftpanel/LeftPanel.vue'
 import Gallery from './components/gallery/Gallery.vue'
 import RightPanel from './components/rightpanel/RightPanel.vue'
 import ScanProgressBar from './components/common/ScanProgressBar.vue'
+import ToastContainer from './components/common/ToastContainer.vue'
 import FilePreviewModal from './components/modals/FilePreviewModal.vue'
 import BatchEditModal from './components/modals/BatchEditModal.vue'
 import VaultSettingsModal from './components/modals/VaultSettingsModal.vue'

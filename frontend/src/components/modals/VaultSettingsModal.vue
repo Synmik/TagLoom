@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useVaultStore } from '../../stores/vault'
+import { useToast } from '../../composables/useToast'
 import {
   GetExcludedFolders,
   AddExcludedFolder,
@@ -9,6 +10,7 @@ import {
 } from '../../api/backend'
 
 const vaultStore = useVaultStore()
+const { success, error: toastError } = useToast()
 defineEmits<{ close: [] }>()
 
 // ── Excluded folders (loaded from backend) ──────────────────────────
@@ -43,8 +45,10 @@ const addExcluded = async () => {
     await AddExcludedFolder(path)
     newExcludedPath.value = ''
     await loadExcludedFolders()
+    success(`Excluded "${path}"`)
   } catch (e: any) {
     addError.value = e.message || 'Failed to add excluded folder'
+    toastError(addError.value)
   } finally {
     isAdding.value = false
   }
@@ -54,8 +58,9 @@ const removeExcluded = async (path: string) => {
   try {
     await RemoveExcludedFolder(path)
     await loadExcludedFolders()
-  } catch (e) {
-    console.error('Failed to remove excluded folder:', e)
+    success(`Un-excluded "${path}"`)
+  } catch (e: any) {
+    toastError('Failed to remove excluded folder')
   }
 }
 
@@ -73,6 +78,9 @@ const rescanVault = async () => {
   isRescanning.value = true
   try {
     await vaultStore.rescanVault()
+    success('Vault re-scan complete')
+  } catch (e: any) {
+    toastError('Re-scan failed: ' + (e.message || String(e)))
   } finally {
     isRescanning.value = false
   }
@@ -88,8 +96,9 @@ const save = async () => {
     vaultStore.config.settings.thumbnail_quality = thumbnailQuality.value
     vaultStore.config.settings.auto_tag_by_folder = autoTagByFolder.value
     await vaultStore.saveConfig(vaultStore.config)
-  } catch (e) {
-    console.error('Failed to save config:', e)
+    success('Settings saved')
+  } catch (e: any) {
+    toastError('Failed to save settings')
   } finally {
     isSaving.value = false
   }

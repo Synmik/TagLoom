@@ -44,9 +44,11 @@
 import { ref, computed, watch } from 'vue'
 import ColorPicker from '../common/ColorPicker.vue'
 import { useTagsStore } from '../../stores/tags'
+import { useToast } from '../../composables/useToast'
 import type { Tag } from '../../types/tag'
 
 const tagsStore = useTagsStore()
+const { success, error: toastError } = useToast()
 const emit = defineEmits<{ close: [] }>()
 
 const props = defineProps<{
@@ -103,25 +105,32 @@ const saveTag = async () => {
   if (!form.value.name.trim()) return
   if (nameError.value) return
 
-  if (isEditing.value && props.tag) {
-    await tagsStore.updateTag({
-      id: props.tag.id,
-      name: form.value.name.trim(),
-      color: form.value.color,
-      parent_id: form.value.parentId ?? undefined,
-      is_category: form.value.isCategory ? 1 : 0,
-      sort_order: 0,
-      aliases: form.value.aliases,
-    })
-  } else {
-    await tagsStore.createTag({
-      name: form.value.name.trim(),
-      color: form.value.color,
-      parent_id: form.value.parentId ?? undefined,
-      is_category: form.value.isCategory ? 1 : 0,
-      sort_order: 0,
-      aliases: form.value.aliases,
-    })
+  try {
+    if (isEditing.value && props.tag) {
+      await tagsStore.updateTag({
+        id: props.tag.id,
+        name: form.value.name.trim(),
+        color: form.value.color,
+        parent_id: form.value.parentId ?? undefined,
+        is_category: form.value.isCategory ? 1 : 0,
+        sort_order: 0,
+        aliases: form.value.aliases,
+      })
+      success(`Tag "${form.value.name}" updated`)
+    } else {
+      await tagsStore.createTag({
+        name: form.value.name.trim(),
+        color: form.value.color,
+        parent_id: form.value.parentId ?? undefined,
+        is_category: form.value.isCategory ? 1 : 0,
+        sort_order: 0,
+        aliases: form.value.aliases,
+      })
+      success(`Tag "${form.value.name}" created`)
+    }
+  } catch (e: any) {
+    toastError('Failed to save tag: ' + (e.message || String(e)))
+    return
   }
   emit('close')
 }
@@ -129,7 +138,13 @@ const saveTag = async () => {
 const deleteTag = async () => {
   if (!props.tag) return
   if (!confirm(`Delete tag "${props.tag.name}"? Files will lose this tag.`)) return
-  await tagsStore.deleteTag(props.tag.id)
+  try {
+    await tagsStore.deleteTag(props.tag.id)
+    success(`Tag "${props.tag.name}" deleted`)
+  } catch (e: any) {
+    toastError('Failed to delete tag: ' + (e.message || String(e)))
+    return
+  }
   emit('close')
 }
 </script>

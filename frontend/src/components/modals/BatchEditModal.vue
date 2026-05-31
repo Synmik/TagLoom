@@ -110,9 +110,11 @@ import TagChip from '../common/TagChip.vue'
 import StarRating from '../common/StarRating.vue'
 import { useFilesStore } from '../../stores/files'
 import { useTagsStore } from '../../stores/tags'
+import { useToast } from '../../composables/useToast'
 import type { Tag } from '../../types/tag'
 
 const emit = defineEmits<{ close: [] }>()
+const { success, error: toastError } = useToast()
 
 const filesStore = useFilesStore()
 const tagsStore = useTagsStore()
@@ -235,31 +237,38 @@ const onRatingChange = (r: number) => {
 const apply = async () => {
   if (nothingToApply.value) return
 
-  if (tagsToAdd.value.length > 0) {
-    const tagIDs = tagsToAdd.value.map(t => t.id)
-    await filesStore.batchAddTags(tagIDs)
-  }
+  try {
+    if (tagsToAdd.value.length > 0) {
+      const tagIDs = tagsToAdd.value.map(t => t.id)
+      await filesStore.batchAddTags(tagIDs)
+    }
 
-  if (tagsToRemove.value.length > 0) {
-    const tagIDs = tagsToRemove.value.map(t => t.id)
-    await filesStore.batchRemoveTags(tagIDs)
-  }
+    if (tagsToRemove.value.length > 0) {
+      const tagIDs = tagsToRemove.value.map(t => t.id)
+      await filesStore.batchRemoveTags(tagIDs)
+    }
 
-  if (applyRating.value) {
-    await filesStore.batchSetRating(rating.value)
-  }
+    if (applyRating.value) {
+      await filesStore.batchSetRating(rating.value)
+    }
 
-  if (favoriteAction.value === 'set') {
-    await filesStore.batchSetFavorite(true)
-  } else if (favoriteAction.value === 'unset_flag') {
-    await filesStore.batchSetFavorite(false)
-  }
+    if (favoriteAction.value === 'set') {
+      await filesStore.batchSetFavorite(true)
+    } else if (favoriteAction.value === 'unset_flag') {
+      await filesStore.batchSetFavorite(false)
+    }
 
-  filesStore.clearSelection()
-  // Reload gallery to reflect optimistic updates
-  await filesStore.reloadFiles()
-  // Reload tags tree
-  await tagsStore.loadTags()
+    filesStore.clearSelection()
+    // Reload gallery to reflect optimistic updates
+    await filesStore.reloadFiles()
+    // Reload tags tree
+    await tagsStore.loadTags()
+
+    success(`Changes applied to ${filesStore.selectionCount || 'selected'} files`)
+  } catch (e: any) {
+    toastError('Batch edit failed: ' + (e.message || String(e)))
+    return
+  }
 
   closePicker()
   emit('close')
