@@ -28,16 +28,13 @@
         >
           Batch Edit ({{ filesStore.selectionCount }})
         </button>
-        <span v-if="filesStore.isLoading" class="loading-more">Loading more…</span>
+        <span v-if="loadingMore" class="loading-more">Loading more…</span>
       </div>
     </div>
 
-    <!-- Grid / List view -->
+    <!-- Grid / List view (each has its own virtual scrolling container) -->
     <ThumbnailGrid v-if="uiStore.viewMode === 'grid'" />
     <ListView v-else />
-
-    <!-- Infinite scroll sentinel -->
-    <div ref="sentinel" class="sentinel"></div>
   </main>
 </template>
 
@@ -59,10 +56,9 @@ const filesStore = useFilesStore()
 const vaultStore = useVaultStore()
 const filtersStore = useFiltersStore()
 const tagsStore = useTagsStore()
-const { loadingMore, loadMore, resetPage, observeSentinel } = usePagination()
+const { loadingMore, loadMore, resetPage } = usePagination()
 
 const galleryRef = ref<HTMLElement | null>(null)
-const sentinel = ref<HTMLElement | null>(null)
 
 // ── Keyboard shortcuts ────────────────────────────────────────────
 const shortcuts = useKeyboardShortcuts()
@@ -100,7 +96,6 @@ interface EmptyStateConfig {
 }
 
 const emptyState = computed<EmptyStateConfig>(() => {
-  // No vault open at all
   if (!vaultStore.currentVault) {
     return {
       icon: '📂',
@@ -111,7 +106,6 @@ const emptyState = computed<EmptyStateConfig>(() => {
     }
   }
 
-  // Vault open — search returned no results
   if (filtersStore.hasActiveSearch) {
     return {
       icon: '🔍',
@@ -122,7 +116,6 @@ const emptyState = computed<EmptyStateConfig>(() => {
     }
   }
 
-  // Vault open — active filters but no matching files (totalCount === 0)
   if (filtersStore.hasActiveFilters) {
     return {
       icon: '🔍',
@@ -133,7 +126,6 @@ const emptyState = computed<EmptyStateConfig>(() => {
     }
   }
 
-  // Vault open but genuinely empty
   return {
     icon: '📁',
     title: 'No files in this vault',
@@ -160,16 +152,23 @@ function handleEmptyStateAction() {
   }
 }
 
-let cleanup: (() => void) | undefined = undefined
-
 onMounted(async () => {
   await loadGallery()
-  cleanup = observeSentinel(sentinel.value)
 })
 
-onUnmounted(() => cleanup?.())
+// Also load remaining files in background for virtual scrolling coverage
+watch(
+  () => filesStore.files.length,
+  async (len) => {
+    // If we haven't loaded all files yet, fetch the rest
+    if (len > 0 && len < filesStore.totalCount && !filesStore.isLoading) {
+      await filesStore.loadAllFiles()
+    }
+  },
+  { immediate: false }
+)
 
-// Reload when non-search filters change (searchQuery is handled by useSearch composable)
+// Reload when non-search filters change
 watch(
   () => ({
     folderPath: filtersStore.activeFilters.folderPath,
@@ -208,7 +207,6 @@ watch(
       filesStore.clearThumbnailCache()
       filtersStore.clearFilters()
     } else {
-      // Vault opened — load files (auto-scan may refill later)
       resetPage()
       await loadGallery()
     }
@@ -216,18 +214,23 @@ watch(
 )
 
 async function loadGallery() {
+  // First page for quick initial render
   await filesStore.reloadFiles()
+  // Then load remaining files for full virtual scrolling coverage
+  if (filesStore.files.length < filesStore.totalCount) {
+    await filesStore.loadAllFiles()
+  }
 }
 </script>
 
 <style scoped>
 .gallery {
   flex: 1;
-  overflow-y: auto;
-  padding: 12px;
-  background: #121212;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  background: #121212;
+  min-height: 0;
 }
 
 .loading {
@@ -258,11 +261,12 @@ async function loadGallery() {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 4px;
+  padding: 8px 12px;
   font-size: 12px;
   color: #888;
   border-bottom: 1px solid #222;
-  margin-bottom: 8px;
+  margin-bottom: 0;
+  flex-shrink: 0;
 }
 .count-bar-right {
   display: flex;
@@ -290,10 +294,5 @@ async function loadGallery() {
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
-}
-
-.sentinel {
-  height: 1px;
-  flex-shrink: 0;
 }
 </style>

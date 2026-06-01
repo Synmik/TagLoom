@@ -10,7 +10,7 @@ export const useFilesStore = defineStore('files', {
     selectedFiles: [] as File[],
     totalCount: 0,
     page: 0,
-    limit: 50,
+    limit: 200,
     isLoading: false,
     // Cache of fileID → data URL for thumbnails
     thumbnailCache: new Map<number, string>(),
@@ -61,6 +61,36 @@ export const useFilesStore = defineStore('files', {
       this.page = 0
       this.files = []
       await this.loadFiles()
+    },
+
+    /** Load all files at once (for virtual scrolling). Uses a high limit so the
+     * virtualizer has the full metadata array to work with. Thumbnails are still
+     * loaded lazily per-cell. */
+    async loadAllFiles() {
+      this.isLoading = true
+      try {
+        const filtersStore = useFiltersStore()
+        const activeFilter = filtersStore.asBackendFilter
+
+        // Load in large chunks (1000 per request) until we have everything
+        const ALL_LIMIT = 10_000
+        const result: FilePage = await Promise.race([
+          GetFiles(activeFilter, { field: 'indexed_at', order: 'desc' }, 0, ALL_LIMIT),
+          new Promise<FilePage>((_, reject) =>
+            setTimeout(() => reject(new Error('GetFiles timeout (5s)')), 5000)
+          ),
+        ])
+        const fileArray: File[] = result && Array.isArray(result.files) ? result.files : []
+        this.files = fileArray
+        this.totalCount = result?.total_count ?? 0
+        this.page = 0
+      } catch (e) {
+        console.error('filesStore.loadAllFiles failed:', e)
+        this.files = []
+        this.totalCount = 0
+      } finally {
+        this.isLoading = false
+      }
     },
     selectFile(file: File, multi: boolean = false) {
       if (multi) {

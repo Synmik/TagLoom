@@ -117,13 +117,19 @@ const onContextMenu = (e: MouseEvent) => {
 
 <style scoped>
 .list-row {
-  display: grid; grid-template-columns: 40px 1fr 1fr 100px 80px 60px;
-  padding: 4px 8px; align-items: center; cursor: pointer; border-radius: 4px;
+  display: grid;
+  grid-template-columns: 40px 1fr 1fr 100px 80px 60px;
+  align-items: center;
+  cursor: pointer;
+  border-radius: 4px;
+  height: 44px;
+  padding: 4px 8px;
+  box-sizing: border-box;
 }
 .list-row:hover { background: #1e1e1e; }
 .list-row.selected { background: #2a3a5a; }
 .thumb { width: 32px; height: 32px; object-fit: cover; border-radius: 3px; }
 .col-name { color: #ddd; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.col-tags { color: #888; font-size: 12px; }
+.col-tags { color: #888; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .col-date, .col-size, .col-rating { color: #666; font-size: 12px; }
 </style>
