@@ -30,12 +30,12 @@ const sortBy = computed({
 })
 const sortOrder = computed(() => uiStore.sortOrder)
 
-const applySort = () => {
-  filesStore.loadFiles(filtersStore.asBackendFilter, { field: uiStore.sortBy, order: uiStore.sortOrder })
+const applySort = async () => {
+  await filesStore.reloadFiles()
 }
-const toggleOrder = () => {
+const toggleOrder = async () => {
   uiStore.toggleSortOrder()
-  applySort()
+  await applySort()
 }
 </script>
 

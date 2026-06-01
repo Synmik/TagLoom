@@ -3,6 +3,7 @@ import type { File, FileUpdate, FilePage, FileFilter, SortOpts } from '../types/
 import { GetFiles, UpdateFile, SearchFiles, GenerateThumbnail, GenerateThumbnailsPool, GetThumbnailData, AddTagsToFiles, RemoveTagsFromFiles, SetRatingForFiles, SetFavoriteForFiles, DeleteFile } from '../api/backend'
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime'
 import { useFiltersStore } from './filters'
+import { useUIStore } from './ui'
 
 export const useFilesStore = defineStore('files', {
   state: () => ({
@@ -60,7 +61,8 @@ export const useFilesStore = defineStore('files', {
     async reloadFiles() {
       this.page = 0
       this.files = []
-      await this.loadFiles()
+      const uiStore = useUIStore()
+      await this.loadFiles({}, { field: uiStore.sortBy, order: uiStore.sortOrder })
     },
 
     /** Load all files at once (for virtual scrolling). Uses a high limit so the
@@ -70,12 +72,13 @@ export const useFilesStore = defineStore('files', {
       this.isLoading = true
       try {
         const filtersStore = useFiltersStore()
+        const uiStore = useUIStore()
         const activeFilter = filtersStore.asBackendFilter
+        const sortOpts = { field: uiStore.sortBy, order: uiStore.sortOrder }
 
-        // Load in large chunks (1000 per request) until we have everything
         const ALL_LIMIT = 10_000
         const result: FilePage = await Promise.race([
-          GetFiles(activeFilter, { field: 'indexed_at', order: 'desc' }, 0, ALL_LIMIT),
+          GetFiles(activeFilter, sortOpts, 0, ALL_LIMIT),
           new Promise<FilePage>((_, reject) =>
             setTimeout(() => reject(new Error('GetFiles timeout (5s)')), 5000)
           ),
