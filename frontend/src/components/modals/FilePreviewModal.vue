@@ -13,7 +13,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from 'vue'
+import { computed } from 'vue'
 import { usePreviewStore } from '../../stores/preview'
 import { useFilesStore } from '../../stores/files'
 
@@ -32,15 +32,7 @@ const navigate = (direction: number) => {
   const nextIndex = (index + direction + filesStore.files.length) % filesStore.files.length
   previewStore.setFile(filesStore.files[nextIndex])
 }
-
-const onKeydown = (e: KeyboardEvent) => {
-  if (e.key === 'ArrowLeft') navigate(-1)
-  else if (e.key === 'ArrowRight') navigate(1)
-  else if (e.key === 'Escape') emit('close')
-}
-
-onMounted(() => window.addEventListener('keydown', onKeydown))
-onUnmounted(() => window.removeEventListener('keydown', onKeydown))
+// Keyboard shortcuts (←/→/Escape) are now handled globally by useKeyboardShortcuts
 </script>
 
 <style scoped>

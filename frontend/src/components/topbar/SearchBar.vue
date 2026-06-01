@@ -2,9 +2,10 @@
   <div class="search-bar">
     <span class="search-icon">🔍</span>
     <input
+      ref="inputRef"
       v-model="query"
       @input="search"
-      @keyup.escape="clearSearch"
+      @keyup.escape="onEscape"
       type="text"
       placeholder="Search files, tags, notes…"
       class="search-input"
@@ -14,8 +15,32 @@
 </template>
 
 <script setup lang="ts">
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useSearch } from '../../composables/useSearch'
+
 const { query, search, clearSearch } = useSearch()
+const inputRef = ref<HTMLInputElement | null>(null)
+
+const focus = () => {
+  inputRef.value?.focus()
+  inputRef.value?.select()
+}
+
+const onEscape = () => {
+  clearSearch()
+  inputRef.value?.blur()
+}
+
+// Listen for Ctrl+F shortcut from useKeyboardShortcuts
+onMounted(() => {
+  window.addEventListener('tagloom:focus-search', focus)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('tagloom:focus-search', focus)
+})
+
+defineExpose({ focus })
 </script>
 
 <style scoped>

@@ -32,6 +32,7 @@ import { useUIStore } from './stores/ui'
 import { useTagsStore } from './stores/tags'
 import { useFoldersStore } from './stores/folders'
 import { useVaultStore } from './stores/vault'
+import { useKeyboardShortcuts } from './composables/useKeyboardShortcuts'
 
 const previewStore = usePreviewStore()
 const uiStore = useUIStore()
@@ -41,6 +42,9 @@ onMounted(async () => {
   useTagsStore()._watchVault()
   useFoldersStore()._watchVault()
   await useVaultStore().autoOpenLastVault()
+
+  // ── Keyboard shortcuts ──────────────────────────────────────────
+  useKeyboardShortcuts()
 })
 </script>
 

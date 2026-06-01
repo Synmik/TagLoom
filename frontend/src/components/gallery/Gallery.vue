@@ -1,5 +1,5 @@
 <template>
-  <main class="gallery" ref="galleryRef">
+  <main class="gallery" ref="galleryRef" tabindex="-1">
     <!-- Loading state -->
     <div v-if="filesStore.isLoading && (!filesStore.files || filesStore.files.length === 0)" class="loading">
       <div class="spinner"></div>
@@ -52,6 +52,7 @@ import { useVaultStore } from '../../stores/vault'
 import { useFiltersStore } from '../../stores/filters'
 import { useTagsStore } from '../../stores/tags'
 import { usePagination } from '../../composables/usePagination'
+import { useKeyboardShortcuts } from '../../composables/useKeyboardShortcuts'
 
 const uiStore = useUIStore()
 const filesStore = useFilesStore()
@@ -60,13 +61,35 @@ const filtersStore = useFiltersStore()
 const tagsStore = useTagsStore()
 const { loadingMore, loadMore, resetPage, observeSentinel } = usePagination()
 
+const galleryRef = ref<HTMLElement | null>(null)
+const sentinel = ref<HTMLElement | null>(null)
+
+// ── Keyboard shortcuts ────────────────────────────────────────────
+const shortcuts = useKeyboardShortcuts()
+
+shortcuts.on('navigate:scroll', () => {
+  const selectedId = filesStore.selectedFiles[0]?.id
+  if (!selectedId || !galleryRef.value) return
+  const cell = galleryRef.value.querySelector(`[data-file-id="${selectedId}"]`) as HTMLElement | null
+  cell?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+})
+
+const handleFocusGallery = () => {
+  galleryRef.value?.focus()
+}
+
+onMounted(() => {
+  window.addEventListener('tagloom:focus-gallery', handleFocusGallery)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('tagloom:focus-gallery', handleFocusGallery)
+})
+
 function onBatchEdit() {
   tagsStore.loadTags()
   uiStore.openBatchEdit()
 }
-
-const galleryRef = ref<HTMLElement | null>(null)
-const sentinel = ref<HTMLElement | null>(null)
 
 interface EmptyStateConfig {
   icon: string

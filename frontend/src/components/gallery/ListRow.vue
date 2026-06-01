@@ -2,6 +2,7 @@
   <div
     class="list-row"
     :class="{ selected: isSelected(file) }"
+    :data-file-id="file.id"
     @click="(e) => handleClick(e)"
     @dblclick="openPreview"
     @contextmenu.prevent="onContextMenu"
