@@ -4,6 +4,7 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -91,7 +92,7 @@ func main() {
 						return
 					}
 
-					// Check if this is an original file request
+					// Check if this is an original file request (with Range support for video seeking)
 					if strings.HasPrefix(r.URL.Path, "/api/original/") {
 						fileIDStr := strings.TrimPrefix(r.URL.Path, "/api/original/")
 						if fileIDStr == "" {
@@ -108,13 +109,20 @@ func main() {
 							return
 						}
 
-						data, err := os.ReadFile(filePath)
+						f, err := os.Open(filePath)
 						if err != nil {
 							http.Error(w, "File not found", http.StatusNotFound)
 							return
 						}
+						defer f.Close()
 
-						// Detect content type from extension
+						stat, err := f.Stat()
+						if err != nil {
+							http.Error(w, "Failed to stat file", http.StatusInternalServerError)
+							return
+						}
+						fileSize := stat.Size()
+
 						ext := strings.ToLower(filepath.Ext(filePath))
 						contentType := "application/octet-stream"
 						switch ext {
@@ -132,17 +140,84 @@ func main() {
 							contentType = "image/tiff"
 						case ".svg":
 							contentType = "image/svg+xml"
-						case ".mp4":
+						case ".mp4", ".m4v", ".f4v":
 							contentType = "video/mp4"
-						case ".webm":
-							contentType = "video/webm"
 						case ".mov":
 							contentType = "video/quicktime"
+						case ".avi":
+							contentType = "video/x-msvideo"
+						case ".webm":
+							contentType = "video/webm"
+						case ".mkv":
+							contentType = "video/x-matroska"
+						case ".wmv":
+							contentType = "video/x-ms-wmv"
+						case ".flv":
+							contentType = "video/x-flv"
+						case ".3gp":
+							contentType = "video/3gpp"
+						case ".3g2":
+							contentType = "video/3gpp2"
+						case ".vob", ".mpg", ".mpeg", ".m2v":
+							contentType = "video/mpeg"
+						case ".ogv":
+							contentType = "video/ogg"
+						case ".ts", ".mts", ".m2ts":
+							contentType = "video/mp2t"
+						case ".asf":
+							contentType = "video/x-ms-asf"
+						case ".rm":
+							contentType = "application/vnd.rn-realmedia"
+						case ".amv":
+							contentType = "video/avi"
+						case ".dv":
+							contentType = "video/dv"
+						case ".mxf":
+							contentType = "application/mxf"
 						}
 
 						w.Header().Set("Content-Type", contentType)
-						w.Header().Set("Cache-Control", "max-age=3600")
-						w.Write(data)
+						w.Header().Set("Accept-Ranges", "bytes")
+						w.Header().Set("Content-Length", fmt.Sprintf("%d", fileSize))
+
+						// Handle Range requests (video seeking)
+						rangeHeader := r.Header.Get("Range")
+						if rangeHeader != "" {
+							// Parse range: "bytes=START-END" or "bytes=START-"
+							if strings.HasPrefix(rangeHeader, "bytes=") {
+								bytesPart := strings.TrimPrefix(rangeHeader, "bytes=")
+								parts := strings.SplitN(bytesPart, "-", 2)
+								if len(parts) == 2 {
+									var start, end int64
+									if parts[0] != "" {
+										fmt.Sscanf(parts[0], "%d", &start)
+									}
+									if parts[1] != "" {
+										fmt.Sscanf(parts[1], "%d", &end)
+									} else {
+										end = fileSize - 1
+									}
+									if start > end || start >= fileSize {
+										http.Error(w, "Invalid range", http.StatusRequestedRangeNotSatisfiable)
+										return
+									}
+
+									// Seek to start position
+									f.Seek(start, 0)
+									length := end - start + 1
+
+									w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, fileSize))
+									w.Header().Set("Content-Length", fmt.Sprintf("%d", length))
+									w.WriteHeader(http.StatusPartialContent)
+									io.CopyN(w, f, length)
+									return
+								}
+							}
+						}
+
+						// Full file request
+						w.WriteHeader(http.StatusOK)
+						io.Copy(w, f)
 						return
 					}
 

@@ -1,7 +1,23 @@
 <template>
   <section class="preview-section">
-    <div class="preview-image" @dblclick="previewStore.openFullPreview">
-      <img v-if="imageUrl" :src="imageUrl" alt="Preview" />
+    <div class="preview-container" @dblclick="previewStore.openFullPreview">
+      <!-- Image preview -->
+      <img
+        v-if="isImage"
+        :src="imageUrl"
+        alt="Preview"
+        class="preview-media"
+      />
+      <!-- Video player -->
+      <video
+        v-else-if="isVideo"
+        :src="videoUrl"
+        controls
+        muted
+        preload="metadata"
+        class="preview-media"
+      />
+      <!-- Fallback -->
       <span v-else class="no-preview">No preview</span>
     </div>
     <div class="format-info">
@@ -13,20 +29,31 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { usePreviewStore } from '../../stores/preview'
-import { useVaultStore } from '../../stores/vault'
 
 const previewStore = usePreviewStore()
-const vaultStore = useVaultStore()
 
-const vaultPath = computed(() => vaultStore.currentVault?.path || '')
+const imageExtensions = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tiff', '.tif', '.svg'])
+const videoExtensions = new Set(['.mp4', '.mov', '.avi', '.webm', '.mkv', '.wmv', '.flv', '.m4v', '.3gp', '.3g2', '.vob', '.ogv', '.mpg', '.mpeg', '.m2v', '.ts', '.mts', '.m2ts', '.asf', '.rm', '.amv', '.f4v', '.dv', '.mxf'])
+
+const fileExt = computed(() => {
+  const file = previewStore.currentFile
+  if (!file) return ''
+  return file.vault_path.split('.').pop()?.toLowerCase() || ''
+})
+
+const isImage = computed(() => imageExtensions.has('.' + fileExt.value))
+const isVideo = computed(() => videoExtensions.has('.' + fileExt.value))
 
 const imageUrl = computed(() => {
   const file = previewStore.currentFile
   if (!file) return ''
-  // Use thumbnail via HTTP endpoint — works for all file types (images, videos)
-  const vp = vaultPath.value
-  const bust = vp ? `&vp=${encodeURIComponent(vp)}` : ''
-  return `/api/thumbnail/${file.id}?preview=1${bust}`
+  return `/api/original/${file.id}`
+})
+
+const videoUrl = computed(() => {
+  const file = previewStore.currentFile
+  if (!file) return ''
+  return `/api/original/${file.id}`
 })
 
 const formatName = computed(() => {
@@ -35,18 +62,21 @@ const formatName = computed(() => {
   const ext = file.vault_path.split('.').pop()?.toUpperCase() || ''
   return ext === 'JPG' || ext === 'JPEG' ? 'JPEG' : ext
 })
-
-// Double-click is wired directly to previewStore.openFullPreview in template
 </script>
 
 <style scoped>
 .preview-section { text-align: center; }
-.preview-image {
+.preview-container {
   aspect-ratio: 1; background: #111; border-radius: 6px;
   display: flex; align-items: center; justify-content: center;
-  cursor: pointer; overflow: hidden;
+  cursor: pointer; overflow: hidden; position: relative;
 }
-.preview-image img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.preview-media {
+  max-width: 100%; max-height: 100%; object-fit: contain;
+}
+.preview-container video {
+  width: 100%; height: 100%;
+}
 .no-preview { color: #444; font-size: 12px; }
 .format-info { margin-top: 6px; }
 .format-badge {

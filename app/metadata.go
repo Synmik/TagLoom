@@ -52,6 +52,24 @@ var mimeTypeMap = map[string]string{
 	".mkv":  "video/x-matroska",
 	".wmv":  "video/x-ms-wmv",
 	".flv":  "video/x-flv",
+	// Additional video formats
+	".m4v":  "video/mp4",
+	".3gp":  "video/3gpp",
+	".3g2":  "video/3gpp2",
+	".vob":  "video/mpeg",
+	".ogv":  "video/ogg",
+	".mpg":  "video/mpeg",
+	".mpeg": "video/mpeg",
+	".m2v":  "video/mpeg",
+	".ts":   "video/mp2t",
+	".mts":  "video/mp2t",
+	".m2ts": "video/mp2t",
+	".asf":  "video/x-ms-asf",
+	".rm":   "application/vnd.rn-realmedia",
+	".amv":  "video/avi",
+	".f4v":  "video/mp4",
+	".dv":   "video/dv",
+	".mxf":  "application/mxf",
 }
 
 // GetFileMetadata extracts metadata from the original file on disk.
