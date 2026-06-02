@@ -43,11 +43,7 @@ import SearchBar from './SearchBar.vue'
 import ThumbnailSlider from './ThumbnailSlider.vue'
 import SortControl from './SortControl.vue'
 import ViewToggle from './ViewToggle.vue'
-// Quit the app via Wails runtime (injected at build time)
-const Quit = (): void => {
-  // @ts-ignore - window.runtime is injected by Wails
-  window.runtime?.Quit?.()
-}
+import { Quit as QuitApp } from '../../../wailsjs/runtime/runtime'
 
 const vaultStore = useVaultStore()
 const uiStore = useUIStore()
@@ -83,7 +79,7 @@ const onVaultSettings = () => { showMenu.value = false; uiStore.openVaultSetting
 const onTagManager = () => { showMenu.value = false; uiStore.openTagManager() }
 const onExit = () => {
   showMenu.value = false
-  Quit()
+  QuitApp()
 }
 </script>
 

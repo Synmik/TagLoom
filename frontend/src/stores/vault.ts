@@ -11,7 +11,6 @@ import {
   ScanVault,
   RescanVault,
 } from '../api/backend'
-// @ts-ignore - wails runtime is injected at build time
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime'
 
 export const useVaultStore = defineStore('vault', {
