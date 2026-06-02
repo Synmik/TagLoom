@@ -62,5 +62,11 @@ export const useUIStore = defineStore('ui', {
     closeTagManager() {
       this.showTagManager = false
     },
+    setLeftPanelWidth(width: number) {
+      this.leftPanelWidth = Math.max(180, Math.min(500, width))
+    },
+    setRightPanelWidth(width: number) {
+      this.rightPanelWidth = Math.max(200, Math.min(600, width))
+    },
   },
 })

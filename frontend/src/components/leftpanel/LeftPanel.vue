@@ -1,5 +1,5 @@
 <template>
-  <aside class="left-panel">
+  <aside class="left-panel" :style="panelStyle">
     <section class="panel-section">
       <div class="section-header">
         <h3>Folders</h3>
@@ -21,12 +21,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import FolderTree from './FolderTree.vue'
 import TagTree from './TagTree.vue'
 import TagManagerModal from '../modals/TagManagerModal.vue'
 import { useVaultStore } from '../../stores/vault'
+import { useUIStore } from '../../stores/ui'
 import type { Tag } from '../../types/tag'
+
+const uiStore = useUIStore()
+const panelStyle = computed(() => ({ width: `${uiStore.leftPanelWidth}px` }))
 
 const vaultStore = useVaultStore()
 const showTagManager = ref(false)
@@ -47,11 +51,11 @@ const closeTagManager = () => {
 
 <style scoped>
 .left-panel {
-  width: 280px;
   display: flex;
   flex-direction: column;
   border-right: 1px solid #333;
   background: #1e1e1e;
+  flex-shrink: 0;
 }
 .panel-section { padding: 8px; }
 .tags-section { flex: 1; overflow-y: auto; border-top: 1px solid #333; }

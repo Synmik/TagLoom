@@ -3,7 +3,9 @@
     <TopBar />
     <div class="app-body">
       <LeftPanel />
+      <div class="resize-handle left" @mousedown="onLeftResizeStart"></div>
       <Gallery />
+      <div class="resize-handle right" @mousedown="onRightResizeStart"></div>
       <RightPanel />
     </div>
     <ScanProgressBar />
@@ -16,7 +18,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, onUnmounted } from 'vue'
 import TopBar from './components/topbar/TopBar.vue'
 import LeftPanel from './components/leftpanel/LeftPanel.vue'
 import Gallery from './components/gallery/Gallery.vue'
@@ -37,6 +39,54 @@ import { useKeyboardShortcuts } from './composables/useKeyboardShortcuts'
 const previewStore = usePreviewStore()
 const uiStore = useUIStore()
 
+// ── Panel resize logic ────────────────────────────────────────────
+
+const onLeftResizeStart = (e: MouseEvent) => {
+  e.preventDefault()
+  const startX = e.clientX
+  const startWidth = uiStore.leftPanelWidth
+
+  const onMouseMove = (ev: MouseEvent) => {
+    const delta = ev.clientX - startX
+    uiStore.setLeftPanelWidth(startWidth + delta)
+  }
+
+  const onMouseUp = () => {
+    document.removeEventListener('mousemove', onMouseMove)
+    document.removeEventListener('mouseup', onMouseUp)
+    document.body.style.cursor = ''
+    document.body.style.userSelect = ''
+  }
+
+  document.addEventListener('mousemove', onMouseMove)
+  document.addEventListener('mouseup', onMouseUp)
+  document.body.style.cursor = 'col-resize'
+  document.body.style.userSelect = 'none'
+}
+
+const onRightResizeStart = (e: MouseEvent) => {
+  e.preventDefault()
+  const startX = e.clientX
+  const startWidth = uiStore.rightPanelWidth
+
+  const onMouseMove = (ev: MouseEvent) => {
+    const delta = startX - ev.clientX
+    uiStore.setRightPanelWidth(startWidth + delta)
+  }
+
+  const onMouseUp = () => {
+    document.removeEventListener('mousemove', onMouseMove)
+    document.removeEventListener('mouseup', onMouseUp)
+    document.body.style.cursor = ''
+    document.body.style.userSelect = ''
+  }
+
+  document.addEventListener('mousemove', onMouseMove)
+  document.addEventListener('mouseup', onMouseUp)
+  document.body.style.cursor = 'col-resize'
+  document.body.style.userSelect = 'none'
+}
+
 onMounted(async () => {
   previewStore._syncSelection()
   useTagsStore()._watchVault()
@@ -56,4 +106,19 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 <style scoped>
 .app-layout { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .app-body { display: flex; flex: 1; overflow: hidden; }
+
+.resize-handle {
+  width: 4px;
+  min-width: 4px;
+  background: transparent;
+  cursor: col-resize;
+  flex-shrink: 0;
+  transition: background 0.15s;
+  position: relative;
+  z-index: 10;
+}
+.resize-handle:hover,
+.resize-handle:active {
+  background: #5b8af5;
+}
 </style>
