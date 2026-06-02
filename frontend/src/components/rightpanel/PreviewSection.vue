@@ -13,14 +13,20 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { usePreviewStore } from '../../stores/preview'
+import { useVaultStore } from '../../stores/vault'
 
 const previewStore = usePreviewStore()
+const vaultStore = useVaultStore()
+
+const vaultPath = computed(() => vaultStore.currentVault?.path || '')
 
 const imageUrl = computed(() => {
   const file = previewStore.currentFile
   if (!file) return ''
-  // Use the original file via the HTTP endpoint
-  return `/api/original/${file.id}`
+  // Use thumbnail via HTTP endpoint — works for all file types (images, videos)
+  const vp = vaultPath.value
+  const bust = vp ? `&vp=${encodeURIComponent(vp)}` : ''
+  return `/api/thumbnail/${file.id}?preview=1${bust}`
 })
 
 const formatName = computed(() => {

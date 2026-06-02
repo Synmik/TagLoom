@@ -110,15 +110,16 @@ func (a *App) GetFileMetadata(fileID int64) (*FileMetadata, error) {
 			}
 		}
 	case "video":
-		duration, err := getVideoDuration(file.VaultPath, ext)
-		if err == nil {
-			metadata.DurationSeconds = duration
-		}
-		// Try to get video resolution from container
-		w, h, err := getVideoDimensions(file.VaultPath, ext)
-		if err == nil {
-			metadata.ResolutionWidth = w
-			metadata.ResolutionHeight = h
+		// Use ffprobe for all video metadata (duration, resolution, codec)
+		if probeInfo, probeErr := utils.ProbeVideo(file.VaultPath); probeErr == nil {
+			metadata.DurationSeconds = probeInfo.DurationSeconds
+			metadata.ResolutionWidth = probeInfo.Width
+			metadata.ResolutionHeight = probeInfo.Height
+		} else {
+			// Fallback to legacy moov parsing for MP4/MOV
+			if d, err := getVideoDuration(file.VaultPath, ext); err == nil {
+				metadata.DurationSeconds = d
+			}
 		}
 	}
 

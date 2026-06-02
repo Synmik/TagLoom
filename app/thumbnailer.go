@@ -19,6 +19,14 @@ import (
 	"golang.org/x/image/webp"
 )
 
+var ffmpegAvailable = false
+
+func init() {
+	if _, err := utils.FindFFmpeg(); err == nil {
+		ffmpegAvailable = true
+	}
+}
+
 const (
 	defaultThumbnailSize  = 256
 	defaultThumbnailQuality = 80
@@ -75,21 +83,7 @@ func (a *App) GenerateThumbnail(fileID int64) (string, error) {
 	ext := strings.ToLower(filepath.Ext(vaultPath))
 	category := utils.GetFileCategory(vaultPath)
 
-	var img image.Image
-	var err error
-
-	switch category {
-	case "image", "animated":
-		img, err = decodeImage(vaultPath, ext)
-		if err != nil {
-			return "", fmt.Errorf("failed to decode image: %w", err)
-		}
-	default:
-		// Video thumbnails require FFmpeg — skip for now
-		return "", fmt.Errorf("thumbnail generation not supported for %s files yet", ext)
-	}
-
-	// Get config for thumbnail size/quality
+	// Get config for thumbnail size/quality (needed before switch for video case)
 	size := defaultThumbnailSize
 	quality := defaultThumbnailQuality
 	if a.vaultCfg != nil {
@@ -99,6 +93,43 @@ func (a *App) GenerateThumbnail(fileID int64) (string, error) {
 		if a.vaultCfg.Settings.ThumbnailQuality > 0 {
 			quality = a.vaultCfg.Settings.ThumbnailQuality
 		}
+	}
+
+	var img image.Image
+	var err error
+
+	switch category {
+	case "image", "animated":
+		img, err = decodeImage(vaultPath, ext)
+		if err != nil {
+			return "", fmt.Errorf("failed to decode image: %w", err)
+		}
+	case "video":
+		if !ffmpegAvailable {
+			return "", fmt.Errorf("ffmpeg not found — cannot generate video thumbnail for %s", ext)
+		}
+		// Generate thumbnail path first (needed for FFmpeg output)
+		if thumbPath == "" {
+			thumbPath = GenerateThumbnailPath(a.vaultPath, vaultPath)
+		}
+		// Ensure output directory exists
+		thumbDir := filepath.Dir(thumbPath)
+		if err := os.MkdirAll(thumbDir, 0755); err != nil {
+			return "", fmt.Errorf("failed to create thumbnail directory: %w", err)
+		}
+		if err := utils.ExtractVideoFrame(vaultPath, thumbPath, size, utils.DefaultVideoThumbTimestamp); err != nil {
+			os.Remove(thumbPath)
+			return "", fmt.Errorf("failed to extract video frame: %w", err)
+		}
+		// For video, skip the image resize/encode path — FFmpeg already produced the JPEG
+		// Update DB with thumbnail path
+		_, err = a.db.Conn().Exec("UPDATE files SET thumbnail_path = ? WHERE id = ?", thumbPath, fileID)
+		if err != nil {
+			return "", fmt.Errorf("failed to update thumbnail_path: %w", err)
+		}
+		return thumbPath, nil
+	default:
+		return "", fmt.Errorf("thumbnail generation not supported for %s files", ext)
 	}
 
 	// Resize to thumbnail (fit within size×size, maintain aspect ratio)
@@ -264,6 +295,82 @@ func (a *App) GenerateThumbnailsPool() error {
 			switch category {
 			case "image", "animated":
 				img, decodeErr = decodeImage(f.vaultPath, ext)
+			case "video":
+				if !ffmpegAvailable {
+					// FFmpeg not available — skip
+					resultsMu.Lock()
+					results = append(results, thumbResult{fileID: f.id, ok: false})
+					resultsMu.Unlock()
+
+					processedMu.Lock()
+					processed++
+					cur := processed
+					processedMu.Unlock()
+
+					if cur%10 == 0 || cur == total {
+						runtime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
+							"current": cur,
+							"total":   total,
+						})
+					}
+					continue
+				}
+				// Generate via FFmpeg
+				thumbDir := filepath.Dir(thumbPath)
+				if mkErr := os.MkdirAll(thumbDir, 0755); mkErr != nil {
+					resultsMu.Lock()
+					results = append(results, thumbResult{fileID: f.id, ok: false})
+					resultsMu.Unlock()
+
+					processedMu.Lock()
+					processed++
+					cur := processed
+					processedMu.Unlock()
+
+					if cur%10 == 0 || cur == total {
+						runtime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
+							"current": cur,
+							"total":   total,
+						})
+					}
+					continue
+				}
+				if ffErr := utils.ExtractVideoFrame(f.vaultPath, thumbPath, size, utils.DefaultVideoThumbTimestamp); ffErr != nil {
+					os.Remove(thumbPath)
+					resultsMu.Lock()
+					results = append(results, thumbResult{fileID: f.id, ok: false})
+					resultsMu.Unlock()
+
+					processedMu.Lock()
+					processed++
+					cur := processed
+					processedMu.Unlock()
+
+					if cur%10 == 0 || cur == total {
+						runtime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
+							"current": cur,
+							"total":   total,
+						})
+					}
+					continue
+				}
+				// Video thumbnail generated successfully by FFmpeg — skip image encode path
+				resultsMu.Lock()
+				results = append(results, thumbResult{fileID: f.id, thumbPath: thumbPath, ok: true})
+				resultsMu.Unlock()
+
+				processedMu.Lock()
+				processed++
+				cur := processed
+				processedMu.Unlock()
+
+				if cur%10 == 0 || cur == total {
+					runtime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
+						"current": cur,
+						"total":   total,
+					})
+				}
+				continue
 			default:
 				// Unsupported
 				resultsMu.Lock()
