@@ -57,6 +57,10 @@ func NewDatabase(dbPath string) (*Database, error) {
 		conn.Close()
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
+	if err := db.MigrateCompositeIndexes(); err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("failed to run migrations: %w", err)
+	}
 
 	return db, nil
 }
@@ -92,6 +96,15 @@ func (d *Database) MigrateAddDateModified() error {
 		return nil // column already exists or can't check
 	}
 	_, err = d.conn.Exec("ALTER TABLE files ADD COLUMN date_modified TEXT NOT NULL DEFAULT ''")
+	return err
+}
+
+// MigrateCompositeIndexes adds composite indexes for common filter combinations.
+// New databases get these from schema.sql; this handles upgrades.
+func (d *Database) MigrateCompositeIndexes() error {
+	_, _ = d.conn.Exec("CREATE INDEX IF NOT EXISTS idx_files_folder_fav_rating ON files(folder_path, is_favorite, rating, id)")
+	_, _ = d.conn.Exec("CREATE INDEX IF NOT EXISTS idx_files_fav_rating ON files(is_favorite, rating, id)")
+	_, err := d.conn.Exec("CREATE INDEX IF NOT EXISTS idx_file_tags_file ON file_tags(file_id)")
 	return err
 }
 

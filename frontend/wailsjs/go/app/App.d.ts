@@ -12,7 +12,7 @@ export function AddTagsToFiles(arg1:Array<number>,arg2:Array<number>):Promise<vo
 
 export function CancelThumbnailGeneration():Promise<void>;
 
-export function CleanupOrphanThumbnails():Promise<void>;
+export function CleanupOrphanThumbnails():Promise<number>;
 
 export function CloseVault():Promise<void>;
 

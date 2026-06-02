@@ -77,10 +77,18 @@ CREATE TRIGGER IF NOT EXISTS files_au AFTER UPDATE ON files BEGIN
     INSERT INTO files_fts(rowid, name, notes) VALUES (new.id, new.name, new.notes);
 END;
 
--- Indexes
+-- Single-column indexes
 CREATE INDEX IF NOT EXISTS idx_files_folder ON files(folder_path);
 CREATE INDEX IF NOT EXISTS idx_files_rating ON files(rating);
 CREATE INDEX IF NOT EXISTS idx_files_favorite ON files(is_favorite);
 CREATE INDEX IF NOT EXISTS idx_file_tags_tag ON file_tags(tag_id);
 CREATE INDEX IF NOT EXISTS idx_tags_parent ON tags(parent_id);
 CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name);
+
+-- Composite indexes for common filter combinations
+-- Covers: folder filter + favorites toggle + rating filter + id for row lookup
+CREATE INDEX IF NOT EXISTS idx_files_folder_fav_rating ON files(folder_path, is_favorite, rating, id);
+-- Covers: favorites + rating without folder filter
+CREATE INDEX IF NOT EXISTS idx_files_fav_rating ON files(is_favorite, rating, id);
+-- Reverse lookup: get all tags for a given file
+CREATE INDEX IF NOT EXISTS idx_file_tags_file ON file_tags(file_id);

@@ -122,10 +122,21 @@ func (a *App) OpenVault(path string) (*db.VaultInfo, error) {
 }
 
 // CloseVault closes the current vault and releases resources.
+// Performs WAL checkpoint + orphan thumbnail cleanup before closing.
 func (a *App) CloseVault() error {
 	if a.db == nil {
 		return nil
 	}
+
+	// WAL checkpoint: flush pending changes to main DB and truncate WAL file.
+	// This keeps the DB compact across sessions and prevents WAL file growth.
+	_, _ = a.db.Conn().Exec("PRAGMA wal_checkpoint(TRUNCATE)")
+
+	// Clean up orphan thumbnails before closing
+	if _, err := a.CleanupOrphanThumbnails(); err != nil {
+		fmt.Printf("orphan thumbnail cleanup warning: %v\n", err)
+	}
+
 	if err := a.db.Close(); err != nil {
 		return fmt.Errorf("failed to close vault: %w", err)
 	}

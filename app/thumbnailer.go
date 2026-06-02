@@ -508,11 +508,75 @@ func (a *App) GenerateThumbnailsForFiles(fileIDs []int64) int {
 	return count
 }
 
-// CleanupOrphanThumbnails removes thumbnails for files no longer in the database.
-func (a *App) CleanupOrphanThumbnails() error {
-	// TODO: Compare .tagloom/thumbnails/ with DB records
-	// TODO: Delete orphan files
-	return fmt.Errorf("not implemented")
+// CleanupOrphanThumbnails removes thumbnail files whose source file is no longer
+// in the database. It walks .tagloom/thumbnails/ and deletes any .jpg not referenced
+// by files.thumbnail_path. Returns the number of orphan files removed.
+func (a *App) CleanupOrphanThumbnails() (int, error) {
+	if a.db == nil {
+		return 0, fmt.Errorf("no vault open")
+	}
+	if a.vaultPath == "" {
+		return 0, fmt.Errorf("no vault path set")
+	}
+
+	thumbRoot := filepath.Join(a.vaultPath, ".tagloom", "thumbnails")
+	if _, err := os.Stat(thumbRoot); os.IsNotExist(err) {
+		return 0, nil // No thumbnails directory yet
+	}
+
+	// Collect all valid thumbnail paths from the database
+	validThumbs := make(map[string]struct{})
+	rows, err := a.db.Conn().Query("SELECT thumbnail_path FROM files WHERE thumbnail_path IS NOT NULL AND thumbnail_path != ''")
+	if err != nil {
+		return 0, fmt.Errorf("failed to query thumbnail paths: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var tp string
+		if err := rows.Scan(&tp); err == nil && tp != "" {
+			validThumbs[tp] = struct{}{}
+		}
+	}
+
+	// Walk the thumbnails directory and remove orphans
+	removed := 0
+	err = filepath.WalkDir(thumbRoot, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil // Skip errors, continue walking
+		}
+		if d.IsDir() {
+			return nil // Will remove empty dirs after the walk
+		}
+		if strings.HasSuffix(strings.ToLower(path), ".jpg") {
+			if _, ok := validThumbs[path]; !ok {
+				if err := os.Remove(path); err == nil {
+					removed++
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return removed, fmt.Errorf("failed to walk thumbnails directory: %w", err)
+	}
+
+	// Remove empty subdirectories (left behind after orphan deletion)
+	filepath.WalkDir(thumbRoot, func(path string, d os.DirEntry, err error) error {
+		if err != nil || !d.IsDir() || path == thumbRoot {
+			return nil
+		}
+		entries, _ := os.ReadDir(path)
+		if len(entries) == 0 {
+			os.Remove(path)
+		}
+		return nil
+	})
+
+	if removed > 0 {
+		fmt.Printf("cleaned up %d orphan thumbnails\n", removed)
+	}
+	return removed, nil
 }
 
 // GetThumbnailPath returns the thumbnail path for a file ID.
