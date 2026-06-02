@@ -2,6 +2,7 @@ import { onMounted, onUnmounted } from 'vue'
 import { useUIStore } from '../stores/ui'
 import { useFilesStore } from '../stores/files'
 import { usePreviewStore } from '../stores/preview'
+import { useVaultStore } from '../stores/vault'
 import { useToast } from './useToast'
 
 /**
@@ -9,15 +10,19 @@ import { useToast } from './useToast'
  * Register once in App.vue onMounted.
  *
  * Shortcuts:
+ *   Ctrl+A    — Select all files matching current filters
+ *   Ctrl+B    — Open batch edit modal (requires selection)
  *   Ctrl+F    — Focus search bar
+ *   Ctrl+R    — Reindex/rescan the vault
+ *   Ctrl+D    — Toggle favorite on selected file(s)
  *   Escape    — Close open modals (priority order), then clear selection
  *   ← / →     — Navigate gallery (previous / next file)
- *   Ctrl+D    — Toggle favorite on selected file(s)
  */
 export function useKeyboardShortcuts() {
   const uiStore = useUIStore()
   const filesStore = useFilesStore()
   const previewStore = usePreviewStore()
+  const vaultStore = useVaultStore()
   const { info } = useToast()
 
   // Custom event channel for child components
@@ -108,6 +113,26 @@ export function useKeyboardShortcuts() {
     // No selection — do nothing silently
   }
 
+  const handleSelectAll = () => {
+    const files = filesStore.files
+    if (files.length === 0) return
+    filesStore.selectedFiles = [...files]
+    info(`Selected ${files.length} files`)
+  }
+
+  const handleBatchEdit = () => {
+    if (filesStore.selectedFiles.length === 0) return
+    uiStore.openBatchEdit()
+  }
+
+  const handleRescan = async () => {
+    if (vaultStore.isScanning) {
+      info('Scan already in progress…')
+      return
+    }
+    await vaultStore.rescanVault()
+  }
+
   const handleCloseOrClear = () => {
     // Priority: FilePreviewModal → other modals → clear selection
 
@@ -140,10 +165,36 @@ export function useKeyboardShortcuts() {
   const onKeydown = (e: KeyboardEvent) => {
     const ctrl = e.ctrlKey || e.metaKey
 
+    // Ctrl+A — select all files matching current filters
+    if (ctrl && e.key === 'a') {
+      const inInput = document.activeElement instanceof HTMLInputElement ||
+        document.activeElement instanceof HTMLTextAreaElement ||
+        document.activeElement instanceof HTMLSelectElement
+      if (!inInput) {
+        e.preventDefault()
+        handleSelectAll()
+      }
+      return
+    }
+
+    // Ctrl+B — open batch edit modal
+    if (ctrl && e.key === 'b') {
+      e.preventDefault()
+      handleBatchEdit()
+      return
+    }
+
     // Ctrl+F — focus search
     if (ctrl && e.key === 'f') {
       e.preventDefault()
       requestFocusSearch()
+      return
+    }
+
+    // Ctrl+R — rescan vault
+    if (ctrl && e.key === 'r') {
+      e.preventDefault()
+      handleRescan()
       return
     }
 
