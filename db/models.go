@@ -1,8 +1,8 @@
 package db
 
 // File represents a media file in the vault.
-// Only user-editable and structural fields are stored.
-// Read-only metadata (filename, size, resolution, etc.) is fetched on-demand from the filesystem.
+// Stores user-editable data, structural references, and lightweight sort fields.
+// Heavy metadata (size, resolution, duration, etc.) is fetched on-demand from the filesystem.
 type File struct {
 	ID           int64   `json:"id"`
 	VaultPath    string  `json:"vault_path"`
@@ -13,6 +13,7 @@ type File struct {
 	Rating       int     `json:"rating"`
 	IsFavorite   int     `json:"is_favorite"`
 	FolderPath   string  `json:"folder_path"`
+	Filename     string  `json:"filename"`
 	DateModified string  `json:"date_modified"`
 	IndexedAt    string  `json:"indexed_at"`
 }

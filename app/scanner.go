@@ -64,9 +64,9 @@ func (a *App) ScanVault() (int, error) {
 	}
 
 	stmt, err := tx.Prepare(`
-		INSERT INTO files (vault_path, folder_path, date_modified, indexed_at)
-		VALUES (?, ?, ?, ?)
-		ON CONFLICT(vault_path) DO UPDATE SET folder_path = excluded.folder_path, date_modified = excluded.date_modified, indexed_at = excluded.indexed_at
+		INSERT INTO files (vault_path, folder_path, filename, date_modified, indexed_at)
+		VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT(vault_path) DO UPDATE SET folder_path = excluded.folder_path, filename = excluded.filename, date_modified = excluded.date_modified, indexed_at = excluded.indexed_at
 	`)
 	if err != nil {
 		tx.Rollback()
@@ -92,12 +92,13 @@ func (a *App) ScanVault() (int, error) {
 		}
 
 		folderPath := filepath.Dir(path)
+		fileName := filepath.Base(path)
 		info, statErr := os.Stat(path)
 		modStr := ""
 		if statErr == nil {
 			modStr = info.ModTime().Format(time.RFC3339)
 		}
-		_, execErr := stmt.Exec(path, folderPath, modStr, now)
+		_, execErr := stmt.Exec(path, folderPath, fileName, modStr, now)
 		if execErr != nil {
 			return fmt.Errorf("failed to insert %s: %w", path, execErr)
 		}
@@ -241,8 +242,8 @@ func (a *App) RescanVault() (int, error) {
 	// Insert new files
 	if len(added) > 0 {
 		stmt, err := tx.Prepare(`
-			INSERT INTO files (vault_path, folder_path, date_modified, indexed_at)
-			VALUES (?, ?, ?, ?)
+			INSERT INTO files (vault_path, folder_path, filename, date_created, date_modified, indexed_at)
+			VALUES (?, ?, ?, ?, ?, ?)
 		`)
 		if err != nil {
 			tx.Rollback()
@@ -252,11 +253,12 @@ func (a *App) RescanVault() (int, error) {
 		now := time.Now().Format(time.RFC3339)
 		for i, path := range added {
 			info, statErr := os.Stat(path)
+			fileName := filepath.Base(path)
 			modStr := ""
 			if statErr == nil {
 				modStr = info.ModTime().Format(time.RFC3339)
 			}
-			_, err := stmt.Exec(path, filepath.Dir(path), modStr, now)
+			_, err := stmt.Exec(path, filepath.Dir(path), fileName, modStr, now)
 			if err != nil {
 				stmt.Close()
 				tx.Rollback()
@@ -521,6 +523,7 @@ func (a *App) indexFile(filePath string) error {
 	}
 
 	folderPath := filepath.Dir(filePath)
+	fileName := filepath.Base(filePath)
 	now := time.Now().Format(time.RFC3339)
 	info, statErr := os.Stat(filePath)
 	modStr := ""
@@ -529,10 +532,10 @@ func (a *App) indexFile(filePath string) error {
 	}
 
 	_, err := a.db.Conn().Exec(`
-		INSERT INTO files (vault_path, folder_path, date_modified, indexed_at)
-		VALUES (?, ?, ?, ?)
-		ON CONFLICT(vault_path) DO UPDATE SET folder_path = excluded.folder_path, date_modified = excluded.date_modified, indexed_at = excluded.indexed_at
-	`, filePath, folderPath, modStr, now)
+		INSERT INTO files (vault_path, folder_path, filename, date_modified, indexed_at)
+		VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT(vault_path) DO UPDATE SET folder_path = excluded.folder_path, filename = excluded.filename, date_modified = excluded.date_modified, indexed_at = excluded.indexed_at
+	`, filePath, folderPath, fileName, modStr, now)
 
 	return err
 }

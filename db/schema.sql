@@ -1,6 +1,6 @@
 -- TagLoom Database Schema
--- Stores only user-editable data and structural references.
--- Read-only metadata (filename, size, resolution, etc.) is fetched on-demand from the filesystem.
+-- Stores user-editable data, structural references, and lightweight sort fields.
+-- Heavy metadata (size, resolution, duration, etc.) is fetched on-demand from the filesystem.
 
 CREATE TABLE IF NOT EXISTS files (
     id INTEGER PRIMARY KEY,
@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS files (
     rating INTEGER DEFAULT 0,
     is_favorite INTEGER DEFAULT 0,
     folder_path TEXT NOT NULL,
+    filename TEXT NOT NULL DEFAULT '',
     date_modified TEXT NOT NULL DEFAULT '',
     indexed_at TEXT NOT NULL
 );
@@ -81,6 +82,7 @@ END;
 CREATE INDEX IF NOT EXISTS idx_files_folder ON files(folder_path);
 CREATE INDEX IF NOT EXISTS idx_files_rating ON files(rating);
 CREATE INDEX IF NOT EXISTS idx_files_favorite ON files(is_favorite);
+CREATE INDEX IF NOT EXISTS idx_files_filename ON files(filename);
 CREATE INDEX IF NOT EXISTS idx_file_tags_tag ON file_tags(tag_id);
 CREATE INDEX IF NOT EXISTS idx_tags_parent ON tags(parent_id);
 CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name);

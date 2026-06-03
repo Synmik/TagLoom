@@ -130,6 +130,7 @@ export namespace db {
 	    rating: number;
 	    is_favorite: number;
 	    folder_path: string;
+	    filename: string;
 	    date_modified: string;
 	    indexed_at: string;
 	
@@ -148,6 +149,7 @@ export namespace db {
 	        this.rating = source["rating"];
 	        this.is_favorite = source["is_favorite"];
 	        this.folder_path = source["folder_path"];
+	        this.filename = source["filename"];
 	        this.date_modified = source["date_modified"];
 	        this.indexed_at = source["indexed_at"];
 	    }

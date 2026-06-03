@@ -33,8 +33,8 @@
     </div>
 
     <!-- Grid / List view (each has its own virtual scrolling container) -->
-    <ThumbnailGrid v-if="uiStore.viewMode === 'grid'" />
-    <ListView v-else />
+    <ThumbnailGrid v-if="uiStore.viewMode === 'grid'" ref="gridRef" />
+    <ListView v-else ref="listRef" />
   </main>
 </template>
 
@@ -59,6 +59,14 @@ const tagsStore = useTagsStore()
 const { loadingMore, loadMore, resetPage } = usePagination()
 
 const galleryRef = ref<HTMLElement | null>(null)
+const gridRef = ref<InstanceType<typeof ThumbnailGrid> | null>(null)
+const listRef = ref<InstanceType<typeof ListView> | null>(null)
+
+/** Scroll the active gallery view to the top */
+function scrollGalleryToTop() {
+  const activeView = uiStore.viewMode === 'grid' ? gridRef.value : listRef.value
+  activeView?.scrollToTop()
+}
 
 // ── Keyboard shortcuts ────────────────────────────────────────────
 const shortcuts = useKeyboardShortcuts()
@@ -156,17 +164,8 @@ onMounted(async () => {
   await loadGallery()
 })
 
-// Also load remaining files in background for virtual scrolling coverage
-watch(
-  () => filesStore.files.length,
-  async (len) => {
-    // If we haven't loaded all files yet, fetch the rest
-    if (len > 0 && len < filesStore.totalCount && !filesStore.isLoading) {
-      await filesStore.loadAllFiles()
-    }
-  },
-  { immediate: false }
-)
+// Load more pages as user scrolls — triggered by ThumbnailGrid's IntersectionObserver
+// (no eager loading of all files anymore)
 
 // Reload when non-search filters change
 watch(
@@ -180,8 +179,17 @@ watch(
   async () => {
     resetPage()
     await loadGallery()
+    scrollGalleryToTop()
   },
   { deep: true }
+)
+
+// Scroll to top whenever page resets (sort / vault open etc. via reloadFiles)
+watch(
+  () => filesStore.page,
+  (page) => {
+    if (page === 0) scrollGalleryToTop()
+  }
 )
 
 // Reload after scan completes
@@ -191,6 +199,7 @@ watch(
     if (wasScanning && !isScanning) {
       resetPage()
       await loadGallery()
+      scrollGalleryToTop()
     }
   }
 )
@@ -209,17 +218,15 @@ watch(
     } else {
       resetPage()
       await loadGallery()
+      scrollGalleryToTop()
     }
   }
 )
 
 async function loadGallery() {
-  // First page for quick initial render
+  // Load first page for quick initial render.
+  // Remaining pages are loaded incrementally as user scrolls.
   await filesStore.reloadFiles()
-  // Then load remaining files for full virtual scrolling coverage
-  if (filesStore.files.length < filesStore.totalCount) {
-    await filesStore.loadAllFiles()
-  }
 }
 </script>
 

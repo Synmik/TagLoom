@@ -1,9 +1,10 @@
 package db
 
 import (
-	"embed"
 	"database/sql"
+	"embed"
 	"fmt"
+	"os"
 
 	_ "modernc.org/sqlite"
 )
@@ -61,6 +62,10 @@ func NewDatabase(dbPath string) (*Database, error) {
 		conn.Close()
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
+	if err := db.MigrateAddFilenameAndDateCreated(); err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("failed to run migrations: %w", err)
+	}
 
 	return db, nil
 }
@@ -105,7 +110,29 @@ func (d *Database) MigrateCompositeIndexes() error {
 	_, _ = d.conn.Exec("CREATE INDEX IF NOT EXISTS idx_files_folder_fav_rating ON files(folder_path, is_favorite, rating, id)")
 	_, _ = d.conn.Exec("CREATE INDEX IF NOT EXISTS idx_files_fav_rating ON files(is_favorite, rating, id)")
 	_, err := d.conn.Exec("CREATE INDEX IF NOT EXISTS idx_file_tags_file ON file_tags(file_id)")
+	_, _ = d.conn.Exec("CREATE INDEX IF NOT EXISTS idx_files_filename ON files(filename)")
 	return err
+}
+
+// MigrateAddFilenameAndDateCreated adds filename column
+// for existing databases. New databases get this from schema.sql.
+func (d *Database) MigrateAddFilenameAndDateCreated() error {
+	var exists int
+	err := d.conn.QueryRow("SELECT COUNT(*) FROM pragma_table_info('files') WHERE name='filename'").Scan(&exists)
+	if err != nil || exists > 0 {
+		return nil // column already exists or can't check
+	}
+	// Add filename column
+	_, err = d.conn.Exec("ALTER TABLE files ADD COLUMN filename TEXT NOT NULL DEFAULT ''")
+	if err != nil {
+		return fmt.Errorf("failed to add filename column: %w", err)
+	}
+	// Backfill: extract basename from vault_path
+	_, err = d.conn.Exec("UPDATE files SET filename = substr(vault_path, length(replace(vault_path, '/', '')) + 2)")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "filename backfill failed, will populate on next scan: %v\n", err)
+	}
+	return nil
 }
 
 // SeedDefaultTags is a no-op — no default tags are seeded.

@@ -65,20 +65,23 @@ export const useFilesStore = defineStore('files', {
       await this.loadFiles({}, { field: uiStore.sortBy, order: uiStore.sortOrder })
     },
 
-    /** Load all files at once (for virtual scrolling). Uses a high limit so the
-     * virtualizer has the full metadata array to work with. Thumbnails are still
-     * loaded lazily per-cell. */
+    /** Load files incrementally for virtual scrolling.
+     * Loads the first page and sets totalCount so the virtualizer knows the
+     * total scroll height. Subsequent pages are loaded via loadNextPage() as
+     * the user scrolls. Thumbnails are still loaded lazily per-cell. */
     async loadAllFiles() {
       this.isLoading = true
+      this.page = 0
+      this.files = []
       try {
         const filtersStore = useFiltersStore()
         const uiStore = useUIStore()
         const activeFilter = filtersStore.asBackendFilter
         const sortOpts = { field: uiStore.sortBy, order: uiStore.sortOrder }
 
-        const ALL_LIMIT = 10_000
+        // Load first page with same page size as reloadFiles
         const result: FilePage = await Promise.race([
-          GetFiles(activeFilter, sortOpts, 0, ALL_LIMIT),
+          GetFiles(activeFilter, sortOpts, 0, this.limit),
           new Promise<FilePage>((_, reject) =>
             setTimeout(() => reject(new Error('GetFiles timeout (5s)')), 5000)
           ),
@@ -91,6 +94,41 @@ export const useFilesStore = defineStore('files', {
         console.error('filesStore.loadAllFiles failed:', e)
         this.files = []
         this.totalCount = 0
+      } finally {
+        this.isLoading = false
+      }
+    },
+
+    /** Load the next page of files and append to the current list.
+     * Used by infinite scroll / virtual grid to progressively load data
+     * as the user scrolls. Uses the same page size as reloadFiles (this.limit). */
+    async loadNextPage() {
+      const files = this.files || []
+      if (files.length >= this.totalCount) return // all loaded
+      if (this.totalCount === 0) return
+      if (this.isLoading) return
+
+      this.isLoading = true
+      try {
+        const filtersStore = useFiltersStore()
+        const uiStore = useUIStore()
+        const activeFilter = filtersStore.asBackendFilter
+        const sortOpts = { field: uiStore.sortBy, order: uiStore.sortOrder }
+
+        // Calculate next page: files.length items are loaded across pages 0..page.
+        // Since we just loaded page 'this.page', the next page is this.page + 1.
+        const nextPage = this.page + 1
+        const result: FilePage = await Promise.race([
+          GetFiles(activeFilter, sortOpts, nextPage, this.limit),
+          new Promise<FilePage>((_, reject) =>
+            setTimeout(() => reject(new Error('GetFiles timeout (5s)')), 5000)
+          ),
+        ])
+        const fileArray: File[] = result && Array.isArray(result.files) ? result.files : []
+        this.files = [...this.files, ...fileArray]
+        this.page = nextPage
+      } catch (e) {
+        console.error('filesStore.loadNextPage failed:', e)
       } finally {
         this.isLoading = false
       }
@@ -131,7 +169,7 @@ export const useFilesStore = defineStore('files', {
       const newFav = file.is_favorite === 1 ? 0 : 1
       await this.updateFile({ id: file.id, is_favorite: newFav })
     },
-    async searchFiles(query: string, limit: number = 100) {
+    async searchFiles(query: string, limit: number = 500) {
       this.isLoading = true
       try {
         const results = await SearchFiles(query, limit)
@@ -139,6 +177,7 @@ export const useFilesStore = defineStore('files', {
         const fileArray: File[] = Array.isArray(results) ? results : []
         this.files = fileArray
         this.totalCount = fileArray.length
+        this.page = 0
       } catch (e) {
         console.error('filesStore.searchFiles failed:', e)
         this.files = []

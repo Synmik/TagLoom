@@ -21,34 +21,54 @@
       >
         <ListRow :file="vi.item" />
       </div>
+
+      <!-- Sentinel: triggers loading next page when user scrolls near end of loaded data -->
+      <div
+        v-if="hasMore"
+        ref="sentinelRef"
+        class="load-sentinel"
+        :style="{ position: 'absolute', top: `${sentinelTop}px`, left: '0', width: '100%', height: '1px' }"
+      />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, nextTick, type Ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch, nextTick, type Ref } from 'vue'
 import ListRow from './ListRow.vue'
 import { useFilesStore } from '../../stores/files'
 import { useVirtualList } from '../../composables/useVirtualList'
+import { usePagination } from '../../composables/usePagination'
 import type { File } from '../../types/file'
 
 const filesStore = useFilesStore()
+const { loadMore, hasMore } = usePagination()
 
 const scrollContainerRef = ref<HTMLElement | null>(null)
+const sentinelRef = ref<HTMLElement | null>(null)
 
 const ROW_HEIGHT = 44
 
 const filesRef: Ref<File[]> = computed(() => filesStore.files)
+const totalCountRef = computed(() => filesStore.totalCount)
 
 const { visibleItems, totalHeight, setContainerHeight, attachScroll } = useVirtualList(
   filesRef,
   ROW_HEIGHT,
   5,  // overscan
   12, // horizontal padding
+  totalCountRef,
 )
+
+// Position sentinel near the last LOADED file
+const sentinelTop = computed(() => {
+  const loadedCount = filesStore.files.length
+  return loadedCount * ROW_HEIGHT
+})
 
 let scrollCleanup: (() => void) | undefined
 let resizeObserver: ResizeObserver | undefined
+let sentinelObserver: IntersectionObserver | undefined
 
 onMounted(() => {
   nextTick(() => {
@@ -73,12 +93,57 @@ onMounted(() => {
   if (scrollContainerRef.value) {
     resizeObserver.observe(scrollContainerRef.value)
   }
+
+  // Sentinel: load next page when user scrolls near end of loaded data
+  sentinelObserver = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+          loadMore()
+        }
+      }
+    },
+    { root: null, rootMargin: '200px', threshold: 0 }
+  )
 })
 
 onUnmounted(() => {
   scrollCleanup?.()
   resizeObserver?.disconnect()
+  sentinelObserver?.disconnect()
 })
+
+// ── Scroll to top (called by Gallery on sort/filter change) ──
+function scrollToTop() {
+  if (scrollContainerRef.value) {
+    scrollContainerRef.value.scrollTop = 0
+  }
+}
+
+defineExpose({ scrollToTop })
+
+// Observe/unobserve sentinel element when it appears/disappears
+watch(
+  () => hasMore.value,
+  (more) => {
+    if (more && sentinelRef.value && sentinelObserver) {
+      sentinelObserver.observe(sentinelRef.value)
+    } else {
+      sentinelObserver?.disconnect()
+    }
+  }
+)
+
+// Re-observe when files array changes (new page loaded)
+watch(
+  () => filesStore.files.length,
+  () => {
+    if (hasMore.value && sentinelRef.value && sentinelObserver) {
+      sentinelObserver.disconnect()
+      sentinelObserver.observe(sentinelRef.value)
+    }
+  }
+)
 </script>
 
 <style scoped>

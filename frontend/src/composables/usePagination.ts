@@ -1,17 +1,21 @@
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useFilesStore } from '../stores/files'
 
 export function usePagination() {
   const filesStore = useFilesStore()
   const loadingMore = ref(false)
 
-  const loadMore = async () => {
+  // Number of files still unloaded (need to fetch more pages)
+  const hasMore = computed(() => {
     const files = filesStore.files || []
-    if (loadingMore.value || files.length >= filesStore.totalCount) return
+    return files.length < filesStore.totalCount
+  })
+
+  const loadMore = async () => {
+    if (loadingMore.value || !hasMore.value) return
     if (filesStore.totalCount === 0) return
     loadingMore.value = true
-    filesStore.page++
-    await filesStore.loadFiles()
+    await filesStore.loadNextPage()
     loadingMore.value = false
   }
 
@@ -20,5 +24,5 @@ export function usePagination() {
     filesStore.files = []
   }
 
-  return { loadingMore, loadMore, resetPage }
+  return { loadingMore, loadMore, resetPage, hasMore }
 }

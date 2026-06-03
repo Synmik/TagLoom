@@ -33,6 +33,7 @@ export function useVirtualGrid(
   gap: number = 8,
   overscan: number = 3,
   padding: number = 12,
+  totalCount?: Ref<number>,
 ): UseVirtualGridReturn {
   const scrollY = ref(0)
   const containerWidth = ref(800)
@@ -49,8 +50,15 @@ export function useVirtualGrid(
   // Row height = cellSize (square thumbnail) + filename label area.
   const rowHeight = computed(() => cellSize.value + 28)
 
+  // Use totalCount (from DB) for accurate scroll height even before all pages loaded.
+  // Fall back to files.value.length if totalCount not provided.
+  const logicalCount = computed(() => {
+    if (totalCount && totalCount.value > 0) return totalCount.value
+    return files.value.length
+  })
+
   const numRows = computed(() => {
-    const count = files.value.length
+    const count = logicalCount.value
     if (count === 0) return 0
     return Math.ceil(count / numColumns.value)
   })

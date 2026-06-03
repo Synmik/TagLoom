@@ -10,6 +10,8 @@ export interface File {
   rating: number
   is_favorite: number
   folder_path: string
+  filename: string
+  date_modified: string
   indexed_at: string
 }
 

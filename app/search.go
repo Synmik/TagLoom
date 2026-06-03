@@ -18,7 +18,7 @@ func (a *App) SearchFiles(query string, limit int) ([]db.File, error) {
 	}
 
 	if limit <= 0 {
-		limit = 100
+		limit = 500
 	}
 
 	// FTS5 search on name and notes — split into words so each term is searched
@@ -60,7 +60,7 @@ func (a *App) SearchFiles(query string, limit int) ([]db.File, error) {
 
 		querySQL := fmt.Sprintf(`
 			SELECT f.id, f.vault_path, f.thumbnail_path, f.name, f.notes, f.link,
-			       f.rating, f.is_favorite, f.folder_path, f.date_modified, f.indexed_at
+			       f.rating, f.is_favorite, f.folder_path, f.filename, f.date_modified, f.indexed_at
 			FROM files f
 			WHERE f.id IN (
 				SELECT rowid FROM files_fts WHERE files_fts MATCH %q
@@ -80,7 +80,7 @@ func (a *App) SearchFiles(query string, limit int) ([]db.File, error) {
 	// No valid tag words — fall back to FTS + filename only
 	querySQL := fmt.Sprintf(`
 		SELECT f.id, f.vault_path, f.thumbnail_path, f.name, f.notes, f.link,
-		       f.rating, f.is_favorite, f.folder_path, f.date_modified, f.indexed_at
+		       f.rating, f.is_favorite, f.folder_path, f.filename, f.date_modified, f.indexed_at
 		FROM files f
 		WHERE f.id IN (
 			SELECT rowid FROM files_fts WHERE files_fts MATCH %q
@@ -168,7 +168,7 @@ func (a *App) GetFiles(filter db.FileFilter, sortOpts db.SortOpts, page, limit i
 		"name":         "f.name",
 		"rating":       "f.rating",
 		"indexed_at":   "f.indexed_at",
-		"filename":     "f.vault_path",
+		"filename":     "f.filename",
 		"date_modified": "f.date_modified",
 	}[sortField]
 	if sortColumn == "" {
@@ -260,7 +260,7 @@ func (a *App) GetFiles(filter db.FileFilter, sortOpts db.SortOpts, page, limit i
 		// Fetch full records in sorted order
 		querySQL := fmt.Sprintf(`
 			SELECT f.id, f.vault_path, f.thumbnail_path, f.name, f.notes, f.link,
-			       f.rating, f.is_favorite, f.folder_path, f.date_modified, f.indexed_at
+			       f.rating, f.is_favorite, f.folder_path, f.filename, f.date_modified, f.indexed_at
 			FROM files f WHERE f.id IN (%s)
 		`, strings.Join(idPlaceholders, ","))
 		rows, err := a.db.Conn().Query(querySQL, idArgs...)
@@ -292,10 +292,10 @@ func (a *App) GetFiles(filter db.FileFilter, sortOpts db.SortOpts, page, limit i
 		}, nil
 	}
 
-	// In-DB sort (name, rating, indexed_at, filename, date_modified)
+	// In-DB sort
 	querySQL := fmt.Sprintf(`
 		SELECT f.id, f.vault_path, f.thumbnail_path, f.name, f.notes, f.link,
-		       f.rating, f.is_favorite, f.folder_path, f.date_modified, f.indexed_at
+		       f.rating, f.is_favorite, f.folder_path, f.filename, f.date_modified, f.indexed_at
 		FROM files f %s
 		ORDER BY %s %s
 		LIMIT ? OFFSET ?
@@ -342,14 +342,14 @@ func (a *App) GetFileByID(id int64) (*db.File, error) {
 
 	row := a.db.Conn().QueryRow(`
 		SELECT id, vault_path, thumbnail_path, name, notes, link,
-		       rating, is_favorite, folder_path, date_modified, indexed_at
+		       rating, is_favorite, folder_path, filename, date_modified, indexed_at
 		FROM files WHERE id = ?
 	`, id)
 
 	var file db.File
 	if err := row.Scan(&file.ID, &file.VaultPath, &file.ThumbnailPath, &file.Name,
 		&file.Notes, &file.Link, &file.Rating, &file.IsFavorite,
-		&file.FolderPath, &file.DateModified, &file.IndexedAt); err != nil {
+		&file.FolderPath, &file.Filename, &file.DateModified, &file.IndexedAt); err != nil {
 		return nil, err
 	}
 	return &file, nil
@@ -392,7 +392,7 @@ func scanFiles(rows *sql.Rows) ([]db.File, error) {
 		var f db.File
 		if err := rows.Scan(&f.ID, &f.VaultPath, &f.ThumbnailPath, &f.Name,
 			&f.Notes, &f.Link, &f.Rating, &f.IsFavorite,
-			&f.FolderPath, &f.DateModified, &f.IndexedAt); err != nil {
+			&f.FolderPath, &f.Filename, &f.DateModified, &f.IndexedAt); err != nil {
 			return nil, err
 		}
 		files = append(files, f)
