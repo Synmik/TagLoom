@@ -30,6 +30,7 @@ func main() {
 		Height:      800,
 		MinWidth:    900,
 		MinHeight:   600,
+		Frameless:   true,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 			Middleware: assetserver.Middleware(func(next http.Handler) http.Handler {

@@ -1,5 +1,6 @@
 <template>
   <div class="app-layout">
+    <TitleBar />
     <TopBar />
     <div class="app-body">
       <LeftPanel />
@@ -19,6 +20,7 @@
 
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue'
+import TitleBar from './components/common/TitleBar.vue'
 import TopBar from './components/topbar/TopBar.vue'
 import LeftPanel from './components/leftpanel/LeftPanel.vue'
 import Gallery from './components/gallery/Gallery.vue'
