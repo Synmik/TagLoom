@@ -12,6 +12,7 @@ export const useUIStore = defineStore('ui', {
     sortOrder: 'desc' as 'asc' | 'desc',
     leftPanelWidth: 280,
     rightPanelWidth: 320,
+    leftPanelSplit: 50,
     showBatchEdit: false,
     showVaultSettings: false,
     showTagManager: false,
@@ -67,6 +68,9 @@ export const useUIStore = defineStore('ui', {
     },
     setRightPanelWidth(width: number) {
       this.rightPanelWidth = Math.max(200, Math.min(600, width))
+    },
+    setLeftPanelSplit(percent: number) {
+      this.leftPanelSplit = Math.max(15, Math.min(85, percent))
     },
   },
 })

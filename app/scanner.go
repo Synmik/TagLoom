@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -416,6 +417,8 @@ func buildFolderTree(counts map[string]int, childrenOf map[string][]string, path
 	}
 
 	seen[path] = true
+	// Sort children by path so folders appear in alphabetical order
+	slices.Sort(children)
 	for _, childPath := range children {
 		if seen[childPath] {
 			continue // Skip cycles (e.g. folder listed as its own child)
