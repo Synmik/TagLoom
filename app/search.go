@@ -272,6 +272,9 @@ func (a *App) GetFiles(filter db.FileFilter, sortOpts db.SortOpts, page, limit i
 			return nil, err
 		}
 
+		// Attach tags to each file
+		attachTagsForFiles(a.db, files)
+
 		// Re-order results to match the sorted ID sequence
 		fileMap := make(map[int64]db.File, len(files))
 		for _, f := range files {
@@ -312,12 +315,87 @@ func (a *App) GetFiles(filter db.FileFilter, sortOpts db.SortOpts, page, limit i
 		return nil, err
 	}
 
+	// Batch-fetch tags for all files in this page
+	attachTagsForFiles(a.db, files)
+
 	return &db.FilePage{
 		Files:      files,
 		TotalCount: totalCount,
 		Page:       page,
 		Limit:      limit,
 	}, nil
+}
+
+// attachTagsForFiles does a single batch query to get all tags for the given file IDs
+// and attaches them to each file's Tags slice.
+func attachTagsForFiles(database *db.Database, files []db.File) {
+	if len(files) == 0 {
+		return
+	}
+
+	fileIDs := make([]int64, len(files))
+	for i, f := range files {
+		fileIDs[i] = f.ID
+	}
+
+	tagsMap, err := getTagsForFiles(database, fileIDs)
+	if err != nil {
+		return // non-fatal: files returned without tags
+	}
+	for i := range files {
+		files[i].Tags = tagsMap[files[i].ID]
+	}
+}
+
+// getTagsForFiles returns a map of fileID -> []Tag for the given file IDs.
+func getTagsForFiles(database *db.Database, fileIDs []int64) (map[int64][]db.Tag, error) {
+	tagsMap := make(map[int64][]db.Tag)
+
+	placeholders := make([]string, len(fileIDs))
+	args := make([]any, len(fileIDs))
+	for i, id := range fileIDs {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+
+	querySQL := fmt.Sprintf(`
+		SELECT ft.file_id, t.id, t.name, t.color, t.parent_id, t.is_category, t.sort_order, t.created_at
+		FROM file_tags ft
+		JOIN tags t ON ft.tag_id = t.id
+		WHERE ft.file_id IN (%s)
+		ORDER BY ft.file_id, t.sort_order
+	`, strings.Join(placeholders, ","))
+
+	rows, err := database.Conn().Query(querySQL, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var fileID int64
+		var t db.Tag
+		var color sql.NullString
+		var parentID sql.NullInt64
+
+		if err := rows.Scan(&fileID, &t.ID, &t.Name, &color, &parentID,
+			&t.IsCategory, &t.SortOrder, &t.CreatedAt); err != nil {
+			continue
+		}
+		if color.Valid {
+			t.Color = color.String
+		}
+		if parentID.Valid {
+			val := parentID.Int64
+			t.ParentID = &val
+		}
+		tagsMap[fileID] = append(tagsMap[fileID], t)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return tagsMap, nil
 }
 
 // GetOriginalFilePath returns the absolute path of the original file on disk.

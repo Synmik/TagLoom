@@ -5,11 +5,9 @@
   >
     <!-- Sticky header (outside virtual area) -->
     <div class="list-header">
-      <span class="col-thumb"></span>
       <span class="col-name">Name</span>
       <span class="col-tags">Tags</span>
-      <span class="col-date">Date</span>
-      <span class="col-size">Size</span>
+      <span class="col-date">Modified</span>
       <span class="col-rating">Rating</span>
     </div>
     <!-- Virtualized content area -->
@@ -163,7 +161,7 @@ watch(
 
 .list-header {
   display: grid;
-  grid-template-columns: 40px 1fr 1fr 100px 80px 60px;
+  grid-template-columns: 1fr 1fr 160px 60px;
   padding: 6px 8px;
   color: #888;
   font-size: 11px;

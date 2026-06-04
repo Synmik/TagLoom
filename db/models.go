@@ -16,6 +16,7 @@ type File struct {
 	Filename     string  `json:"filename"`
 	DateModified string  `json:"date_modified"`
 	IndexedAt    string  `json:"indexed_at"`
+	Tags         []Tag   `json:"tags,omitempty"`
 }
 
 // FileUpdate contains fields that can be updated by the user.

@@ -1,5 +1,15 @@
 // Aligns with generated Wails types in wailsjs/go/models.ts (db namespace)
 
+export interface FileTag {
+  id: number
+  name: string
+  color: string
+  parent_id?: number
+  is_category: number
+  sort_order: number
+  created_at: string
+}
+
 export interface File {
   id: number
   vault_path: string
@@ -13,6 +23,7 @@ export interface File {
   filename: string
   date_modified: string
   indexed_at: string
+  tags?: FileTag[]
 }
 
 export interface FileUpdate {
