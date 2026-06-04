@@ -7,11 +7,9 @@
     @dblclick="openPreview"
     @contextmenu.prevent="onContextMenu"
   >
-    <span class="col-thumb"><img :src="thumbnailUrl" class="thumb" /></span>
     <span class="col-name">{{ filename }}</span>
     <span class="col-tags">{{ tagsText }}</span>
-    <span class="col-date">{{ file.indexed_at }}</span>
-    <span class="col-size">{{ fileSize }}</span>
+    <span class="col-date">{{ formattedDate }}</span>
     <span class="col-rating">{{ '★'.repeat(file.rating) }}{{ '☆'.repeat(5 - file.rating) }}</span>
   </div>
   <ContextMenu :visible="visible" :x="x" :y="y" :items="items" @close="close" />
@@ -38,9 +36,13 @@ const { success, error: toastError } = useToast()
 const { visible, x, y, items, open, close } = useContextMenu()
 
 const filename = computed(() => props.file.vault_path.split(/[\\/]/).pop() || '')
-const thumbnailUrl = computed(() => props.file.thumbnail_path || '')
 const tagsText = computed(() => '—') // TODO: Load tags for this file
-const fileSize = computed(() => '—') // TODO: Fetch from metadata
+
+const formattedDate = computed(() => {
+  if (!props.file.date_modified) return '—'
+  const d = new Date(props.file.date_modified)
+  return d.toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+})
 
 const handleClick = async (e: MouseEvent) => {
   if (!e.ctrlKey && !e.shiftKey) {
@@ -118,7 +120,7 @@ const onContextMenu = (e: MouseEvent) => {
 <style scoped>
 .list-row {
   display: grid;
-  grid-template-columns: 40px 1fr 1fr 100px 80px 60px;
+  grid-template-columns: 1fr 1fr 160px 60px;
   align-items: center;
   cursor: pointer;
   border-radius: 4px;
@@ -128,8 +130,7 @@ const onContextMenu = (e: MouseEvent) => {
 }
 .list-row:hover { background: #1e1e1e; }
 .list-row.selected { background: #2a3a5a; }
-.thumb { width: 32px; height: 32px; object-fit: cover; border-radius: 3px; }
 .col-name { color: #ddd; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .col-tags { color: #888; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.col-date, .col-size, .col-rating { color: #666; font-size: 12px; }
+.col-date, .col-rating { color: #666; font-size: 12px; }
 </style>
