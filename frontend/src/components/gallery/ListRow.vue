@@ -8,6 +8,7 @@
     @contextmenu.prevent="onContextMenu"
   >
     <span class="col-name">{{ filename }}</span>
+<<<<<<< HEAD
     <span class="col-tags">
       <template v-if="file.tags && file.tags.length">
         <span
@@ -20,6 +21,9 @@
       </template>
       <span v-else class="no-tags">—</span>
     </span>
+=======
+    <span class="col-tags">{{ tagsText }}</span>
+>>>>>>> 77b2905b2c3bf3d7fbd6fcab687eff21ab359820
     <span class="col-date">{{ formattedDate }}</span>
     <span class="col-rating">{{ '★'.repeat(file.rating) }}{{ '☆'.repeat(5 - file.rating) }}</span>
   </div>
@@ -47,6 +51,10 @@ const { success, error: toastError } = useToast()
 const { visible, x, y, items, open, close } = useContextMenu()
 
 const filename = computed(() => props.file.vault_path.split(/[\\/]/).pop() || '')
+<<<<<<< HEAD
+=======
+const tagsText = computed(() => '—') // TODO: Load tags for this file
+>>>>>>> 77b2905b2c3bf3d7fbd6fcab687eff21ab359820
 
 const formattedDate = computed(() => {
   if (!props.file.date_modified) return '—'
@@ -144,6 +152,7 @@ const onContextMenu = (e: MouseEvent) => {
 .list-row:hover { background: #1e1e1e; }
 .list-row.selected { background: #2a3a5a; }
 .col-name { color: #ddd; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+<<<<<<< HEAD
 .col-tags { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; min-height: 0; }
 .tag-chip {
   display: inline-block;
@@ -158,5 +167,8 @@ const onContextMenu = (e: MouseEvent) => {
 }
 .tag-more { color: #666; font-size: 11px; }
 .no-tags { color: #888; font-size: 12px; }
+=======
+.col-tags { color: #888; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+>>>>>>> 77b2905b2c3bf3d7fbd6fcab687eff21ab359820
 .col-date, .col-rating { color: #666; font-size: 12px; }
 </style>
