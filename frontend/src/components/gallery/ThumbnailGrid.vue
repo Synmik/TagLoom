@@ -43,7 +43,7 @@ const cellSizeRef = computed(() => uiStore.gridPixelSize)
 const filesRef: Ref<File[]> = computed(() => filesStore.files)
 const totalCountRef = computed(() => filesStore.totalCount)
 
-const { visibleCells, totalHeight, numColumns, setContainerSize, attachScroll } = useVirtualGrid(
+const { visibleCells, totalHeight, numColumns, setContainerSize, attachScroll, scrollTo } = useVirtualGrid(
   filesRef,
   cellSizeRef,
   8,   // gap between cells
@@ -116,10 +116,13 @@ function scrollToTop() {
 
 defineExpose({ scrollToTop })
 
-// Observe/unobserve sentinel element when it appears/disappears
+// Observe/unobserve sentinel element when it appears/disappears.
+// Use nextTick to wait for the v-if DOM update — otherwise sentinelRef
+// is still null when hasMore flips to true on first page load.
 watch(
   () => hasMore.value,
-  (more) => {
+  async (more) => {
+    await nextTick()
     if (more && sentinelRef.value && sentinelObserver) {
       sentinelObserver.observe(sentinelRef.value)
     } else {
@@ -128,10 +131,12 @@ watch(
   }
 )
 
-// Re-observe when files array changes (new page loaded)
+// Re-observe when files array changes (new page loaded).
+// nextTick ensures the sentinel element is in the DOM before observing.
 watch(
   () => filesStore.files.length,
-  () => {
+  async () => {
+    await nextTick()
     if (hasMore.value && sentinelRef.value && sentinelObserver) {
       sentinelObserver.disconnect()
       sentinelObserver.observe(sentinelRef.value)
@@ -139,9 +144,14 @@ watch(
   }
 )
 
-// Re-attach when grid size changes (affects column count)
+// When grid size changes, measure the container BEFORE Vue renders so
+// visibleCells computes with both the new cellSize and the correct
+// containerWidth simultaneously. Otherwise Vue renders cells with the
+// new cellSize but old column count, causing overlap.
 watch(() => uiStore.gridSize, () => {
+  scrollTo(0)
   if (scrollContainerRef.value) {
+    scrollContainerRef.value.scrollTop = 0
     setContainerSize(
       scrollContainerRef.value.clientWidth,
       scrollContainerRef.value.clientHeight,

@@ -32,8 +32,14 @@
       </div>
     </div>
 
-    <!-- Grid / List view (each has its own virtual scrolling container) -->
-    <ThumbnailGrid v-if="uiStore.viewMode === 'grid'" ref="gridRef" />
+    <!-- Grid / List view (each has its own virtual scrolling container).
+         Key on gridSize so the grid component is fully torn down & rebuilt,
+         eliminating any possibility of stale DOM overlapping cells. -->
+    <ThumbnailGrid
+      v-if="uiStore.viewMode === 'grid'"
+      :key="'grid-' + uiStore.gridSize"
+      ref="gridRef"
+    />
     <ListView v-else ref="listRef" />
   </main>
 </template>
@@ -182,6 +188,17 @@ watch(
     scrollGalleryToTop()
   },
   { deep: true }
+)
+
+// Reload when thumbnail size changes — forces a clean re-render of all
+// grid cells with the new size, avoiding stale-position collapse.
+watch(
+  () => uiStore.gridSize,
+  async () => {
+    resetPage()
+    await loadGallery()
+    scrollGalleryToTop()
+  }
 )
 
 // Scroll to top whenever page resets (sort / vault open etc. via reloadFiles)

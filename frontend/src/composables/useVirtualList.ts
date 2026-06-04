@@ -12,6 +12,7 @@ export interface UseVirtualListReturn {
   totalHeight: ComputedRef<number>
   setContainerHeight: (h: number) => void
   attachScroll: (el: HTMLElement | null) => () => void
+  scrollTo: (y: number) => void
 }
 
 export function useVirtualList(
@@ -19,16 +20,14 @@ export function useVirtualList(
   rowHeight: number = 44,
   overscan: number = 5,
   horizontalPadding: number = 12,
-  totalCount?: Ref<number>,
+  _totalCount?: Ref<number>, // kept for signature compat
 ): UseVirtualListReturn {
   const scrollY = ref(0)
   const containerHeight = ref(600)
 
-  // Use totalCount (from DB) for accurate scroll height even before all pages loaded.
-  const logicalCount = computed(() => {
-    if (totalCount && totalCount.value > 0) return totalCount.value
-    return files.value.length
-  })
+  // Use only loaded files for scroll height so the scrollbar reflects what's
+  // actually in memory. Prevents overscrolling into unloaded area.
+  const logicalCount = computed(() => files.value.length)
 
   const totalHeight = computed(() => logicalCount.value * rowHeight)
 
@@ -74,6 +73,10 @@ export function useVirtualList(
     scrollCleanup?.()
   })
 
+  const scrollTo = (y: number) => {
+    scrollY.value = y
+  }
+
   return {
     visibleItems,
     totalHeight,
@@ -87,5 +90,6 @@ export function useVirtualList(
       }
       return () => { el?.removeEventListener('scroll', onScroll) }
     },
+    scrollTo,
   }
 }

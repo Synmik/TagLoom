@@ -16,6 +16,7 @@ export interface UseVirtualGridReturn {
   onScroll: (e: Event) => void
   setContainerSize: (width: number, height: number) => void
   attachScroll: (el: HTMLElement | null) => (() => void)
+  scrollTo: (y: number) => void
 }
 
 /**
@@ -33,7 +34,7 @@ export function useVirtualGrid(
   gap: number = 8,
   overscan: number = 3,
   padding: number = 12,
-  totalCount?: Ref<number>,
+  _totalCount?: Ref<number>, // kept for signature compat
 ): UseVirtualGridReturn {
   const scrollY = ref(0)
   const containerWidth = ref(800)
@@ -50,12 +51,10 @@ export function useVirtualGrid(
   // Row height = cellSize (square thumbnail) + filename label area.
   const rowHeight = computed(() => cellSize.value + 28)
 
-  // Use totalCount (from DB) for accurate scroll height even before all pages loaded.
-  // Fall back to files.value.length if totalCount not provided.
-  const logicalCount = computed(() => {
-    if (totalCount && totalCount.value > 0) return totalCount.value
-    return files.value.length
-  })
+  // Use only loaded files for scroll height so the scrollbar reflects what's
+  // actually in memory. This prevents the user from overscrolling into unloaded
+  // territory and ensures the infinite-scroll sentinel stays reachable.
+  const logicalCount = computed(() => files.value.length)
 
   const numRows = computed(() => {
     const count = logicalCount.value
@@ -75,7 +74,10 @@ export function useVirtualGrid(
 
     if (rows === 0) return []
 
-    const startRow = Math.floor(scrollY.value / rh)
+    // Clamp startRow so we never end up past the last row — prevents
+    // the grid going blank when scrollY is stale after a layout change
+    // (e.g. grid size, container resize, or page load).
+    const startRow = Math.min(Math.floor(scrollY.value / rh), Math.max(0, rows - 1))
     const visibleRowCount = Math.ceil(containerHeight.value / rh)
 
     const start = Math.max(0, startRow - overscan)
@@ -134,6 +136,10 @@ export function useVirtualGrid(
     // Triggered by window resize — the component should call setContainerSize
   }
 
+  const scrollTo = (y: number) => {
+    scrollY.value = y
+  }
+
   onMounted(() => {
     window.addEventListener('resize', onResize)
   })
@@ -150,5 +156,6 @@ export function useVirtualGrid(
     onScroll,
     setContainerSize,
     attachScroll,
+    scrollTo,
   }
 }
