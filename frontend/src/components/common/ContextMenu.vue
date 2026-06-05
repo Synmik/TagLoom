@@ -99,11 +99,10 @@ onUnmounted(() => {
   position: fixed;
   z-index: 10000;
   min-width: 180px;
-  background: #252525;
-  border: 1px solid #444;
-  border-radius: 6px;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 8px;
   padding: 4px 0;
-
 }
 
 .menu-item {
@@ -113,13 +112,14 @@ onUnmounted(() => {
   padding: 6px 12px;
   cursor: pointer;
   font-size: 12px;
-  color: #ddd;
+  color: #ccc;
+  font-family: 'Inter', sans-serif;
   user-select: none;
 }
 
 .menu-item:hover:not(.disabled) {
-  background: #5b8af5;
-  color: #fff;
+  background: #14532d;
+  color: #e8e8e8;
 }
 
 .menu-item.disabled {
@@ -139,7 +139,7 @@ onUnmounted(() => {
 
 .menu-divider {
   height: 1px;
-  background: #444;
+  background: #2a2a2a;
   margin: 4px 8px;
 }
 

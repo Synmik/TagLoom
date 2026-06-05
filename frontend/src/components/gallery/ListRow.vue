@@ -180,19 +180,19 @@ const onContextMenu = (e: MouseEvent) => {
   grid-template-columns: 1fr 1fr 160px 60px;
   align-items: center;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 6px;
   height: 44px;
-  padding: 4px 8px;
+  padding: 4px 10px;
   box-sizing: border-box;
 }
-.list-row:hover { background: #1e1e1e; }
-.list-row.selected { background: #2a3a5a; }
-.col-name { color: #ddd; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.list-row:hover { background: #1a1a1a; }
+.list-row.selected { background: #14532d; }
+.col-name { color: #ccc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .col-tags { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; min-height: 0; }
 .tag-chip {
   display: inline-block;
-  padding: 1px 6px;
-  border-radius: 3px;
+  padding: 1px 8px;
+  border-radius: 10px;
   font-size: 11px;
   line-height: 1.4;
   white-space: nowrap;
@@ -200,7 +200,7 @@ const onContextMenu = (e: MouseEvent) => {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.tag-more { color: #666; font-size: 11px; }
-.no-tags { color: #888; font-size: 12px; }
+.tag-more { color: #555; font-size: 11px; }
+.no-tags { color: #666; font-size: 12px; }
 .col-date, .col-rating { color: #666; font-size: 12px; }
 </style>

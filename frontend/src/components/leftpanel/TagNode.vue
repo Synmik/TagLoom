@@ -69,20 +69,21 @@ const handleContextMenu = () => {
 .tag-node-wrapper { }
 
 .tag-node {
-  display: flex; align-items: center; gap: 4px;
-  padding: 3px 8px; cursor: pointer; border-radius: 4px; margin: 1px 0;
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 10px; cursor: pointer; border-radius: 6px; margin: 1px 0;
+  font-size: 13px;
 }
-.tag-node:hover { background: #2a2a2a; }
-.tag-node.selected { background: #2a3a5a; }
+.tag-node:hover { background: #1e1e1e; }
+.tag-node.selected { background: #14532d; color: #e8e8e8; }
 
 .arrow {
-  font-size: 8px; color: #888; width: 10px; text-align: center; flex-shrink: 0;
+  font-size: 8px; color: #666; width: 10px; text-align: center; flex-shrink: 0;
   cursor: pointer;
 }
 .arrow.spacer { cursor: default; }
 .color-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.tag-name { flex: 1; color: #ddd; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
-.file-count { font-size: 11px; color: #666; }
+.tag-name { flex: 1; color: #ccc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-count { font-size: 11px; color: #555; background: #1a1a1a; padding: 1px 6px; border-radius: 10px; }
 
 .tag-children { padding-left: 16px; }
 </style>

@@ -32,12 +32,15 @@ watch(localNotes, (value, _prev, onCleanup) => {
 </script>
 
 <style scoped>
-.field-section { display: flex; flex-direction: column; gap: 4px; }
-.field-label { color: #888; font-size: 11px; text-transform: uppercase; }
+.field-section { display: flex; flex-direction: column; gap: 6px; }
+.field-label { color: #666; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
 .field-textarea {
-  background: #2a2a2a; border: 1px solid #444; color: #fff;
-  border-radius: 4px; padding: 6px 8px; font-size: 13px; outline: none;
-  resize: vertical; font-family: inherit;
+  background: #1a1a1a; border: 1px solid #2a2a2a; color: #e8e8e8;
+  border-radius: 6px; padding: 7px 10px; font-size: 13px; outline: none;
+  resize: vertical;
+  font-family: 'Inter', sans-serif;
+  transition: border-color 0.15s;
 }
-.field-textarea:focus { border-color: #5b8af5; }
+.field-textarea:focus { border-color: #22c55e; }
+.field-textarea::placeholder { color: #444; }
 </style>

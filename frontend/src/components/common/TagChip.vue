@@ -31,13 +31,14 @@ const chipColor = computed(() => {
 
 <style scoped>
 .tag-chip {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 2px 6px; border-radius: 12px; font-size: 12px; color: #ddd;
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 8px; border-radius: 10px; font-size: 12px; color: #ddd;
 }
 .tag-text { }
 .remove-btn {
-  background: none; border: none; color: #888; cursor: pointer;
+  background: none; border: none; color: #666; cursor: pointer;
   font-size: 14px; line-height: 1; padding: 0;
+  transition: color 0.15s;
 }
-.remove-btn:hover { color: #ff4444; }
+.remove-btn:hover { color: #ef4444; }
 </style>

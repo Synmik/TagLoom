@@ -99,13 +99,14 @@ const onContext = (e: MouseEvent) => {
 
 <style scoped>
 .node-row {
-  display: flex; align-items: center; gap: 4px;
-  padding: 3px 8px; cursor: pointer; border-radius: 4px; margin: 1px 0;
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 10px; cursor: pointer; border-radius: 6px; margin: 1px 0;
+  font-size: 13px;
 }
-.node-row:hover { background: #2a2a2a; }
-.node-row.selected { background: #5b8af5; color: #fff; }
-.expand-icon { font-size: 10px; width: 14px; text-align: center; color: #888; }
-.folder-icon { font-size: 14px; }
-.folder-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #ddd; }
-.file-count { font-size: 11px; color: #666; }
+.node-row:hover { background: #1e1e1e; }
+.node-row.selected { background: #14532d; color: #e8e8e8; }
+.expand-icon { font-size: 10px; width: 14px; text-align: center; color: #666; flex-shrink: 0; }
+.folder-icon { font-size: 14px; color: #888; flex-shrink: 0; }
+.folder-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #ccc; }
+.file-count { font-size: 11px; color: #555; background: #1a1a1a; padding: 1px 6px; border-radius: 10px; }
 </style>

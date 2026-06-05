@@ -33,11 +33,14 @@ watch(localName, (value, _prev, onCleanup) => {
 </script>
 
 <style scoped>
-.field-section { display: flex; flex-direction: column; gap: 4px; }
-.field-label { color: #888; font-size: 11px; text-transform: uppercase; }
+.field-section { display: flex; flex-direction: column; gap: 6px; }
+.field-label { color: #666; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
 .field-input {
-  background: #2a2a2a; border: 1px solid #444; color: #fff;
-  border-radius: 4px; padding: 6px 8px; font-size: 13px; outline: none;
+  background: #1a1a1a; border: 1px solid #2a2a2a; color: #e8e8e8;
+  border-radius: 6px; padding: 7px 10px; font-size: 13px;
+  font-family: 'Inter', sans-serif;
+  outline: none; transition: border-color 0.15s;
 }
-.field-input:focus { border-color: #5b8af5; }
+.field-input:focus { border-color: #22c55e; }
+.field-input::placeholder { color: #444; }
 </style>

@@ -104,7 +104,7 @@ onMounted(async () => {
 
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #121212; color: #ddd; }
+body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d0d0d; color: #e8e8e8; }
 </style>
 
 <style scoped>
@@ -123,6 +123,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 }
 .resize-handle:hover,
 .resize-handle:active {
-  background: #5b8af5;
+  background: #22c55e;
 }
 </style>

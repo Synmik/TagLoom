@@ -24,10 +24,10 @@ import ViewToggle from './ViewToggle.vue'
   display: flex;
   align-items: center;
   height: 48px;
-  padding: 0 12px;
+  padding: 0 16px;
   gap: 12px;
-  border-bottom: 1px solid #2a2a2a;
-  background: #161616;
+  border-bottom: 1px solid #1a1a1a;
+  background: #111111;
 }
 .topbar-center { flex: 1; display: flex; align-items: center; justify-content: center; gap: 12px; }
 .topbar-right { display: flex; align-items: center; gap: 8px; min-width: 200px; justify-content: flex-end; }

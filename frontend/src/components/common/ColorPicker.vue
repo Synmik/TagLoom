@@ -17,8 +17,8 @@ const onChange = () => emit('update:modelValue', selectedColor.value)
 </script>
 
 <style scoped>
-.color-picker { display: flex; align-items: center; gap: 6px; }
-.color-input { width: 28px; height: 28px; border: none; cursor: pointer; background: none; }
-.color-preview { width: 20px; height: 20px; border-radius: 4px; border: 1px solid #444; }
-.color-hex { color: #888; font-size: 12px; font-family: monospace; }
+.color-picker { display: flex; align-items: center; gap: 8px; }
+.color-input { width: 28px; height: 28px; border: 1px solid #2a2a2a; cursor: pointer; background: none; border-radius: 4px; padding: 0; }
+.color-preview { width: 20px; height: 20px; border-radius: 4px; border: 1px solid #2a2a2a; }
+.color-hex { color: #666; font-size: 12px; font-family: monospace; }
 </style>

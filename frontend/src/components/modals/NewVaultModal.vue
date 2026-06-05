@@ -218,7 +218,7 @@ onMounted(() => {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -226,48 +226,54 @@ onMounted(() => {
 }
 
 .modal {
-  background: #1e1e1e;
-  border-radius: 8px;
+  background: #111111;
+  border-radius: 12px;
   width: 520px;
   max-height: 85vh;
   display: flex;
   flex-direction: column;
-  border: 1px solid #333;
+  border: 1px solid #222;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
-  border-bottom: 1px solid #333;
+  padding: 14px 18px;
+  border-bottom: 1px solid #1a1a1a;
 }
 
 .modal-header h3 {
   margin: 0;
-  color: #fff;
+  color: #e8e8e8;
   font-size: 14px;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
 }
 
 .close-btn {
   background: none;
   border: none;
-  color: #888;
+  color: #666;
   cursor: pointer;
   font-size: 16px;
   padding: 4px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
 }
 
 .close-btn:hover {
-  color: #fff;
+  color: #e8e8e8;
+  background: #1a1a1a;
 }
 
 .modal-body {
-  padding: 16px;
+  padding: 18px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
 }
 
 /* ── Sections ───────────────────────────────────────────────────── */
@@ -279,22 +285,24 @@ onMounted(() => {
 
 .section h4 {
   margin: 0;
-  color: #aaa;
-  font-size: 11px;
+  color: #888;
+  font-size: 10px;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.6px;
 }
 
 .hint {
   margin: 0;
-  color: #666;
+  color: #555;
   font-size: 11px;
+  line-height: 1.5;
 }
 
 .hint code {
-  background: #2a2a2a;
-  padding: 1px 4px;
-  border-radius: 3px;
+  background: #1a1a1a;
+  padding: 1px 6px;
+  border-radius: 4px;
   font-size: 11px;
   color: #999;
 }
@@ -307,43 +315,47 @@ onMounted(() => {
 
 .path-input {
   flex: 1;
-  background: #2a2a2a;
-  border: 1px solid #444;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
   color: #ccc;
-  border-radius: 4px;
-  padding: 8px;
+  border-radius: 6px;
+  padding: 8px 10px;
   font-size: 12px;
   outline: none;
   font-family: monospace;
+  transition: border-color 0.15s;
 }
 
 .path-input:focus {
-  border-color: #5b8af5;
+  border-color: #22c55e;
 }
 
 /* ── Slider ─────────────────────────────────────────────────────── */
 .slider-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   font-size: 12px;
   color: #ccc;
 }
 
 .slider-row label {
   min-width: 60px;
+  font-size: 12px;
 }
 
 .slider-row input[type='range'] {
   flex: 1;
-  accent-color: #5b8af5;
+  accent-color: #22c55e;
+  height: 4px;
 }
 
 .slider-value {
   min-width: 40px;
   text-align: right;
-  color: #5b8af5;
+  color: #22c55e;
   font-weight: 600;
+  font-size: 12px;
 }
 
 /* ── Excluded folders ───────────────────────────────────────────── */
@@ -359,9 +371,9 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #2a2a2a;
-  padding: 6px 8px;
-  border-radius: 4px;
+  background: #1a1a1a;
+  padding: 6px 10px;
+  border-radius: 6px;
   font-size: 12px;
 }
 
@@ -379,20 +391,21 @@ onMounted(() => {
 .remove-btn {
   background: none;
   border: none;
-  color: #888;
+  color: #555;
   cursor: pointer;
   font-size: 14px;
   padding: 0 4px;
   flex-shrink: 0;
+  transition: color 0.15s;
 }
 
 .remove-btn:hover {
-  color: #f55;
+  color: #ef4444;
 }
 
 .empty-hint {
   margin: 0;
-  color: #555;
+  color: #444;
   font-size: 11px;
   font-style: italic;
 }
@@ -405,36 +418,46 @@ onMounted(() => {
 
 .form-input {
   flex: 1;
-  background: #2a2a2a;
-  border: 1px solid #444;
-  color: #fff;
-  border-radius: 4px;
-  padding: 6px 8px;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  color: #e8e8e8;
+  border-radius: 6px;
+  padding: 6px 10px;
   font-size: 12px;
   outline: none;
   font-family: monospace;
+  transition: border-color 0.15s;
 }
 
 .form-input:focus {
-  border-color: #5b8af5;
+  border-color: #22c55e;
+}
+
+.form-input::placeholder {
+  color: #444;
 }
 
 .picker-btn,
 .add-btn {
-  background: #2a2a2a;
-  border: 1px solid #444;
-  color: #ccc;
-  border-radius: 4px;
-  padding: 4px 8px;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  color: #999;
+  border-radius: 6px;
+  padding: 5px 8px;
   cursor: pointer;
   font-size: 14px;
-  min-width: 28px;
+  min-width: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
 }
 
 .picker-btn:hover,
 .add-btn:hover:not(:disabled) {
-  background: #333;
-  border-color: #5b8af5;
+  background: #222;
+  border-color: #333;
+  color: #e8e8e8;
 }
 
 .add-btn:disabled {
@@ -444,19 +467,19 @@ onMounted(() => {
 
 .error {
   margin: 0;
-  color: #f55;
+  color: #ef4444;
   font-size: 11px;
 }
 
 /* ── Create error ───────────────────────────────────────────────── */
 .create-error {
   margin: 0;
-  color: #f55;
+  color: #ef4444;
   font-size: 12px;
-  background: rgba(255, 85, 85, 0.1);
-  padding: 8px;
-  border-radius: 4px;
-  border: 1px solid rgba(255, 85, 85, 0.2);
+  background: rgba(239, 68, 68, 0.08);
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(239, 68, 68, 0.15);
 }
 
 /* ── Actions ────────────────────────────────────────────────────── */
@@ -465,36 +488,40 @@ onMounted(() => {
   justify-content: flex-end;
   gap: 8px;
   margin-top: 4px;
-  padding-top: 12px;
-  border-top: 1px solid #333;
+  padding-top: 14px;
+  border-top: 1px solid #1a1a1a;
 }
 
 .cancel-btn,
 .create-btn {
   border: none;
-  border-radius: 4px;
-  padding: 8px 16px;
+  border-radius: 6px;
+  padding: 8px 18px;
   font-size: 12px;
+  font-weight: 500;
+  font-family: 'Inter', sans-serif;
   cursor: pointer;
-  transition: opacity 0.15s;
+  transition: all 0.15s;
 }
 
 .cancel-btn {
-  background: #333;
-  color: #ccc;
+  background: #1a1a1a;
+  color: #999;
+  border: 1px solid #2a2a2a;
 }
 
 .cancel-btn:hover {
-  background: #444;
+  background: #222;
+  color: #e8e8e8;
 }
 
 .create-btn {
-  background: #5b8af5;
-  color: #fff;
+  background: #22c55e;
+  color: #000;
 }
 
 .create-btn:hover:not(:disabled) {
-  background: #4a7ae4;
+  background: #16a34a;
 }
 
 .create-btn:disabled {

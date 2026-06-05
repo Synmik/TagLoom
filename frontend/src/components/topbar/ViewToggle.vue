@@ -24,10 +24,13 @@ const uiStore = useUIStore()
 </script>
 
 <style scoped>
-.view-toggle { display: flex; gap: 2px; }
+.view-toggle { display: flex; gap: 2px; background: #1a1a1a; border-radius: 6px; padding: 2px; }
 .view-btn {
-  background: #2a2a2a; border: 1px solid #444; color: #888;
-  border-radius: 4px; width: 28px; height: 28px; cursor: pointer; font-size: 16px;
+  background: transparent; border: none; color: #666;
+  border-radius: 5px; width: 28px; height: 26px; cursor: pointer; font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
 }
-.view-btn.active { background: #5b8af5; color: #fff; border-color: #5b8af5; }
+.view-btn:hover { color: #ccc; }
+.view-btn.active { background: #22c55e; color: #000; }
 </style>

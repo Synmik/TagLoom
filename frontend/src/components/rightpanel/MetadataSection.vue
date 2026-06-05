@@ -65,19 +65,22 @@ const toggleFavorite = () => previewStore.toggleFavorite()
 </script>
 
 <style scoped>
-.metadata-section { display: flex; flex-direction: column; gap: 6px; }
-.field-label { color: #888; font-size: 11px; text-transform: uppercase; }
-.metadata-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
-.meta-row { display: flex; flex-direction: column; gap: 1px; }
-.meta-label { color: #666; font-size: 10px; }
-.meta-value { color: #ccc; font-size: 12px; }
+.metadata-section { display: flex; flex-direction: column; gap: 8px; }
+.field-label { color: #666; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.metadata-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.meta-row { display: flex; flex-direction: column; gap: 2px; }
+.meta-label { color: #555; font-size: 10px; }
+.meta-value { color: #bbb; font-size: 12px; }
 .rating-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
 .favorite-row { margin-top: 4px; }
 .favorite-btn {
   display: flex; align-items: center; gap: 6px;
-  background: none; border: 1px solid #444; color: #888;
-  border-radius: 4px; padding: 4px 10px; cursor: pointer; font-size: 12px;
+  background: #1a1a1a; border: 1px solid #2a2a2a; color: #888;
+  border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 12px;
+  font-family: 'Inter', sans-serif;
+  transition: all 0.15s;
 }
-.favorite-btn.active { color: #ff4444; border-color: #ff4444; }
+.favorite-btn:hover { background: #222; color: #ccc; }
+.favorite-btn.active { color: #ef4444; border-color: #ef4444; background: rgba(239,68,68,0.1); }
 .fav-icon { flex-shrink: 0; }
 </style>

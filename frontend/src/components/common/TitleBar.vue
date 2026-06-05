@@ -182,8 +182,8 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   height: 36px;
-  background: #1a1a1a;
-  border-bottom: 1px solid #2a2a2a;
+  background: #111111;
+  border-bottom: 1px solid #1a1a1a;
   user-select: none;
   -webkit-user-select: none;
   position: relative;
@@ -229,21 +229,21 @@ onUnmounted(() => {
 }
 
 .app-menu-btn:hover {
-  background: #2a2a2a;
-  color: #fff;
+  background: #1e1e1e;
+  color: #e8e8e8;
 }
 
 .app-menu {
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
-  background: #1e1e1e;
-  border: 1px solid #333;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
   border-radius: 8px;
   min-width: 200px;
   padding: 4px;
   z-index: 200;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
 }
 
 .menu-item {
@@ -254,16 +254,18 @@ onUnmounted(() => {
   text-align: left;
   background: none;
   border: none;
-  color: #ddd;
-  padding: 8px 12px;
+  color: #ccc;
+  padding: 7px 12px;
   font-size: 13px;
+  font-family: 'Inter', sans-serif;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 5px;
   transition: background 0.1s;
 }
 
 .menu-item:hover {
-  background: #2a3a5a;
+  background: #14532d;
+  color: #e8e8e8;
 }
 
 .menu-icon {
@@ -272,7 +274,7 @@ onUnmounted(() => {
 
 .menu-divider {
   height: 1px;
-  background: #333;
+  background: #2a2a2a;
   margin: 4px 8px;
 }
 
@@ -283,7 +285,7 @@ onUnmounted(() => {
   gap: 6px;
   font-weight: 600;
   font-size: 13px;
-  color: #fff;
+  color: #e8e8e8;
   white-space: nowrap;
 }
 
@@ -294,7 +296,7 @@ onUnmounted(() => {
 }
 
 .vault-name {
-  color: #777;
+  color: #666;
   font-size: 12px;
   white-space: nowrap;
   overflow: hidden;
@@ -317,15 +319,15 @@ onUnmounted(() => {
 }
 
 .window-btn:hover {
-  color: #fff;
+  color: #e8e8e8;
 }
 
 .minimize:hover {
-  background: #2a2a2a;
+  background: #1e1e1e;
 }
 
 .maximize:hover {
-  background: #2a2a2a;
+  background: #1e1e1e;
 }
 
 .close {
@@ -333,7 +335,7 @@ onUnmounted(() => {
 }
 
 .close:hover {
-  background: #c42b1c;
+  background: #dc2626;
   color: #fff;
 }
 

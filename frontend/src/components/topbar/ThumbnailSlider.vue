@@ -36,7 +36,7 @@ const onChange = (e: Event) => {
 </script>
 
 <style scoped>
-.thumbnail-slider { display: flex; align-items: center; gap: 6px; }
-.label { color: #888; font-size: 11px; }
-.slider { width: 80px; accent-color: #5b8af5; }
+.thumbnail-slider { display: flex; align-items: center; gap: 8px; }
+.label { color: #666; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.slider { width: 80px; accent-color: #22c55e; }
 </style>

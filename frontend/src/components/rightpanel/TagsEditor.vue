@@ -146,28 +146,35 @@ const createTag = async () => {
 </script>
 
 <style scoped>
-.tags-section { display: flex; flex-direction: column; gap: 4px; }
-.field-label { color: #888; font-size: 11px; text-transform: uppercase; }
+.tags-section { display: flex; flex-direction: column; gap: 6px; }
+.field-label { color: #666; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
 .tags-container { display: flex; flex-wrap: wrap; gap: 4px; }
 .add-tag-btn {
-  background: #2a2a2a; border: 1px dashed #444; color: #888;
-  border-radius: 4px; width: 24px; height: 24px; cursor: pointer;
+  background: #1a1a1a; border: 1px dashed #333; color: #666;
+  border-radius: 6px; width: 26px; height: 26px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
 }
-.tag-picker { margin-top: 6px; background: #2a2a2a; border-radius: 4px; padding: 6px; }
+.add-tag-btn:hover { background: #222; color: #ccc; border-color: #444; }
+.tag-picker { margin-top: 6px; background: #1a1a1a; border-radius: 6px; padding: 6px; border: 1px solid #2a2a2a; }
 .picker-input {
-  width: 100%; background: #1a1a1a; border: 1px solid #444; color: #fff;
-  border-radius: 3px; padding: 4px 6px; font-size: 12px; outline: none; box-sizing: border-box;
+  width: 100%; background: #111; border: 1px solid #2a2a2a; color: #e8e8e8;
+  border-radius: 5px; padding: 6px 8px; font-size: 12px;
+  font-family: 'Inter', sans-serif;
+  outline: none; box-sizing: border-box; transition: border-color 0.15s;
 }
+.picker-input:focus { border-color: #22c55e; }
+.picker-input::placeholder { color: #444; }
 .picker-results { max-height: 120px; overflow-y: auto; margin-top: 4px; }
 .picker-item {
-  display: flex; align-items: center; gap: 6px; padding: 3px 4px;
-  cursor: pointer; border-radius: 3px; font-size: 12px; color: #ccc;
+  display: flex; align-items: center; gap: 6px; padding: 4px 6px;
+  cursor: pointer; border-radius: 4px; font-size: 12px; color: #ccc;
 }
-.picker-item:hover { background: #3a3a3a; }
+.picker-item:hover { background: #2a2a2a; }
 .picker-item.disabled { opacity: 0.4; cursor: default; }
 .picker-item.disabled:hover { background: transparent; }
-.create-item { color: #5b8af5; font-style: italic; }
-.create-icon { color: #5b8af5; font-weight: bold; }
+.create-item { color: #22c55e; font-style: italic; }
+.create-icon { color: #22c55e; font-weight: bold; }
 .color-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.attached-badge { margin-left: auto; color: #5b8af5; font-size: 11px; }
+.attached-badge { margin-left: auto; color: #22c55e; font-size: 11px; }
 </style>

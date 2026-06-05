@@ -152,36 +152,54 @@ const deleteTag = async () => {
 
 <style scoped>
 .modal-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7);
   display: flex; align-items: center; justify-content: center; z-index: 100;
 }
-.modal { background: #1e1e1e; border-radius: 8px; width: 360px; border: 1px solid #333; }
-.modal-header { display: flex; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid #333; }
-.modal-header h3 { margin: 0; color: #fff; font-size: 14px; }
-.close-btn { background: none; border: none; color: #888; cursor: pointer; font-size: 16px; }
-.modal-body { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
-.form-group { display: flex; flex-direction: column; gap: 4px; }
-.form-group label { color: #888; font-size: 11px; }
+.modal { background: #111111; border-radius: 12px; width: 360px; border: 1px solid #222; box-shadow: 0 16px 48px rgba(0,0,0,0.6); }
+.modal-header { display: flex; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid #1a1a1a; }
+.modal-header h3 { margin: 0; color: #e8e8e8; font-size: 14px; font-weight: 600; font-family: 'Inter', sans-serif; }
+.close-btn { background: none; border: none; color: #666; cursor: pointer; font-size: 16px; padding: 4px; border-radius: 4px; transition: color 0.15s, background 0.15s; }
+.close-btn:hover { color: #e8e8e8; background: #1a1a1a; }
+.modal-body { padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-group label { color: #666; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
 .form-input, .form-select {
-  background: #2a2a2a; border: 1px solid #444; color: #fff;
-  border-radius: 4px; padding: 6px 8px; font-size: 13px; outline: none;
+  background: #1a1a1a; border: 1px solid #2a2a2a; color: #e8e8e8;
+  border-radius: 6px; padding: 7px 10px; font-size: 13px;
+  font-family: 'Inter', sans-serif;
+  outline: none; transition: border-color 0.15s;
 }
+.form-input:focus, .form-select:focus {
+  border-color: #22c55e;
+}
+.form-input::placeholder { color: #444; }
+.form-select option { background: #1a1a1a; color: #e8e8e8; }
 .input-error {
-  border-color: #ff6b6b;
+  border-color: #ef4444;
 }
 .error-text {
-  color: #ff6b6b; font-size: 11px; margin-top: 2px;
+  color: #ef4444; font-size: 11px; margin-top: 2px;
 }
-.checkbox { flex-direction: row; align-items: center; gap: 6px; }
-.form-actions { display: flex; gap: 8px; margin-top: 4px; }
+.checkbox { flex-direction: row; align-items: center; gap: 8px; }
+.checkbox label {
+  display: flex; align-items: center; gap: 8px;
+  text-transform: none; font-size: 13px; color: #ccc; cursor: pointer;
+}
+.checkbox input[type="checkbox"] { accent-color: #22c55e; }
+.form-actions { display: flex; gap: 8px; margin-top: 4px; padding-top: 12px; border-top: 1px solid #1a1a1a; }
 .save-btn {
-  flex: 1; background: #5b8af5; color: #fff; border: none; border-radius: 4px;
-  padding: 8px; cursor: pointer; font-size: 13px;
+  flex: 1; background: #22c55e; color: #000; border: none; border-radius: 6px;
+  padding: 9px; cursor: pointer; font-size: 13px; font-weight: 500;
+  font-family: 'Inter', sans-serif;
+  transition: background 0.15s;
 }
-.save-btn:hover { background: #4a7ae4; }
+.save-btn:hover { background: #16a34a; }
 .delete-btn {
-  background: #5a2a2a; color: #ff6b6b; border: none; border-radius: 4px;
-  padding: 8px 12px; cursor: pointer; font-size: 13px;
+  background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 6px;
+  padding: 9px 14px; cursor: pointer; font-size: 13px;
+  font-family: 'Inter', sans-serif;
+  transition: all 0.15s;
 }
-.delete-btn:hover { background: #6a3a3a; }
+.delete-btn:hover { background: rgba(239, 68, 68, 0.2); }
 </style>

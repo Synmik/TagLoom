@@ -20,7 +20,7 @@ defineEmits<{ change: [rating: number] }>()
 
 <style scoped>
 .star-rating { display: flex; gap: 2px; cursor: pointer; }
-.star { font-size: 18px; color: #444; transition: color 0.15s; }
-.star.filled { color: #f5c542; }
-.star:hover { color: #f5c542; }
+.star { font-size: 16px; color: #333; transition: color 0.15s; }
+.star.filled { color: #C5AF22; }
+.star:hover { color: #C5AF22; }
 </style>

@@ -92,8 +92,8 @@ onBeforeUnmount(() => {
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
-  border-right: 1px solid #333;
-  background: #1e1e1e;
+  border-right: 1px solid #1a1a1a;
+  background: #111111;
   flex-shrink: 0;
 }
 .panel-section {
@@ -110,10 +110,10 @@ onBeforeUnmount(() => {
 }
 .divider:hover,
 .divider:active {
-  background: #4a9eff;
+  background: #22c55e;
 }
 .tags-section {
-  border-top: 1px solid #333;
+  border-top: 1px solid #1a1a1a;
 }
 .section-header {
   display: flex;
@@ -122,16 +122,23 @@ onBeforeUnmount(() => {
   margin-bottom: 8px;
 }
 .section-header h3 {
-  color: #aaa;
-  font-size: 11px;
+  color: #888;
+  font-size: 10px;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.8px;
   margin: 0;
 }
 .icon-btn {
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 14px;
+  color: #888;
+  border-radius: 4px;
+  padding: 2px;
+  transition: color 0.15s;
+}
+.icon-btn:hover {
+  color: #e8e8e8;
 }
 </style>

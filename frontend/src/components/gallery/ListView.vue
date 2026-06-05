@@ -162,14 +162,16 @@ watch(
 .list-header {
   display: grid;
   grid-template-columns: 1fr 1fr 160px 60px;
-  padding: 6px 8px;
-  color: #888;
-  font-size: 11px;
+  padding: 8px 10px;
+  color: #666;
+  font-size: 10px;
+  font-weight: 600;
   text-transform: uppercase;
-  border-bottom: 1px solid #333;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #1a1a1a;
   position: sticky;
   top: 0;
-  background: #121212;
+  background: #0d0d0d;
   z-index: 1;
 }
 

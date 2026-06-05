@@ -42,13 +42,23 @@ const toggleOrder = async () => {
 </script>
 
 <style scoped>
-.sort-control { display: flex; align-items: center; gap: 4px; }
+.sort-control { display: flex; align-items: center; gap: 2px; background: #1a1a1a; border-radius: 6px; padding: 2px; }
 .sort-select {
-  background: #2a2a2a; border: 1px solid #444; color: #ccc;
-  border-radius: 4px; padding: 4px 8px; font-size: 12px; outline: none;
+  background: transparent; border: none; color: #ccc;
+  padding: 4px 8px; font-size: 12px; outline: none;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  border-radius: 5px;
+  appearance: none;
+  -webkit-appearance: none;
 }
+.sort-select:hover { background: #222; }
+.sort-select option { background: #1a1a1a; color: #ccc; }
 .order-btn {
-  background: #2a2a2a; border: 1px solid #444; color: #ccc;
-  border-radius: 4px; width: 28px; height: 28px; cursor: pointer; font-size: 14px;
+  background: transparent; border: none; color: #666;
+  border-radius: 5px; width: 26px; height: 26px; cursor: pointer; font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
 }
+.order-btn:hover { background: #222; color: #ccc; }
 </style>

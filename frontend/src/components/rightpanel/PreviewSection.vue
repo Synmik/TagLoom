@@ -67,7 +67,7 @@ const formatName = computed(() => {
 <style scoped>
 .preview-section { text-align: center; }
 .preview-container {
-  aspect-ratio: 1; background: #111; border-radius: 6px;
+  aspect-ratio: 1; background: #0a0a0a; border-radius: 10px;
   display: flex; align-items: center; justify-content: center;
   cursor: pointer; overflow: hidden; position: relative;
 }
@@ -78,9 +78,11 @@ const formatName = computed(() => {
   width: 100%; height: 100%;
 }
 .no-preview { color: #444; font-size: 12px; }
-.format-info { margin-top: 6px; }
+.format-info { margin-top: 8px; }
 .format-badge {
-  background: #2a2a2a; color: #aaa; font-size: 10px;
-  padding: 2px 8px; border-radius: 3px; text-transform: uppercase;
+  background: #1a1a1a; color: #999; font-size: 10px;
+  font-weight: 600;
+  padding: 3px 10px; border-radius: 10px; text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 </style>

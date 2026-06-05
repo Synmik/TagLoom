@@ -254,7 +254,7 @@ async function loadGallery() {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: #121212;
+  background: #0d0d0d;
   min-height: 0;
 }
 
@@ -264,7 +264,7 @@ async function loadGallery() {
   justify-content: center;
   gap: 12px;
   flex: 1;
-  color: #666;
+  color: #555;
   padding: 40px;
   font-size: 14px;
 }
@@ -272,8 +272,8 @@ async function loadGallery() {
 .spinner {
   width: 20px;
   height: 20px;
-  border: 2px solid #333;
-  border-top-color: #5b8af5;
+  border: 2px solid #222;
+  border-top-color: #22c55e;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -286,10 +286,10 @@ async function loadGallery() {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 12px;
+  padding: 10px 16px;
   font-size: 12px;
-  color: #888;
-  border-bottom: 1px solid #222;
+  color: #666;
+  border-bottom: 1px solid #1a1a1a;
   margin-bottom: 0;
   flex-shrink: 0;
 }
@@ -299,20 +299,23 @@ async function loadGallery() {
   gap: 12px;
 }
 .batch-edit-btn {
-  background: #5b8af5;
-  color: #fff;
+  background: #22c55e;
+  color: #000;
   border: none;
-  border-radius: 4px;
-  padding: 4px 10px;
+  border-radius: 6px;
+  padding: 5px 12px;
   font-size: 12px;
+  font-weight: 500;
+  font-family: 'Inter', sans-serif;
   cursor: pointer;
+  transition: background 0.15s;
 }
 .batch-edit-btn:hover {
-  background: #4a7ae4;
+  background: #16a34a;
 }
 
 .loading-more {
-  color: #5b8af5;
+  color: #22c55e;
   animation: pulse 1.5s ease-in-out infinite;
 }
 

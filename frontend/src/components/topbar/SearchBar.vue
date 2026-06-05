@@ -50,26 +50,36 @@ defineExpose({ focus })
   align-items: center;
   flex: 1;
   max-width: 400px;
-  background: #2a2a2a;
-  border: 1px solid #444;
-  border-radius: 6px;
-  padding: 0 8px;
-  height: 32px;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 8px;
+  padding: 0 12px;
+  height: 34px;
+  transition: border-color 0.15s;
 }
-.search-icon { color: #888; margin-right: 6px; flex-shrink: 0; }
+.search-bar:focus-within {
+  border-color: #22c55e;
+}
+.search-icon { color: #666; margin-right: 8px; flex-shrink: 0; }
 .search-input {
   flex: 1;
   background: none;
   border: none;
-  color: #fff;
+  color: #e8e8e8;
   font-size: 13px;
+  font-family: 'Inter', sans-serif;
   outline: none;
 }
+.search-input::placeholder { color: #555; }
 .clear-btn {
   background: none;
   border: none;
-  color: #888;
+  color: #555;
   cursor: pointer;
   font-size: 14px;
+  padding: 2px;
+  border-radius: 3px;
+  transition: color 0.15s;
 }
+.clear-btn:hover { color: #e8e8e8; }
 </style>

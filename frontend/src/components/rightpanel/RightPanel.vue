@@ -32,10 +32,10 @@ const panelStyle = computed(() => ({ width: `${uiStore.rightPanelWidth}px` }))
 
 <style scoped>
 .right-panel {
-  overflow-y: auto; padding: 12px;
-  border-left: 1px solid #333; background: #1a1a1a;
-  display: flex; flex-direction: column; gap: 12px;
+  overflow-y: auto; padding: 16px;
+  border-left: 1px solid #1a1a1a; background: #111111;
+  display: flex; flex-direction: column; gap: 14px;
   flex-shrink: 0;
 }
-.empty-state { text-align: center; color: #555; padding: 40px 0; }
+.empty-state { text-align: center; color: #444; padding: 40px 0; font-size: 13px; }
 </style>
