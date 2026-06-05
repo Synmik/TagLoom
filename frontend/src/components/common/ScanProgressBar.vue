@@ -68,8 +68,8 @@ onUnmounted(() => {
 }
 
 .scan-progress-card {
-  background: #1e1e1e;
-  border: 1px solid #333;
+  background: #111111;
+  border: 1px solid #1a1a1a;
   border-radius: 12px;
   padding: 24px 32px;
   min-width: 400px;
@@ -84,12 +84,12 @@ onUnmounted(() => {
   margin-bottom: 16px;
 }
 
-.scan-icon { font-size: 20px; }
+.scan-icon { color: #22c55e; }
 
 .scan-title {
   font-size: 16px;
   font-weight: 600;
-  color: #fff;
+  color: #e8e8e8;
   flex: 1;
 }
 
@@ -103,20 +103,20 @@ onUnmounted(() => {
   line-height: 1;
 }
 
-.scan-close:hover { color: #fff; }
+.scan-close:hover { color: #e8e8e8; }
 
 .progress-track {
-  height: 8px;
-  background: #333;
-  border-radius: 4px;
+  height: 6px;
+  background: #1a1a1a;
+  border-radius: 3px;
   overflow: hidden;
   margin-bottom: 12px;
 }
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #5b8af5, #7c5bf5);
-  border-radius: 4px;
+  background: #22c55e;
+  border-radius: 3px;
   transition: width 0.3s ease;
 }
 
@@ -129,7 +129,7 @@ onUnmounted(() => {
 
 .percent {
   font-weight: 600;
-  color: #5b8af5;
+  color: #22c55e;
 }
 
 .thumb-stats {

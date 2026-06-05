@@ -1,5 +1,18 @@
 <template>
   <aside class="left-panel" :style="panelStyle">
+    <!-- Filters bar -->
+    <div class="filters-bar">
+      <button
+        class="filter-btn"
+        :class="{ active: filtersStore.activeFilters.favoritesOnly }"
+        @click="toggleFavorites"
+        title="Show only favorites"
+      >
+        <Star :size="14" :fill="filtersStore.activeFilters.favoritesOnly ? 'currentColor' : 'none'" />
+        <span>Favorites</span>
+      </button>
+    </div>
+
     <section class="panel-section" :style="{ height: `${uiStore.leftPanelSplit}%` }">
       <div class="section-header">
         <h3>Folders</h3>
@@ -24,15 +37,17 @@
 
 <script setup lang="ts">
 import { ref, computed, onBeforeUnmount } from 'vue'
-import { FolderOpen, Plus } from '@lucide/vue'
+import { FolderOpen, Plus, Star } from '@lucide/vue'
 import FolderTree from './FolderTree.vue'
 import TagTree from './TagTree.vue'
 import TagManagerModal from '../modals/TagManagerModal.vue'
 import { useVaultStore } from '../../stores/vault'
 import { useUIStore } from '../../stores/ui'
+import { useFiltersStore } from '../../stores/filters'
 import type { Tag } from '../../types/tag'
 
 const uiStore = useUIStore()
+const filtersStore = useFiltersStore()
 const panelStyle = computed(() => ({ width: `${uiStore.leftPanelWidth}px` }))
 
 const vaultStore = useVaultStore()
@@ -40,6 +55,11 @@ const showTagManager = ref(false)
 const editingTag = ref<Tag | null>(null)
 
 const openVault = () => vaultStore.pickAndOpenVault()
+
+const toggleFavorites = () => {
+  const newState = !filtersStore.activeFilters.favoritesOnly
+  filtersStore.setFavoritesFilter(newState)
+}
 
 const openTagManager = (tag: Tag | null) => {
   editingTag.value = tag
@@ -96,9 +116,41 @@ onBeforeUnmount(() => {
   background: #111111;
   flex-shrink: 0;
 }
+.filters-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px;
+  border-bottom: 1px solid #1a1a1a;
+  flex-shrink: 0;
+}
+.filter-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #1a1a1a;
+  color: #888;
+  border: 1px solid #2a2a2a;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.filter-btn:hover {
+  color: #e8e8e8;
+  border-color: #444;
+}
+.filter-btn.active {
+  background: #22c55e;
+  color: #000;
+  border-color: #22c55e;
+}
 .panel-section {
   overflow-y: auto;
-  padding: 8px;
+  padding: 0 8px 8px 8px;
   min-height: 0;
 }
 .divider {
@@ -119,7 +171,12 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 8px 0 4px 0;
   margin-bottom: 8px;
+  position: sticky;
+  top: 0;
+  background: #111111;
+  z-index: 1;
 }
 .section-header h3 {
   color: #888;

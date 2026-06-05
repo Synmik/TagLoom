@@ -38,5 +38,43 @@ const onChange = (e: Event) => {
 <style scoped>
 .thumbnail-slider { display: flex; align-items: center; gap: 8px; }
 .label { color: #666; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-.slider { width: 80px; accent-color: #22c55e; }
+.slider {
+  width: 80px;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: #2a2a2a;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -4px;
+  background: #22c55e;
+  border: none;
+  border-radius: 2px;
+  cursor: pointer;
+}
+.slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: #22c55e;
+  border: none;
+  border-radius: 2px;
+  cursor: pointer;
+}
+.slider::-webkit-slider-runnable-track {
+  height: 4px;
+  background: #2a2a2a;
+  border-radius: 2px;
+}
+.slider::-moz-range-track {
+  height: 4px;
+  background: #2a2a2a;
+  border-radius: 2px;
+}
 </style>

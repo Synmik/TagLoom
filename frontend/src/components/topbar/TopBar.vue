@@ -1,5 +1,9 @@
 <template>
   <header class="topbar">
+    <div class="topbar-left">
+      <QuickActions />
+    </div>
+
     <div class="topbar-center">
       <SearchBar />
       <ThumbnailSlider />
@@ -13,6 +17,7 @@
 </template>
 
 <script setup lang="ts">
+import QuickActions from './QuickActions.vue'
 import SearchBar from './SearchBar.vue'
 import ThumbnailSlider from './ThumbnailSlider.vue'
 import SortControl from './SortControl.vue'
@@ -29,6 +34,7 @@ import ViewToggle from './ViewToggle.vue'
   border-bottom: 1px solid #1a1a1a;
   background: #111111;
 }
+.topbar-left { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 .topbar-center { flex: 1; display: flex; align-items: center; justify-content: center; gap: 12px; }
 .topbar-right { display: flex; align-items: center; gap: 8px; min-width: 200px; justify-content: flex-end; }
 </style>

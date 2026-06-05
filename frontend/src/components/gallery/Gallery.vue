@@ -256,6 +256,7 @@ async function loadGallery() {
   overflow: hidden;
   background: #0d0d0d;
   min-height: 0;
+  outline: none;
 }
 
 .loading {
