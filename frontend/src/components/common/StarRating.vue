@@ -7,12 +7,13 @@
       :class="{ filled: i <= rating }"
       @click="$emit('change', i)"
     >
-      ★
+      <Star :size="15" :fill="i <= rating ? 'currentColor' : 'none'" />
     </span>
   </div>
 </template>
 
 <script setup lang="ts">
+import { Star } from '@lucide/vue'
 defineProps<{ rating: number }>()
 defineEmits<{ change: [rating: number] }>()
 </script>

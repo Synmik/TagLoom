@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ToastMessage } from '../../composables/useToast'
+import { Check, X, Info } from '@lucide/vue'
 
 const props = defineProps<{
   toast: ToastMessage
@@ -9,16 +10,16 @@ defineEmits<{
   dismiss: [id: number]
 }>()
 
-const iconMap: Record<string, string> = {
-  success: '✓',
-  error: '✕',
-  info: 'ℹ',
+const iconMap: Record<string, any> = {
+  success: Check,
+  error: X,
+  info: Info,
 }
 </script>
 
 <template>
   <div class="toast" :class="toast.type" @click="$emit('dismiss', toast.id)">
-    <span class="toast-icon">{{ iconMap[toast.type] || 'ℹ' }}</span>
+    <component :is="iconMap[toast.type] || Info" :size="14" class="toast-icon" />
     <span class="toast-message">{{ toast.message }}</span>
   </div>
 </template>

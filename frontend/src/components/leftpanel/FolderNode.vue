@@ -8,10 +8,11 @@
       @contextmenu.prevent="onContext"
     >
       <span v-if="hasChildren" class="expand-icon" @click.stop="toggleExpand">
-        {{ isExpanded ? '▼' : '▶' }}
+        <ChevronDown v-if="isExpanded" :size="12" />
+        <ChevronRight v-else :size="12" />
       </span>
-      <span v-else class="expand-icon spacer">·</span>
-      <span class="folder-icon">📁</span>
+      <span v-else class="expand-icon spacer"></span>
+      <Folder class="folder-icon" :size="14" />
       <span class="folder-name">{{ node.name }}</span>
       <span class="file-count">{{ node.file_count }}</span>
     </div>
@@ -29,6 +30,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { ChevronDown, ChevronRight, Folder, Ban, FolderOpen } from '@lucide/vue'
 import { useFoldersStore } from '../../stores/folders'
 import { useFiltersStore } from '../../stores/filters'
 import { useContextMenu, type ContextMenuItem } from '../../composables/useContextMenu'
@@ -67,7 +69,7 @@ const onContext = (e: MouseEvent) => {
     {
       type: 'item',
       label: 'Exclude from indexing',
-      icon: '🚫',
+      icon: 'ban',
       action: async () => {
         try {
           await AddExcludedFolder(props.node.path)
@@ -81,7 +83,7 @@ const onContext = (e: MouseEvent) => {
     {
       type: 'item',
       label: 'Copy path',
-      icon: '📂',
+      icon: 'folder-open',
       action: () => {
         ClipboardSetText(props.node.path).then((ok) => {
           if (ok) success('Path copied')

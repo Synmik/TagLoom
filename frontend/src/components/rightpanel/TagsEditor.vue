@@ -8,7 +8,7 @@
         :tag="tag"
         @remove="removeTag"
       />
-      <button class="add-tag-btn" @click="openPicker">+</button>
+      <button class="add-tag-btn" @click="openPicker"><Plus :size="14" /></button>
     </div>
     <div v-if="showPicker" class="tag-picker">
       <input
@@ -25,7 +25,7 @@
           class="picker-item create-item"
           @click="createTag"
         >
-          <span class="create-icon">+</span>
+          <PlusCircle :size="14" class="create-icon" />
           Create "<strong>{{ searchQuery }}</strong>"
         </div>
         <template v-else>
@@ -38,7 +38,7 @@
           >
             <span class="color-dot" :style="{ background: tag.color || '#666' }"></span>
             {{ tag.name }}
-            <span v-if="alreadyAttached(tag.id)" class="attached-badge">✓</span>
+            <Check v-if="alreadyAttached(tag.id)" :size="12" class="attached-badge" />
           </div>
         </template>
       </div>
@@ -48,6 +48,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
+import { Plus, PlusCircle, Check } from '@lucide/vue'
 import TagChip from '../common/TagChip.vue'
 import { usePreviewStore } from '../../stores/preview'
 import { useTagsStore } from '../../stores/tags'

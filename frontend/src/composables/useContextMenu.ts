@@ -3,7 +3,7 @@ import { ref } from 'vue'
 export interface ContextMenuItem {
   type: 'item' | 'divider'
   label?: string
-  icon?: string
+  icon?: string  // Lucide icon name (e.g. 'search', 'trash-2', 'star')
   disabled?: boolean
   action?: () => void | Promise<void>
 }

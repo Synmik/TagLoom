@@ -45,7 +45,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch, type Component } from 'vue'
+import { FolderOpen, Search, FolderSearch } from '@lucide/vue'
 import ThumbnailGrid from './ThumbnailGrid.vue'
 import ListView from './ListView.vue'
 import EmptyState from '../common/EmptyState.vue'
@@ -102,7 +103,7 @@ function onBatchEdit() {
 }
 
 interface EmptyStateConfig {
-  icon: string
+  icon: Component | null
   title: string
   description: string
   actionText?: string
@@ -112,7 +113,7 @@ interface EmptyStateConfig {
 const emptyState = computed<EmptyStateConfig>(() => {
   if (!vaultStore.currentVault) {
     return {
-      icon: '📂',
+      icon: FolderOpen,
       title: 'No vault open',
       description: 'Open or create a vault to get started',
       actionText: 'Open Vault',
@@ -122,7 +123,7 @@ const emptyState = computed<EmptyStateConfig>(() => {
 
   if (filtersStore.hasActiveSearch) {
     return {
-      icon: '🔍',
+      icon: Search,
       title: 'No results found',
       description: 'No files match your search query',
       actionText: 'Clear search',
@@ -132,7 +133,7 @@ const emptyState = computed<EmptyStateConfig>(() => {
 
   if (filtersStore.hasActiveFilters) {
     return {
-      icon: '🔍',
+      icon: Search,
       title: 'No matching files',
       description: 'No files match your current filters',
       actionText: 'Clear filters',
@@ -141,7 +142,7 @@ const emptyState = computed<EmptyStateConfig>(() => {
   }
 
   return {
-    icon: '📁',
+    icon: FolderSearch,
     title: 'No files in this vault',
     description: 'The vault appears empty — rescan to index files',
     actionText: 'Rescan vault',

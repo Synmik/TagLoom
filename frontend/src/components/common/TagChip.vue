@@ -1,12 +1,13 @@
 <template>
   <span class="tag-chip" :style="{ background: chipColor }">
     <span class="tag-text">{{ displayName }}</span>
-    <button class="remove-btn" @click.stop="$emit('remove', tag.id)">×</button>
+    <button class="remove-btn" @click.stop="$emit('remove', tag.id)"><X :size="14" /></button>
   </span>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { X } from '@lucide/vue'
 import { useTagsStore } from '../../stores/tags'
 import type { Tag } from '../../types/tag'
 

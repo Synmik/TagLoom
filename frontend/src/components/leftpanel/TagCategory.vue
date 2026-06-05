@@ -1,7 +1,8 @@
 <template>
   <div class="tag-category">
     <div class="category-header" @click="toggle">
-      <span class="arrow">{{ isExpanded ? '▼' : '▶' }}</span>
+      <ChevronDown v-if="isExpanded" :size="10" class="arrow" />
+      <ChevronRight v-else :size="10" class="arrow" />
       <span class="category-name">{{ category.name }}</span>
     </div>
     <div v-if="isExpanded" class="category-tags">
@@ -12,6 +13,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { ChevronDown, ChevronRight } from '@lucide/vue'
 import TagNode from './TagNode.vue'
 import type { Tag } from '../../types/tag'
 

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+import { X, FolderOpen, Plus } from '@lucide/vue'
 import { useVaultStore } from '../../stores/vault'
 import { useToast } from '../../composables/useToast'
 import {
@@ -124,7 +125,7 @@ onMounted(async () => {
     <div class="modal">
       <div class="modal-header">
         <h3>Vault Settings</h3>
-        <button class="close-btn" @click="$emit('close')">✕</button>
+        <button class="close-btn" @click="$emit('close')"><X :size="16" /></button>
       </div>
 
       <div class="modal-body">
@@ -174,7 +175,7 @@ onMounted(async () => {
           <div class="excluded-list" v-if="excludedFolders.length">
             <div v-for="path in excludedFolders" :key="path" class="excluded-item">
               <span class="excluded-path">{{ path }}</span>
-              <button class="remove-btn" @click="removeExcluded(path)" title="Remove">✕</button>
+              <button class="remove-btn" @click="removeExcluded(path)" title="Remove"><X :size="14" /></button>
             </div>
           </div>
           <p v-else class="empty-hint">No excluded folders</p>
@@ -186,13 +187,13 @@ onMounted(async () => {
               class="form-input"
               @keydown.enter="addExcluded"
             />
-            <button class="picker-btn" @click="pickFolder" title="Browse…">📁</button>
+            <button class="picker-btn" @click="pickFolder" title="Browse…"><FolderOpen :size="14" /></button>
             <button
               class="add-btn"
               :disabled="isAdding || !newExcludedPath.trim()"
               @click="addExcluded"
             >
-              {{ isAdding ? '…' : '+' }}
+              <Plus v-if="!isAdding" :size="14" />
             </button>
           </div>
           <p v-if="addError" class="error">{{ addError }}</p>

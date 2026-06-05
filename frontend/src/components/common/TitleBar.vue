@@ -7,51 +7,46 @@
           style="--wails-draggable: no-drag"
           @click="showMenu = !showMenu"
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M2 3h12v1H2zm0 4h12v1H2zm0 4h12v1H2z" />
-          </svg>
+          <Menu :size="16" />
         </button>
         <transition name="menu-fade">
           <div v-if="showMenu" class="app-menu">
             <button class="menu-item" @click="onNewVault">
-              <span class="menu-icon">➕</span> New Vault
+              <Plus :size="16" class="menu-icon" /> New Vault
             </button>
             <button class="menu-item" @click="onOpenVault">
-              <span class="menu-icon">📂</span> Open Vault
+              <FolderOpen :size="16" class="menu-icon" /> Open Vault
             </button>
             <button
               v-if="vaultStore.currentVault"
               class="menu-item"
               @click="onCloseVault"
             >
-              <span class="menu-icon">✕</span> Close Vault
+              <X :size="16" class="menu-icon" /> Close Vault
             </button>
             <button class="menu-item" @click="onRescanVault">
-              <span class="menu-icon">🔄</span> Rescan Folder
+              <RefreshCw :size="16" class="menu-icon" /> Rescan Folder
             </button>
             <button class="menu-item" @click="onFullScan">
-              <span class="menu-icon">📂</span> Full Scan
+              <FolderSearch :size="16" class="menu-icon" /> Full Scan
             </button>
             <div class="menu-divider"></div>
             <button class="menu-item" @click="onVaultSettings">
-              <span class="menu-icon">⚙</span> Vault Settings
+              <Settings :size="16" class="menu-icon" /> Vault Settings
             </button>
             <button class="menu-item" @click="onTagManager">
-              <span class="menu-icon">🏷</span> Tag Manager
+              <Tags :size="16" class="menu-icon" /> Tag Manager
             </button>
             <div class="menu-divider"></div>
             <button class="menu-item" @click="onExit">
-              <span class="menu-icon">🚪</span> Exit
+              <LogOut :size="16" class="menu-icon" /> Exit
             </button>
           </div>
         </transition>
       </div>
 
       <span class="app-title">
-        <svg class="logo-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l7.17 7.17a2 2 0 0 1 0 2.83z" />
-          <circle cx="7" cy="7" r="1.5" fill="currentColor" stroke="none" />
-        </svg>
+        <img class="logo-icon" src="../../assets/appicon_small.png" alt="TagLoom" />
         TagLoom
       </span>
       <span v-if="vaultStore.currentVault" class="vault-name">
@@ -67,32 +62,22 @@
         title="Minimize"
         @click="minimise"
       >
-        <svg width="12" height="12" viewBox="0 0 12 12">
-          <line x1="1" y1="6" x2="11" y2="6" stroke="currentColor" stroke-width="1.5" />
-        </svg>
+        <Minus :size="14" />
       </button>
       <button
         class="window-btn maximize"
         :title="isMaximised ? 'Restore' : 'Maximize'"
         @click="toggleMaximise"
       >
-        <svg v-if="!isMaximised" width="12" height="12" viewBox="0 0 12 12">
-          <rect x="1" y="1" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1.5" />
-        </svg>
-        <svg v-else width="12" height="12" viewBox="0 0 12 12">
-          <rect x="3" y="3" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1.2" />
-          <polyline points="3,3 3,1 1,1 1,3" fill="none" stroke="currentColor" stroke-width="1.2" />
-        </svg>
+        <Maximize v-if="!isMaximised" :size="14" />
+        <Minimize2 v-else :size="14" />
       </button>
       <button
         class="window-btn close"
         title="Close"
         @click="close"
       >
-        <svg width="12" height="12" viewBox="0 0 12 12">
-          <line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.5" />
-          <line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.5" />
-        </svg>
+        <X :size="14" />
       </button>
     </div>
   </div>
@@ -100,6 +85,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
+import { Menu, Plus, FolderOpen, X, RefreshCw, FolderSearch, Settings, Tags, LogOut, Minus, Maximize, Minimize2 } from '@lucide/vue'
 import { useVaultStore } from '../../stores/vault'
 import { useUIStore } from '../../stores/ui'
 import {
@@ -281,9 +267,7 @@ onUnmounted(() => {
 }
 
 .menu-icon {
-  font-size: 14px;
-  width: 20px;
-  text-align: center;
+  flex-shrink: 0;
 }
 
 .menu-divider {
@@ -304,7 +288,9 @@ onUnmounted(() => {
 }
 
 .logo-icon {
-  color: #5b8af5;
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
 }
 
 .vault-name {

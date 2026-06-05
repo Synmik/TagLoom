@@ -1,12 +1,12 @@
 <template>
   <div class="modal-overlay" @click.self="$emit('close')">
     <div class="preview-modal">
-      <button class="close-btn" @click="$emit('close')">✕</button>
+      <button class="close-btn" @click="$emit('close')"><X :size="24" /></button>
       <img v-if="imageUrl" :src="imageUrl" class="preview-img" alt="Full preview" />
       <div v-else class="no-preview">No preview available</div>
       <div class="nav-buttons">
-        <button @click="navigate(-1)">←</button>
-        <button @click="navigate(1)">→</button>
+        <button @click="navigate(-1)"><ChevronLeft :size="18" /></button>
+        <button @click="navigate(1)"><ChevronRight :size="18" /></button>
       </div>
     </div>
   </div>
@@ -14,6 +14,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { X, ChevronLeft, ChevronRight } from '@lucide/vue'
 import { usePreviewStore } from '../../stores/preview'
 import { useFilesStore } from '../../stores/files'
 

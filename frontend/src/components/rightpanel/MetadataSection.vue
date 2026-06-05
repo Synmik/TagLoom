@@ -22,7 +22,8 @@
         :class="{ active: previewStore.currentFile?.is_favorite === 1 }"
         @click="toggleFavorite"
       >
-        {{ previewStore.currentFile?.is_favorite === 1 ? '♥ Favorite' : '♡ Favorite' }}
+        <Heart :fill="previewStore.currentFile?.is_favorite === 1 ? 'currentColor' : 'none'" :size="14" class="fav-icon" />
+        Favorite
       </button>
     </div>
   </section>
@@ -30,6 +31,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { Heart } from '@lucide/vue'
 import StarRating from '../common/StarRating.vue'
 import { usePreviewStore } from '../../stores/preview'
 
@@ -72,8 +74,10 @@ const toggleFavorite = () => previewStore.toggleFavorite()
 .rating-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
 .favorite-row { margin-top: 4px; }
 .favorite-btn {
+  display: flex; align-items: center; gap: 6px;
   background: none; border: 1px solid #444; color: #888;
   border-radius: 4px; padding: 4px 10px; cursor: pointer; font-size: 12px;
 }
 .favorite-btn.active { color: #ff4444; border-color: #ff4444; }
+.fav-icon { flex-shrink: 0; }
 </style>

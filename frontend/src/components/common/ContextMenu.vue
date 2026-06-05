@@ -15,7 +15,7 @@
             :class="{ disabled: item.disabled }"
             @click="handleClick(item)"
           >
-            <span v-if="item.icon" class="menu-icon">{{ item.icon }}</span>
+            <component :is="item.icon ? resolveIcon(item.icon) : null" v-if="item.icon" :size="14" class="menu-icon" />
             <span class="menu-label">{{ item.label }}</span>
           </div>
           <div v-else-if="item.type === 'divider'" class="menu-divider" />
@@ -26,8 +26,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, h } from 'vue'
+import * as LucideIcons from '@lucide/vue'
 import type { ContextMenuItem } from '../../composables/useContextMenu'
+
+// Resolve a Lucide icon name to a Vue component
+const resolveIcon = (name: string) => {
+  // Normalize: e.g. 'folder-open' → 'FolderOpen'
+  const pascal = name.replace(/-([a-z])/g, (_, c) => c.toUpperCase()).replace(/^./, s => s.toUpperCase())
+  return (LucideIcons as Record<string, any>)[pascal] || null
+}
 
 const props = defineProps<{
   visible: boolean
@@ -121,9 +129,8 @@ onUnmounted(() => {
 
 .menu-icon {
   width: 16px;
-  text-align: center;
   flex-shrink: 0;
-  font-size: 13px;
+  color: currentColor;
 }
 
 .menu-label {

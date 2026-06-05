@@ -3,9 +3,9 @@
     <div v-if="vaultStore.isScanning" class="scan-progress-overlay">
       <div class="scan-progress-card">
         <div class="scan-header">
-          <span class="scan-icon">🔄</span>
+          <RefreshCw :size="20" class="scan-icon" />
           <span class="scan-title">{{ scanTitle }}</span>
-          <button class="scan-close" @click="dismiss">×</button>
+          <button class="scan-close" @click="dismiss"><X :size="20" /></button>
         </div>
         <div class="progress-track">
           <div class="progress-fill" :style="{ width: progressPercent + '%' }"></div>
@@ -15,7 +15,7 @@
           <span class="percent">{{ progressPercent }}%</span>
         </div>
         <div v-if="thumbProgress > 0" class="thumb-stats">
-          <span>🖼️ Thumbnails: {{ thumbProgress }} generated</span>
+          <span><ImageIcon :size="14" class="inline-icon" /> Thumbnails: {{ thumbProgress }} generated</span>
         </div>
       </div>
     </div>
@@ -24,6 +24,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { RefreshCw, X, ImagePlus as ImageIcon } from '@lucide/vue'
 import { useVaultStore } from '../../stores/vault'
 
 const vaultStore = useVaultStore()

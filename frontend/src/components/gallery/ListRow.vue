@@ -87,7 +87,7 @@ const onContextMenu = (e: MouseEvent) => {
     {
       type: 'item',
       label: props.file.is_favorite === 1 ? 'Remove from favorites' : 'Add to favorites',
-      icon: '♥',
+      icon: 'heart',
       action: async () => {
         await filesStore.toggleFavorite(props.file)
       },
@@ -96,7 +96,7 @@ const onContextMenu = (e: MouseEvent) => {
     {
       type: 'item',
       label: 'Open file',
-      icon: '📁',
+      icon: 'file-text',
       action: async () => {
         try {
           await filesStore.openOriginalFile(props.file.id)
@@ -109,7 +109,7 @@ const onContextMenu = (e: MouseEvent) => {
     {
       type: 'item',
       label: 'Open file location',
-      icon: '📂',
+      icon: 'folder-open',
       action: async () => {
         try {
           await filesStore.openFileFolder(props.file.id)
@@ -123,20 +123,20 @@ const onContextMenu = (e: MouseEvent) => {
     {
       type: 'item',
       label: 'Copy filename',
-      icon: '📄',
+      icon: 'file',
       action: () => copyToClipboard(filename.value, 'Filename'),
     },
     {
       type: 'item',
       label: 'Copy path',
-      icon: '📂',
+      icon: 'folder',
       action: () => copyToClipboard(props.file.vault_path, 'Path'),
     },
     { type: 'divider' },
     {
       type: 'item',
       label: 'Batch edit',
-      icon: '✏️',
+      icon: 'pencil',
       action: () => {
         uiStore.openBatchEdit()
       },
@@ -145,7 +145,7 @@ const onContextMenu = (e: MouseEvent) => {
     {
       type: 'item',
       label: 'Delete from vault',
-      icon: '🗑️',
+      icon: 'trash2',
       action: async () => {
         await filesStore.deleteFile(props.file.id)
         success('File removed from vault')
@@ -155,7 +155,7 @@ const onContextMenu = (e: MouseEvent) => {
     {
       type: 'item',
       label: 'Delete original file',
-      icon: '⚠️',
+      icon: 'alert-triangle',
       action: async () => {
         if (!confirm(`Move "${filename.value}" to Recycle Bin?\n\nThe original file will be moved to Recycle Bin and the thumbnail removed.`)) return
         try {

@@ -5,19 +5,20 @@
       @click="uiStore.setViewMode('grid')"
       title="Grid view"
     >
-      ⊞
+      <Grid3X3 :size="16" />
     </button>
     <button
       :class="['view-btn', { active: uiStore.viewMode === 'list' }]"
       @click="uiStore.setViewMode('list')"
       title="List view"
     >
-      ☰
+      <List :size="16" />
     </button>
   </div>
 </template>
 
 <script setup lang="ts">
+import { Grid3X3, List } from '@lucide/vue'
 import { useUIStore } from '../../stores/ui'
 const uiStore = useUIStore()
 </script>

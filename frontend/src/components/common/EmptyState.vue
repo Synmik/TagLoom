@@ -1,6 +1,7 @@
 <template>
   <div class="empty-state">
-    <div class="empty-icon">{{ icon }}</div>
+    <component :is="icon" v-if="icon" :size="48" :stroke-width="1.5" />
+    <div v-else class="empty-icon">{{ iconText }}</div>
     <div class="empty-content">
       <p class="empty-title">{{ title }}</p>
       <p class="empty-description">{{ description }}</p>
@@ -12,8 +13,11 @@
 </template>
 
 <script setup lang="ts">
+import type { Component } from 'vue'
+
 defineProps<{
-  icon: string
+  icon: Component | null
+  iconText?: string
   title: string
   description: string
   actionText?: string

@@ -9,13 +9,15 @@
       <option value="date_modified">Date Modified</option>
     </select>
     <button @click="toggleOrder" class="order-btn" :title="sortOrder === 'asc' ? 'Ascending' : 'Descending'">
-      {{ sortOrder === 'asc' ? '↑' : '↓' }}
+      <ArrowUp v-if="sortOrder === 'asc'" :size="14" />
+      <ArrowDown v-else :size="14" />
     </button>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { ArrowUp, ArrowDown } from '@lucide/vue'
 import { useUIStore } from '../../stores/ui'
 import { useFilesStore } from '../../stores/files'
 import { useFiltersStore } from '../../stores/filters'

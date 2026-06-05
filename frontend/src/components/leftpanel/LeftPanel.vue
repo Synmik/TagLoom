@@ -3,7 +3,7 @@
     <section class="panel-section" :style="{ height: `${uiStore.leftPanelSplit}%` }">
       <div class="section-header">
         <h3>Folders</h3>
-        <button class="icon-btn" @click="openVault" title="Open Vault">📂</button>
+        <button class="icon-btn" @click="openVault" title="Open Vault"><FolderOpen :size="14" /></button>
       </div>
       <FolderTree />
     </section>
@@ -13,7 +13,7 @@
     <section class="panel-section tags-section" :style="{ height: `${100 - uiStore.leftPanelSplit}%` }">
       <div class="section-header">
         <h3>Tags</h3>
-        <button class="icon-btn" @click="openTagManager(null)" title="Create Tag">+</button>
+        <button class="icon-btn" @click="openTagManager(null)" title="Create Tag"><Plus :size="14" /></button>
       </div>
       <TagTree @edit="openTagManager($event)" />
     </section>
@@ -24,6 +24,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onBeforeUnmount } from 'vue'
+import { FolderOpen, Plus } from '@lucide/vue'
 import FolderTree from './FolderTree.vue'
 import TagTree from './TagTree.vue'
 import TagManagerModal from '../modals/TagManagerModal.vue'

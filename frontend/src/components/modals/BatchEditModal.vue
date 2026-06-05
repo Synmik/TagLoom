@@ -3,7 +3,7 @@
     <div class="modal">
       <div class="modal-header">
         <h3>Batch Edit ({{ filesStore.selectionCount }} files)</h3>
-        <button class="close-btn" @click="$emit('close')">✕</button>
+        <button class="close-btn" @click="$emit('close')"><X :size="16" /></button>
       </div>
 
       <div class="modal-body">
@@ -12,7 +12,7 @@
           <label>Add Tags</label>
           <div class="tags-container">
             <TagChip v-for="tag in tagsToAdd" :key="tag.id" :tag="tag" @remove="removeTagToAdd" />
-            <button class="add-tag-btn" @click="openAddPicker">+</button>
+            <button class="add-tag-btn" @click="openAddPicker"><Plus :size="14" /></button>
           </div>
           <div v-if="pickerMode === 'add'" class="tag-picker">
             <input
@@ -25,7 +25,7 @@
             />
             <div class="picker-results">
               <div v-if="canCreate && !filteredTags.length" class="picker-item create-item" @click="createTag">
-                <span class="create-icon">+</span> Create "<strong>{{ searchQuery }}</strong>"
+                <PlusCircle :size="14" class="create-icon" /> Create "<strong>{{ searchQuery }}</strong>"
               </div>
               <template v-else>
                 <div v-for="tag in filteredTags" :key="tag.id" class="picker-item" @click="pickTag(tag)">
@@ -42,7 +42,7 @@
           <label>Remove Tags</label>
           <div class="tags-container">
             <TagChip v-for="tag in tagsToRemove" :key="tag.id" :tag="tag" @remove="removeTagToRemove" />
-            <button class="add-tag-btn" @click="openRemovePicker">+</button>
+            <button class="add-tag-btn" @click="openRemovePicker"><Plus :size="14" /></button>
           </div>
           <div v-if="pickerMode === 'remove'" class="tag-picker">
             <input
@@ -72,7 +72,7 @@
               @click="rating = 0; applyRating = false"
               title="Clear rating"
             >
-              ✕
+              <X :size="14" />
             </button>
           </div>
         </div>
@@ -106,6 +106,7 @@
 
 <script setup lang="ts">
 import { shallowRef, ref, computed, watch, nextTick } from 'vue'
+import { X, Plus, PlusCircle } from '@lucide/vue'
 import TagChip from '../common/TagChip.vue'
 import StarRating from '../common/StarRating.vue'
 import { useFilesStore } from '../../stores/files'

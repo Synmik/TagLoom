@@ -1,6 +1,6 @@
 <template>
   <div class="search-bar">
-    <span class="search-icon">🔍</span>
+    <Search :size="14" class="search-icon" />
     <input
       ref="inputRef"
       v-model="query"
@@ -10,12 +10,13 @@
       placeholder="Search files, tags, notes…"
       class="search-input"
     />
-    <button v-if="query" class="clear-btn" @click="clearSearch">✕</button>
+    <button v-if="query" class="clear-btn" @click="clearSearch"><X :size="14" /></button>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
+import { Search, X } from '@lucide/vue'
 import { useSearch } from '../../composables/useSearch'
 
 const { query, search, clearSearch } = useSearch()
@@ -55,7 +56,7 @@ defineExpose({ focus })
   padding: 0 8px;
   height: 32px;
 }
-.search-icon { color: #888; margin-right: 6px; }
+.search-icon { color: #888; margin-right: 6px; flex-shrink: 0; }
 .search-input {
   flex: 1;
   background: none;

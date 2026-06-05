@@ -3,7 +3,7 @@
     <div class="modal">
       <div class="modal-header">
         <h3>{{ isEditing ? 'Edit Tag' : 'Create Tag' }}</h3>
-        <button class="close-btn" @click="$emit('close')">✕</button>
+        <button class="close-btn" @click="$emit('close')"><X :size="16" /></button>
       </div>
       <div class="modal-body">
         <div class="form-group">
@@ -42,6 +42,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { X } from '@lucide/vue'
 import ColorPicker from '../common/ColorPicker.vue'
 import { useTagsStore } from '../../stores/tags'
 import { useToast } from '../../composables/useToast'

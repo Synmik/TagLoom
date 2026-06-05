@@ -6,7 +6,10 @@
       @click="toggleFilter"
       @contextmenu.prevent="handleContextMenu"
     >
-      <span v-if="hasChildren" class="arrow" @click.stop="toggleExpand">{{ isExpanded ? '▼' : '▶' }}</span>
+      <span v-if="hasChildren" class="arrow" @click.stop="toggleExpand">
+        <ChevronDown v-if="isExpanded" :size="10" />
+        <ChevronRight v-else :size="10" />
+      </span>
       <span v-else class="arrow spacer"></span>
       <span class="color-dot" :style="{ background: tag.color || '#666' }"></span>
       <span class="tag-name">{{ tag.name }}</span>
@@ -25,6 +28,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { ChevronDown, ChevronRight } from '@lucide/vue'
 import { useFiltersStore } from '../../stores/filters'
 import { useTagsStore } from '../../stores/tags'
 import type { Tag } from '../../types/tag'
