@@ -32,7 +32,10 @@
             </button>
             <div class="menu-divider"></div>
             <button class="menu-item" @click="onVaultSettings">
-              <Settings :size="16" class="menu-icon" /> Vault Settings
+              <FolderCog :size="16" class="menu-icon" /> Vault Settings
+            </button>
+            <button class="menu-item" @click="onAppSettings">
+              <Settings :size="16" class="menu-icon" /> App Settings
             </button>
             <button class="menu-item" @click="onTagManager">
               <Tags :size="16" class="menu-icon" /> Tag Manager
@@ -85,9 +88,10 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { Menu, Plus, FolderOpen, X, RefreshCw, FolderSearch, Settings, Tags, LogOut, Minus, Maximize, Minimize2 } from '@lucide/vue'
+import { Menu, Plus, FolderOpen, X, RefreshCw, FolderSearch, Settings, FolderCog, Tags, LogOut, Minus, Maximize, Minimize2 } from '@lucide/vue'
 import { useVaultStore } from '../../stores/vault'
 import { useUIStore } from '../../stores/ui'
+import { GetAppSettings } from '../../api/backend'
 import {
   WindowMinimise,
   WindowMaximise,
@@ -123,7 +127,11 @@ const toggleMaximise = async () => {
   isMaximised.value = !maximised
 }
 
-const close = () => {
+const close = async () => {
+  const settings = await GetAppSettings().catch(() => null)
+  if (settings?.confirm_before_exit) {
+    if (!window.confirm('Are you sure you want to exit TagLoom?')) return
+  }
   Quit()
 }
 
@@ -151,12 +159,20 @@ const onVaultSettings = () => {
   showMenu.value = false
   uiStore.openVaultSettings()
 }
+const onAppSettings = () => {
+  showMenu.value = false
+  uiStore.openAppSettings()
+}
 const onTagManager = () => {
   showMenu.value = false
   uiStore.openTagManager()
 }
-const onExit = () => {
+const onExit = async () => {
   showMenu.value = false
+  const settings = await GetAppSettings().catch(() => null)
+  if (settings?.confirm_before_exit) {
+    if (!window.confirm('Are you sure you want to exit TagLoom?')) return
+  }
   Quit()
 }
 

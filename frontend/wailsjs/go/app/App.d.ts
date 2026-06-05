@@ -34,6 +34,8 @@ export function GenerateThumbnailsPool():Promise<void>;
 
 export function GetAllTagFileCounts():Promise<Record<number, number>>;
 
+export function GetAppSettings():Promise<config.AppSettings>;
+
 export function GetBatchMetadata(arg1:Array<number>):Promise<Array<app.FileMetadata>>;
 
 export function GetCurrentVault():Promise<db.VaultInfo>;
@@ -85,6 +87,8 @@ export function ScanVault():Promise<number>;
 export function SearchFiles(arg1:string,arg2:number):Promise<Array<db.File>>;
 
 export function SelectFolder():Promise<string>;
+
+export function SetAppSettings(arg1:config.AppSettings):Promise<void>;
 
 export function SetFavoriteForFiles(arg1:Array<number>,arg2:number):Promise<void>;
 

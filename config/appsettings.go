@@ -8,7 +8,12 @@ import (
 
 // AppSettings holds global application preferences stored outside any vault.
 type AppSettings struct {
-	LastVaultPath string `json:"last_vault_path"`
+	LastVaultPath      string `json:"last_vault_path"`
+	AutoOpenLastVault  bool   `json:"auto_open_last_vault"`
+	DefaultGridSize    string `json:"default_grid_size"`
+	DefaultSortField   string `json:"default_sort_field"`
+	DefaultSortOrder   string `json:"default_sort_order"`
+	ConfirmBeforeExit  bool   `json:"confirm_before_exit"`
 }
 
 // AppSettingsDir returns the directory for global app settings.

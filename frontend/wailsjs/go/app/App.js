@@ -62,6 +62,10 @@ export function GetAllTagFileCounts() {
   return window['go']['app']['App']['GetAllTagFileCounts']();
 }
 
+export function GetAppSettings() {
+  return window['go']['app']['App']['GetAppSettings']();
+}
+
 export function GetBatchMetadata(arg1) {
   return window['go']['app']['App']['GetBatchMetadata'](arg1);
 }
@@ -164,6 +168,10 @@ export function SearchFiles(arg1, arg2) {
 
 export function SelectFolder() {
   return window['go']['app']['App']['SelectFolder']();
+}
+
+export function SetAppSettings(arg1) {
+  return window['go']['app']['App']['SetAppSettings'](arg1);
 }
 
 export function SetFavoriteForFiles(arg1, arg2) {

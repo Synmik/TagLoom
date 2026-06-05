@@ -7,6 +7,15 @@ export interface VaultInfo {
   file_count: number
 }
 
+export interface AppSettings {
+  last_vault_path: string
+  auto_open_last_vault: boolean
+  default_grid_size: string
+  default_sort_field: string
+  default_sort_order: string
+  confirm_before_exit: boolean
+}
+
 export interface VaultConfig {
   name: string
   version: number

@@ -15,6 +15,7 @@ export const useUIStore = defineStore('ui', {
     leftPanelSplit: 50,
     showBatchEdit: false,
     showVaultSettings: false,
+    showAppSettings: false,
     showTagManager: false,
     showNewVault: false,
   }),
@@ -57,6 +58,12 @@ export const useUIStore = defineStore('ui', {
     },
     closeVaultSettings() {
       this.showVaultSettings = false
+    },
+    openAppSettings() {
+      this.showAppSettings = true
+    },
+    closeAppSettings() {
+      this.showAppSettings = false
     },
     openTagManager() {
       this.showTagManager = true

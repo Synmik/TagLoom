@@ -14,6 +14,7 @@
     <FilePreviewModal v-if="previewStore.previewModalOpen" @close="previewStore.closeFullPreview" />
     <BatchEditModal v-if="uiStore.showBatchEdit" @close="uiStore.closeBatchEdit" />
     <VaultSettingsModal v-if="uiStore.showVaultSettings" @close="uiStore.closeVaultSettings" />
+    <AppSettingsModal v-if="uiStore.showAppSettings" @close="uiStore.closeAppSettings" />
     <TagManagerModal v-if="uiStore.showTagManager" @close="uiStore.closeTagManager" />
     <NewVaultModal v-if="uiStore.showNewVault" @close="uiStore.closeNewVault" />
   </div>
@@ -31,6 +32,7 @@ import ToastContainer from './components/common/ToastContainer.vue'
 import FilePreviewModal from './components/modals/FilePreviewModal.vue'
 import BatchEditModal from './components/modals/BatchEditModal.vue'
 import VaultSettingsModal from './components/modals/VaultSettingsModal.vue'
+import AppSettingsModal from './components/modals/AppSettingsModal.vue'
 import TagManagerModal from './components/modals/TagManagerModal.vue'
 import NewVaultModal from './components/modals/NewVaultModal.vue'
 import { usePreviewStore } from './stores/preview'
@@ -39,6 +41,7 @@ import { useTagsStore } from './stores/tags'
 import { useFoldersStore } from './stores/folders'
 import { useVaultStore } from './stores/vault'
 import { useKeyboardShortcuts } from './composables/useKeyboardShortcuts'
+import { GetAppSettings } from './api/backend'
 
 const previewStore = usePreviewStore()
 const uiStore = useUIStore()
@@ -95,7 +98,17 @@ onMounted(async () => {
   previewStore._syncSelection()
   useTagsStore()._watchVault()
   useFoldersStore()._watchVault()
-  await useVaultStore().autoOpenLastVault()
+
+  // Load global app settings to check auto-open preference
+  let settings
+  try {
+    settings = await GetAppSettings()
+  } catch {
+    // Non-fatal: proceed without settings
+  }
+  if (settings?.auto_open_last_vault) {
+    await useVaultStore().autoOpenLastVault()
+  }
 
   // ── Keyboard shortcuts ──────────────────────────────────────────
   useKeyboardShortcuts()

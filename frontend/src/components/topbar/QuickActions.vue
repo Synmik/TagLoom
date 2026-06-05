@@ -13,6 +13,9 @@
       <FolderSearch :size="15" />
     </button>
     <button class="action-btn" title="Vault Settings" @click="onVaultSettings">
+      <FolderCog :size="15" />
+    </button>
+    <button class="action-btn" title="App Settings" @click="onAppSettings">
       <Settings :size="15" />
     </button>
     <button class="action-btn" title="Tag Manager" @click="onTagManager">
@@ -22,7 +25,7 @@
 </template>
 
 <script setup lang="ts">
-import { Plus, FolderOpen, RefreshCw, FolderSearch, Settings, Tags } from '@lucide/vue'
+import { Plus, FolderOpen, RefreshCw, FolderSearch, Settings, FolderCog, Tags } from '@lucide/vue'
 import { useVaultStore } from '../../stores/vault'
 import { useUIStore } from '../../stores/ui'
 
@@ -34,6 +37,7 @@ const onOpenVault = () => vaultStore.pickAndOpenVault()
 const onRescanVault = () => vaultStore.rescanVault()
 const onFullScan = () => vaultStore.scanVault()
 const onVaultSettings = () => uiStore.openVaultSettings()
+const onAppSettings = () => uiStore.openAppSettings()
 const onTagManager = () => uiStore.openTagManager()
 </script>
 

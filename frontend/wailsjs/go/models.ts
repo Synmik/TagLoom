@@ -69,6 +69,28 @@ export namespace app {
 
 export namespace config {
 	
+	export class AppSettings {
+	    last_vault_path: string;
+	    auto_open_last_vault: boolean;
+	    default_grid_size: string;
+	    default_sort_field: string;
+	    default_sort_order: string;
+	    confirm_before_exit: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new AppSettings(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.last_vault_path = source["last_vault_path"];
+	        this.auto_open_last_vault = source["auto_open_last_vault"];
+	        this.default_grid_size = source["default_grid_size"];
+	        this.default_sort_field = source["default_sort_field"];
+	        this.default_sort_order = source["default_sort_order"];
+	        this.confirm_before_exit = source["confirm_before_exit"];
+	    }
+	}
 	export class Settings {
 	    auto_tag_by_folder: boolean;
 	    excluded_folders: string[];

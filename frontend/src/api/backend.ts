@@ -27,3 +27,6 @@ export { GetExcludedFolders, AddExcludedFolder, RemoveExcludedFolder } from '../
 
 // Batch Operations
 export { AddTagsToFiles, RemoveTagsFromFiles, SetRatingForFiles, SetFavoriteForFiles } from '../../wailsjs/go/app/App'
+
+// App Settings
+export { GetAppSettings, SetAppSettings } from '../../wailsjs/go/app/App'
