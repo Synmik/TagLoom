@@ -114,7 +114,7 @@ func (a *App) GetFileMetadata(fileID int64) (*FileMetadata, error) {
 
 	// Extract resolution and duration based on file category
 	switch category {
-	case "image", "animated":
+	case "image":
 		w, h, err := getImageDimensions(file.VaultPath, ext)
 		if err == nil {
 			metadata.ResolutionWidth = w
@@ -122,11 +122,35 @@ func (a *App) GetFileMetadata(fileID int64) (*FileMetadata, error) {
 		}
 		// Try EXIF for additional data
 		if exifData, exifErr := extractEXIF(file.VaultPath); exifErr == nil {
-			if w == 0 && h == 0 {
+			if metadata.ResolutionWidth == 0 && metadata.ResolutionHeight == 0 {
 				if exifData.Width > 0 && exifData.Height > 0 {
 					metadata.ResolutionWidth = exifData.Width
 					metadata.ResolutionHeight = exifData.Height
 				}
+			}
+		}
+		// Fallback: try ffprobe for formats image.DecodeConfig can't handle (SVG, etc.)
+		if metadata.ResolutionWidth == 0 && metadata.ResolutionHeight == 0 {
+			if probeInfo, probeErr := utils.ProbeVideo(file.VaultPath); probeErr == nil {
+				metadata.ResolutionWidth = probeInfo.Width
+				metadata.ResolutionHeight = probeInfo.Height
+			}
+		}
+	case "animated":
+		// Animated files (GIF, WebM): get resolution from image decode
+		w, h, err := getImageDimensions(file.VaultPath, ext)
+		if err == nil {
+			metadata.ResolutionWidth = w
+			metadata.ResolutionHeight = h
+		}
+		// Also try ffprobe for resolution + duration (works for both GIF and WebM)
+		if probeInfo, probeErr := utils.ProbeVideo(file.VaultPath); probeErr == nil {
+			if metadata.ResolutionWidth == 0 && metadata.ResolutionHeight == 0 {
+				metadata.ResolutionWidth = probeInfo.Width
+				metadata.ResolutionHeight = probeInfo.Height
+			}
+			if metadata.DurationSeconds == 0 && probeInfo.DurationSeconds > 0 {
+				metadata.DurationSeconds = probeInfo.DurationSeconds
 			}
 		}
 	case "video":

@@ -36,10 +36,13 @@ func IsSupported(path string) bool {
 }
 
 // GetFileCategory returns the category of a file based on its extension.
+// Order matters for extensions in multiple categories (e.g. .gif is both image and animated).
+// We check in priority order: video > animated > image.
 func GetFileCategory(path string) string {
 	ext := strings.ToLower(filepath.Ext(path))
-	for category, exts := range SupportedExtensions {
-		for _, e := range exts {
+	// Check in priority order so extensions in multiple categories get the most specific one
+	for _, category := range []string{"video", "animated", "image"} {
+		for _, e := range SupportedExtensions[category] {
 			if ext == e {
 				return category
 			}
