@@ -13,6 +13,9 @@
         </button>
         <transition name="menu-fade">
           <div v-if="showMenu" class="app-menu">
+            <button class="menu-item" @click="onNewVault">
+              <span class="menu-icon">➕</span> New Vault
+            </button>
             <button class="menu-item" @click="onOpenVault">
               <span class="menu-icon">📂</span> Open Vault
             </button>
@@ -138,6 +141,10 @@ const close = () => {
   Quit()
 }
 
+const onNewVault = () => {
+  showMenu.value = false
+  uiStore.openNewVault()
+}
 const onOpenVault = async () => {
   showMenu.value = false
   await vaultStore.pickAndOpenVault()

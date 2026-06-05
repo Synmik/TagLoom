@@ -16,6 +16,7 @@ export const useUIStore = defineStore('ui', {
     showBatchEdit: false,
     showVaultSettings: false,
     showTagManager: false,
+    showNewVault: false,
   }),
   getters: {
     gridPixelSize: (state) => {
@@ -68,6 +69,12 @@ export const useUIStore = defineStore('ui', {
     },
     setRightPanelWidth(width: number) {
       this.rightPanelWidth = Math.max(200, Math.min(600, width))
+    },
+    openNewVault() {
+      this.showNewVault = true
+    },
+    closeNewVault() {
+      this.showNewVault = false
     },
     setLeftPanelSplit(percent: number) {
       this.leftPanelSplit = Math.max(15, Math.min(85, percent))

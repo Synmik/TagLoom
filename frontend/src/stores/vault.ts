@@ -44,6 +44,9 @@ export const useVaultStore = defineStore('vault', {
         const path = await SelectFolder()
         if (!path) return // User cancelled
         await this._doOpenVault(path)
+      } catch (e: any) {
+        const { useToast } = await import('../composables/useToast')
+        useToast().error(e.message || 'Failed to open vault')
       } finally {
         this.isLoading = false
       }

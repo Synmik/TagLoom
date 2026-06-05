@@ -18,6 +18,8 @@ export function CloseVault():Promise<void>;
 
 export function CreateTag(arg1:db.TagCreate):Promise<db.Tag>;
 
+export function CreateVault(arg1:string,arg2:app.NewVaultSettings):Promise<db.VaultInfo>;
+
 export function DeleteFile(arg1:number):Promise<void>;
 
 export function DeleteTag(arg1:number):Promise<void>;

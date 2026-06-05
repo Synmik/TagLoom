@@ -32,6 +32,20 @@ export namespace app {
 	        this.dominant_colors = source["dominant_colors"];
 	    }
 	}
+	export class NewVaultSettings {
+	    thumbnail_quality: number;
+	    excluded_folders: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new NewVaultSettings(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.thumbnail_quality = source["thumbnail_quality"];
+	        this.excluded_folders = source["excluded_folders"];
+	    }
+	}
 	export class ThumbnailInfo {
 	    file_id: number;
 	    thumbnail_path: string;

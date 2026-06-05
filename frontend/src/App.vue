@@ -15,6 +15,7 @@
     <BatchEditModal v-if="uiStore.showBatchEdit" @close="uiStore.closeBatchEdit" />
     <VaultSettingsModal v-if="uiStore.showVaultSettings" @close="uiStore.closeVaultSettings" />
     <TagManagerModal v-if="uiStore.showTagManager" @close="uiStore.closeTagManager" />
+    <NewVaultModal v-if="uiStore.showNewVault" @close="uiStore.closeNewVault" />
   </div>
 </template>
 
@@ -31,6 +32,7 @@ import FilePreviewModal from './components/modals/FilePreviewModal.vue'
 import BatchEditModal from './components/modals/BatchEditModal.vue'
 import VaultSettingsModal from './components/modals/VaultSettingsModal.vue'
 import TagManagerModal from './components/modals/TagManagerModal.vue'
+import NewVaultModal from './components/modals/NewVaultModal.vue'
 import { usePreviewStore } from './stores/preview'
 import { useUIStore } from './stores/ui'
 import { useTagsStore } from './stores/tags'

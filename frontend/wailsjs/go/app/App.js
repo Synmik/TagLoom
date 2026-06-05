@@ -30,6 +30,10 @@ export function CreateTag(arg1) {
   return window['go']['app']['App']['CreateTag'](arg1);
 }
 
+export function CreateVault(arg1, arg2) {
+  return window['go']['app']['App']['CreateVault'](arg1, arg2);
+}
+
 export function DeleteFile(arg1) {
   return window['go']['app']['App']['DeleteFile'](arg1);
 }
