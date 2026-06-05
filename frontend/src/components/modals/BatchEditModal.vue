@@ -2,7 +2,7 @@
   <div class="modal-overlay" @click.self="$emit('close')">
     <div class="modal">
       <div class="modal-header">
-        <h3>Batch Edit ({{ filesStore.selectionCount }} files)</h3>
+        <h3>Batch Edit ({{ totalCount }} files)</h3>
         <button class="close-btn" @click="$emit('close')"><X :size="16" /></button>
       </div>
 
@@ -96,7 +96,7 @@
         <!-- Actions -->
         <div class="actions-row">
           <button class="save-btn" @click="apply" :disabled="nothingToApply">
-            Apply to {{ filesStore.selectionCount }} files
+            Apply to {{ totalCount }} files
           </button>
         </div>
       </div>
@@ -105,7 +105,7 @@
 </template>
 
 <script setup lang="ts">
-import { shallowRef, ref, computed, watch, nextTick } from 'vue'
+import { shallowRef, ref, computed, watch, nextTick, onMounted } from 'vue'
 import { X, Plus, PlusCircle } from '@lucide/vue'
 import TagChip from '../common/TagChip.vue'
 import StarRating from '../common/StarRating.vue'
@@ -119,6 +119,13 @@ const { success, error: toastError } = useToast()
 
 const filesStore = useFilesStore()
 const tagsStore = useTagsStore()
+
+// Total count (handles both normal selection and folder bulk edit mode)
+const totalCount = ref(filesStore.selectionCount)
+
+onMounted(async () => {
+  totalCount.value = await filesStore.getTotalSelectedCount()
+})
 
 // ── State ──
 const tagsToAdd = ref<Tag[]>([])
@@ -265,7 +272,7 @@ const apply = async () => {
     // Reload tags tree
     await tagsStore.loadTags()
 
-    success(`Changes applied to ${filesStore.selectionCount || 'selected'} files`)
+    success(`Changes applied to ${totalCount.value} files`)
   } catch (e: any) {
     toastError('Batch edit failed: ' + (e.message || String(e)))
     return

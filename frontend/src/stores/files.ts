@@ -9,6 +9,8 @@ export const useFilesStore = defineStore('files', {
   state: () => ({
     files: [] as File[],
     selectedFiles: [] as File[],
+    // When set, batch operations target ALL files in this folder (not just loaded ones)
+    folderBulkEditPath: '',
     totalCount: 0,
     page: 0,
     limit: 200,
@@ -147,6 +149,68 @@ export const useFilesStore = defineStore('files', {
     },
     clearSelection() {
       this.selectedFiles = []
+      this.folderBulkEditPath = ''
+    },
+    /** Set bulk edit scope to ALL files in a folder (without loading them into gallery) */
+    setFolderBulkEdit(folderPath: string) {
+      this.folderBulkEditPath = folderPath
+      this.selectedFiles = []
+    },
+    /** Get all file IDs for current selection or folder bulk edit scope */
+    async getAllSelectedIds(): Promise<number[]> {
+      if (this.folderBulkEditPath) {
+        // Fetch all file IDs for this folder from backend (without loading into gallery)
+        const filtersStore = useFiltersStore()
+        const activeFilter = filtersStore.asBackendFilter
+        const allIds: number[] = []
+        const limit = 500
+        let page = 0
+        let totalCount = 0
+
+        // First get total count
+        const firstResult: FilePage = await Promise.race([
+          GetFiles({ ...activeFilter, folder_path: this.folderBulkEditPath }, { field: 'indexed_at', order: 'desc' }, 0, 1),
+          new Promise<FilePage>((_, reject) =>
+            setTimeout(() => reject(new Error('GetFiles timeout (5s)')), 5000)
+          ),
+        ])
+        totalCount = firstResult?.total_count ?? 0
+
+        // Fetch all pages of IDs
+        for (let p = 0; p * limit < totalCount; p++) {
+          const result: FilePage = await Promise.race([
+            GetFiles({ ...activeFilter, folder_path: this.folderBulkEditPath }, { field: 'indexed_at', order: 'desc' }, p, limit),
+            new Promise<FilePage>((_, reject) =>
+              setTimeout(() => reject(new Error('GetFiles timeout (5s)')), 5000)
+            ),
+          ])
+          const fileArray: File[] = result && Array.isArray(result.files) ? result.files : []
+          for (const f of fileArray) {
+            allIds.push(f.id)
+          }
+        }
+        return allIds
+      }
+      return this.selectedFiles.map(f => f.id)
+    },
+    /** Get total count for current selection or folder bulk edit scope */
+    async getTotalSelectedCount(): Promise<number> {
+      if (this.folderBulkEditPath) {
+        const filtersStore = useFiltersStore()
+        const activeFilter = filtersStore.asBackendFilter
+        try {
+          const result: FilePage = await Promise.race([
+            GetFiles({ ...activeFilter, folder_path: this.folderBulkEditPath }, { field: 'indexed_at', order: 'desc' }, 0, 1),
+            new Promise<FilePage>((_, reject) =>
+              setTimeout(() => reject(new Error('GetFiles timeout (2s)')), 2000)
+            ),
+          ])
+          return result?.total_count ?? 0
+        } catch {
+          return 0
+        }
+      }
+      return this.selectedFiles.length
     },
     async updateFile(update: Partial<FileUpdate> & { id: number }) {
       const { id, ...rest } = update
@@ -226,24 +290,24 @@ export const useFilesStore = defineStore('files', {
 
     /** Add tags to all selected files in a single backend call */
     async batchAddTags(tagIDs: number[]) {
-      const fileIDs = this.selectedFiles.map(f => f.id)
+      const fileIDs = await this.getAllSelectedIds()
       if (fileIDs.length === 0 || tagIDs.length === 0) return
       await AddTagsToFiles(fileIDs, tagIDs)
     },
 
     /** Remove tags from all selected files in a single backend call */
     async batchRemoveTags(tagIDs: number[]) {
-      const fileIDs = this.selectedFiles.map(f => f.id)
+      const fileIDs = await this.getAllSelectedIds()
       if (fileIDs.length === 0 || tagIDs.length === 0) return
       await RemoveTagsFromFiles(fileIDs, tagIDs)
     },
 
     /** Set rating on all selected files */
     async batchSetRating(rating: number) {
-      const fileIDs = this.selectedFiles.map(f => f.id)
+      const fileIDs = await this.getAllSelectedIds()
       if (fileIDs.length === 0) return
       await SetRatingForFiles(fileIDs, rating)
-      // Optimistic update
+      // Optimistic update for loaded files
       for (const file of this.selectedFiles) {
         file.rating = rating
       }
@@ -251,10 +315,10 @@ export const useFilesStore = defineStore('files', {
 
     /** Set favorite flag on all selected files */
     async batchSetFavorite(isFavorite: boolean) {
-      const fileIDs = this.selectedFiles.map(f => f.id)
+      const fileIDs = await this.getAllSelectedIds()
       if (fileIDs.length === 0) return
       await SetFavoriteForFiles(fileIDs, isFavorite ? 1 : 0)
-      // Optimistic update
+      // Optimistic update for loaded files
       const favValue = isFavorite ? 1 : 0
       for (const file of this.selectedFiles) {
         file.is_favorite = favValue

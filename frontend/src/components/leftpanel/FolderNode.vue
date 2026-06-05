@@ -30,13 +30,15 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { ChevronDown, ChevronRight, Folder, Ban, FolderOpen } from '@lucide/vue'
+import { ChevronDown, ChevronRight, Folder, Ban, FolderOpen, Pencil } from '@lucide/vue'
 import { useFoldersStore } from '../../stores/folders'
 import { useFiltersStore } from '../../stores/filters'
 import { useContextMenu, type ContextMenuItem } from '../../composables/useContextMenu'
 import { ClipboardSetText } from '../../../wailsjs/runtime/runtime'
 import { AddExcludedFolder } from '../../api/backend'
 import { useToast } from '../../composables/useToast'
+import { useFilesStore } from '../../stores/files'
+import { useUIStore } from '../../stores/ui'
 import ContextMenu from '../common/ContextMenu.vue'
 import type { FolderNode as FolderNodeType } from '../../types/vault'
 
@@ -47,6 +49,8 @@ const props = defineProps<{
 
 const foldersStore = useFoldersStore()
 const filtersStore = useFiltersStore()
+const filesStore = useFilesStore()
+const uiStore = useUIStore()
 const { success, error: toastError } = useToast()
 const { visible, x, y, items, open, close } = useContextMenu()
 
@@ -66,6 +70,20 @@ const selectFolder = () => {
 }
 const onContext = (e: MouseEvent) => {
   const menuItems: ContextMenuItem[] = [
+    {
+      type: 'item',
+      label: 'Bulk Edit',
+      icon: 'pencil',
+      action: async () => {
+        // Set folder bulk edit mode — targets ALL files in folder, not just loaded ones
+        foldersStore.selectFolder(props.node.path)
+        filtersStore.setFolderFilter(props.node.path)
+        await filesStore.reloadFiles()
+        filesStore.setFolderBulkEdit(props.node.path)
+        uiStore.openBatchEdit()
+      },
+    },
+    { type: 'divider' },
     {
       type: 'item',
       label: 'Exclude from indexing',
