@@ -2,11 +2,15 @@ package utils
 
 import (
 	"encoding/json"
+	"image/png"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
+
+	"github.com/gen2brain/svg"
 )
 
 const (
@@ -210,6 +214,41 @@ func ProbeVideo(videoPath string) (*FFprobeVideoInfo, error) {
 	}
 
 	return info, nil
+}
+
+// EncodeSVGToWebP rasterizes an SVG file to a WebP thumbnail.
+// Uses gen2brain/svg to decode the SVG, then writes a temp PNG that is
+// converted to WebP via FFmpeg. The temp PNG is cleaned up automatically.
+func EncodeSVGToWebP(svgPath, outputWebp string, size, quality int) error {
+	// Read SVG file
+	data, err := os.ReadFile(svgPath)
+	if err != nil {
+		return &FFmpegError{Msg: "failed to read SVG file", Err: err}
+	}
+
+	// Decode SVG to image
+	img, err := svg.Decode(strings.NewReader(string(data)))
+	if err != nil {
+		return &FFmpegError{Msg: "failed to decode SVG", Err: err}
+	}
+
+	// Create temp PNG file
+	tmpFile, err := os.CreateTemp("", "svg-thumb-*.png")
+	if err != nil {
+		return &FFmpegError{Msg: "failed to create temp file", Err: err}
+	}
+	tmpPath := tmpFile.Name()
+	// Ensure cleanup
+	defer os.Remove(tmpPath)
+
+	if err := png.Encode(tmpFile, img); err != nil {
+		tmpFile.Close()
+		return &FFmpegError{Msg: "failed to encode temp PNG", Err: err}
+	}
+	tmpFile.Close()
+
+	// Convert PNG → WebP via FFmpeg
+	return EncodeImageToWebP(tmpPath, outputWebp, size, quality)
 }
 
 // FFmpegError provides detailed error information for FFmpeg/ffprobe failures.

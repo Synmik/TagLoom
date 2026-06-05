@@ -17,7 +17,7 @@ import (
 
 // SupportedExtensions maps file categories to their extensions.
 var SupportedExtensions = map[string][]string{
-	"image": {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tiff", ".tif", ".svg"},
+	"image": {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tiff", ".tif", ".svg", ".avif", ".jxl", ".jpegxl"},
 	"video": {".mp4", ".mov", ".avi", ".webm", ".mkv", ".wmv", ".flv", ".m4v", ".3gp", ".3g2", ".vob", ".ogv", ".mpg", ".mpeg", ".m2v", ".ts", ".mts", ".m2ts", ".asf", ".rm", ".amv", ".f4v", ".dv", ".mxf"},
 	"animated": {".gif", ".webm"},
 }
@@ -59,6 +59,12 @@ func GetFormatName(path string) string {
 	}
 	if ext == "TIF" || ext == "TIFF" {
 		return "TIFF"
+	}
+	if ext == "AVIF" {
+		return "AVIF"
+	}
+	if ext == "JXL" || ext == "JPEGXL" {
+		return "JPEG XL"
 	}
 	return ext
 }

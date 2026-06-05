@@ -115,9 +115,15 @@ func (a *App) GenerateThumbnail(fileID int64) (string, error) {
 		if err := os.MkdirAll(thumbDir, 0755); err != nil {
 			return "", fmt.Errorf("failed to create thumbnail directory: %w", err)
 		}
-		if err := utils.EncodeImageToWebP(vaultPath, thumbPath, size, quality); err != nil {
+		var encErr error
+		if ext == ".svg" {
+			encErr = utils.EncodeSVGToWebP(vaultPath, thumbPath, size, quality)
+		} else {
+			encErr = utils.EncodeImageToWebP(vaultPath, thumbPath, size, quality)
+		}
+		if encErr != nil {
 			os.Remove(thumbPath)
-			return "", fmt.Errorf("failed to encode image to WebP: %w", err)
+			return "", fmt.Errorf("failed to encode image to WebP: %w", encErr)
 		}
 		// Update DB with thumbnail path
 		_, execErr := a.db.Conn().Exec("UPDATE files SET thumbnail_path = ? WHERE id = ?", thumbPath, fileID)
@@ -295,7 +301,7 @@ func (a *App) GenerateThumbnailsPool() error {
 					}
 					continue
 				}
-				// Encode via FFmpeg
+				// Encode via FFmpeg (or Go-side SVG rasterization)
 				thumbDir := filepath.Dir(thumbPath)
 				if mkErr := os.MkdirAll(thumbDir, 0755); mkErr != nil {
 					resultsMu.Lock()
@@ -315,7 +321,14 @@ func (a *App) GenerateThumbnailsPool() error {
 					}
 					continue
 				}
-				if encErr := utils.EncodeImageToWebP(f.vaultPath, thumbPath, size, quality); encErr != nil {
+				ext := strings.ToLower(filepath.Ext(f.vaultPath))
+				var encErr error
+				if ext == ".svg" {
+					encErr = utils.EncodeSVGToWebP(f.vaultPath, thumbPath, size, quality)
+				} else {
+					encErr = utils.EncodeImageToWebP(f.vaultPath, thumbPath, size, quality)
+				}
+				if encErr != nil {
 					os.Remove(thumbPath)
 					resultsMu.Lock()
 					results = append(results, thumbResult{fileID: f.id, ok: false})
