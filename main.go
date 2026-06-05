@@ -58,7 +58,7 @@ func main() {
 							return
 						}
 
-						w.Header().Set("Content-Type", "image/jpeg")
+						w.Header().Set("Content-Type", "image/webp")
 						w.Header().Set("Cache-Control", "max-age=3600")
 						w.Write(data)
 						return
@@ -87,7 +87,7 @@ func main() {
 							return
 						}
 
-						w.Header().Set("Content-Type", "image/jpeg")
+						w.Header().Set("Content-Type", "image/webp")
 						w.Header().Set("Cache-Control", "max-age=3600")
 						w.Write(data)
 						return

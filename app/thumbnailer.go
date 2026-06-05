@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"image"
-	"image/jpeg"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,10 +11,7 @@ import (
 
 	"TagLoom/utils"
 
-	"github.com/disintegration/imaging"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
-	"golang.org/x/image/tiff"
-	"golang.org/x/image/webp"
 )
 
 var ffmpegAvailable = false
@@ -34,7 +29,7 @@ const (
 )
 
 // GenerateThumbnail creates a thumbnail for the given file ID.
-// Thumbnails are stored in .tagloom/thumbnails/{2char_hash}/{hash}.jpg
+// Thumbnails are stored in .tagloom/thumbnails/{2char_hash}/{hash}.webp
 func (a *App) GenerateThumbnail(fileID int64) (string, error) {
 	if a.db == nil {
 		return "", fmt.Errorf("no vault open")
@@ -95,15 +90,26 @@ func (a *App) GenerateThumbnail(fileID int64) (string, error) {
 		}
 	}
 
-	var img image.Image
-	var err error
-
 	switch category {
 	case "image", "animated":
-		img, err = decodeImage(vaultPath, ext)
-		if err != nil {
-			return "", fmt.Errorf("failed to decode image: %w", err)
+		if !ffmpegAvailable {
+			return "", fmt.Errorf("ffmpeg not found — cannot generate thumbnail for %s", ext)
 		}
+		// Ensure output directory exists
+		thumbDir := filepath.Dir(thumbPath)
+		if err := os.MkdirAll(thumbDir, 0755); err != nil {
+			return "", fmt.Errorf("failed to create thumbnail directory: %w", err)
+		}
+		if err := utils.EncodeImageToWebP(vaultPath, thumbPath, size, quality); err != nil {
+			os.Remove(thumbPath)
+			return "", fmt.Errorf("failed to encode image to WebP: %w", err)
+		}
+		// Update DB with thumbnail path
+		_, execErr := a.db.Conn().Exec("UPDATE files SET thumbnail_path = ? WHERE id = ?", thumbPath, fileID)
+		if execErr != nil {
+			return "", fmt.Errorf("failed to update thumbnail_path: %w", execErr)
+		}
+		return thumbPath, nil
 	case "video":
 		if !ffmpegAvailable {
 			return "", fmt.Errorf("ffmpeg not found — cannot generate video thumbnail for %s", ext)
@@ -121,46 +127,16 @@ func (a *App) GenerateThumbnail(fileID int64) (string, error) {
 			os.Remove(thumbPath)
 			return "", fmt.Errorf("failed to extract video frame: %w", err)
 		}
-		// For video, skip the image resize/encode path — FFmpeg already produced the JPEG
+		// For video, skip the image resize/encode path — FFmpeg already produced the WebP
 		// Update DB with thumbnail path
-		_, err = a.db.Conn().Exec("UPDATE files SET thumbnail_path = ? WHERE id = ?", thumbPath, fileID)
-		if err != nil {
-			return "", fmt.Errorf("failed to update thumbnail_path: %w", err)
+		_, execErr := a.db.Conn().Exec("UPDATE files SET thumbnail_path = ? WHERE id = ?", thumbPath, fileID)
+		if execErr != nil {
+			return "", fmt.Errorf("failed to update thumbnail_path: %w", execErr)
 		}
 		return thumbPath, nil
 	default:
 		return "", fmt.Errorf("thumbnail generation not supported for %s files", ext)
 	}
-
-	// Resize to thumbnail (fit within size×size, maintain aspect ratio)
-	resized := imaging.Fit(img, size, size, imaging.Lanczos)
-
-	// Ensure output directory exists
-	thumbDir := filepath.Dir(thumbPath)
-	if err := os.MkdirAll(thumbDir, 0755); err != nil {
-		return "", fmt.Errorf("failed to create thumbnail directory: %w", err)
-	}
-
-	// Write as JPEG
-	outFile, err := os.Create(thumbPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to create thumbnail file: %w", err)
-	}
-	defer outFile.Close()
-
-	if err := jpeg.Encode(outFile, resized, &jpeg.Options{Quality: quality}); err != nil {
-		outFile.Close()
-		os.Remove(thumbPath) // Clean up partial file
-		return "", fmt.Errorf("failed to encode JPEG: %w", err)
-	}
-
-	// Update DB with thumbnail path
-	_, err = a.db.Conn().Exec("UPDATE files SET thumbnail_path = ? WHERE id = ?", thumbPath, fileID)
-	if err != nil {
-		return "", fmt.Errorf("failed to update thumbnail_path: %w", err)
-	}
-
-	return thumbPath, nil
 }
 
 // thumbResult holds the outcome of processing one file's thumbnail.
@@ -285,16 +261,84 @@ func (a *App) GenerateThumbnailsPool() error {
 				continue
 			}
 
-			// Decode image
-			ext := strings.ToLower(filepath.Ext(f.vaultPath))
 			category := utils.GetFileCategory(f.vaultPath)
-
-			var img image.Image
-			var decodeErr error
 
 			switch category {
 			case "image", "animated":
-				img, decodeErr = decodeImage(f.vaultPath, ext)
+				if !ffmpegAvailable {
+					resultsMu.Lock()
+					results = append(results, thumbResult{fileID: f.id, ok: false})
+					resultsMu.Unlock()
+
+					processedMu.Lock()
+					processed++
+					cur := processed
+					processedMu.Unlock()
+
+					if cur%10 == 0 || cur == total {
+						runtime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
+							"current": cur,
+							"total":   total,
+						})
+					}
+					continue
+				}
+				// Encode via FFmpeg
+				thumbDir := filepath.Dir(thumbPath)
+				if mkErr := os.MkdirAll(thumbDir, 0755); mkErr != nil {
+					resultsMu.Lock()
+					results = append(results, thumbResult{fileID: f.id, ok: false})
+					resultsMu.Unlock()
+
+					processedMu.Lock()
+					processed++
+					cur := processed
+					processedMu.Unlock()
+
+					if cur%10 == 0 || cur == total {
+						runtime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
+							"current": cur,
+							"total":   total,
+						})
+					}
+					continue
+				}
+				if encErr := utils.EncodeImageToWebP(f.vaultPath, thumbPath, size, quality); encErr != nil {
+					os.Remove(thumbPath)
+					resultsMu.Lock()
+					results = append(results, thumbResult{fileID: f.id, ok: false})
+					resultsMu.Unlock()
+
+					processedMu.Lock()
+					processed++
+					cur := processed
+					processedMu.Unlock()
+
+					if cur%10 == 0 || cur == total {
+						runtime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
+							"current": cur,
+							"total":   total,
+						})
+					}
+					continue
+				}
+				// Image thumbnail generated successfully by FFmpeg
+				resultsMu.Lock()
+				results = append(results, thumbResult{fileID: f.id, thumbPath: thumbPath, ok: true})
+				resultsMu.Unlock()
+
+				processedMu.Lock()
+				processed++
+				cur := processed
+				processedMu.Unlock()
+
+				if cur%10 == 0 || cur == total {
+					runtime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
+						"current": cur,
+						"total":   total,
+					})
+				}
+				continue
 			case "video":
 				if !ffmpegAvailable {
 					// FFmpeg not available — skip
@@ -391,107 +435,6 @@ func (a *App) GenerateThumbnailsPool() error {
 				continue
 			}
 
-			if decodeErr != nil {
-				resultsMu.Lock()
-				results = append(results, thumbResult{fileID: f.id, ok: false})
-				resultsMu.Unlock()
-
-				processedMu.Lock()
-				processed++
-				cur := processed
-				processedMu.Unlock()
-
-				if cur%10 == 0 || cur == total {
-					runtime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
-						"current": cur,
-						"total":   total,
-					})
-				}
-				continue
-			}
-
-			// Resize
-			resized := imaging.Fit(img, size, size, imaging.Lanczos)
-
-			// Write thumbnail
-			thumbDir := filepath.Dir(thumbPath)
-			if err := os.MkdirAll(thumbDir, 0755); err != nil {
-				resultsMu.Lock()
-				results = append(results, thumbResult{fileID: f.id, ok: false})
-				resultsMu.Unlock()
-
-				processedMu.Lock()
-				processed++
-				cur := processed
-				processedMu.Unlock()
-
-				if cur%10 == 0 || cur == total {
-					runtime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
-						"current": cur,
-						"total":   total,
-					})
-				}
-				continue
-			}
-
-			outFile, err := os.Create(thumbPath)
-			if err != nil {
-				resultsMu.Lock()
-				results = append(results, thumbResult{fileID: f.id, ok: false})
-				resultsMu.Unlock()
-
-				processedMu.Lock()
-				processed++
-				cur := processed
-				processedMu.Unlock()
-
-				if cur%10 == 0 || cur == total {
-					runtime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
-						"current": cur,
-						"total":   total,
-					})
-				}
-				continue
-			}
-
-			if err := jpeg.Encode(outFile, resized, &jpeg.Options{Quality: quality}); err != nil {
-				outFile.Close()
-				os.Remove(thumbPath)
-				resultsMu.Lock()
-				results = append(results, thumbResult{fileID: f.id, ok: false})
-				resultsMu.Unlock()
-
-				processedMu.Lock()
-				processed++
-				cur := processed
-				processedMu.Unlock()
-
-				if cur%10 == 0 || cur == total {
-					runtime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
-						"current": cur,
-						"total":   total,
-					})
-				}
-				continue
-			}
-			outFile.Close()
-
-			// Record success — DB update is batched after all workers finish
-			resultsMu.Lock()
-			results = append(results, thumbResult{fileID: f.id, thumbPath: thumbPath, ok: true})
-			resultsMu.Unlock()
-
-			processedMu.Lock()
-			processed++
-			cur := processed
-			processedMu.Unlock()
-
-			if cur%10 == 0 || cur == total {
-				runtime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
-					"current": cur,
-					"total":   total,
-				})
-			}
 		}
 	}
 
@@ -574,32 +517,13 @@ func (a *App) CancelThumbnailGeneration() {
 }
 
 // decodeImage opens and decodes an image file, supporting multiple formats.
-func decodeImage(path string, ext string) (image.Image, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	switch ext {
-	case ".webp":
-		return webp.Decode(f)
-	case ".tiff", ".tif":
-		return tiff.Decode(f)
-	default:
-		// jpeg, png, gif, bmp — all handled by image.Decode
-		img, _, err := image.Decode(f)
-		return img, err
-	}
-}
-
 // GenerateThumbnailPath returns the expected thumbnail path for a given file path.
 func GenerateThumbnailPath(vaultPath, filePath string) string {
 	hash := utils.HashPath(filePath)
 	subdir := utils.ThumbnailSubdir(hash)
 	thumbDir := filepath.Join(vaultPath, ".tagloom", "thumbnails", subdir)
 	os.MkdirAll(thumbDir, 0755)
-	return filepath.Join(thumbDir, hash+".jpg")
+	return filepath.Join(thumbDir, hash+".webp")
 }
 
 // GenerateThumbnailsForFiles generates thumbnails for a list of file IDs.
@@ -616,7 +540,7 @@ func (a *App) GenerateThumbnailsForFiles(fileIDs []int64) int {
 }
 
 // CleanupOrphanThumbnails removes thumbnail files whose source file is no longer
-// in the database. It walks .tagloom/thumbnails/ and deletes any .jpg not referenced
+// in the database. It walks .tagloom/thumbnails/ and deletes any .webp not referenced
 // by files.thumbnail_path. Returns the number of orphan files removed.
 func (a *App) CleanupOrphanThumbnails() (int, error) {
 	if a.db == nil {
@@ -655,7 +579,7 @@ func (a *App) CleanupOrphanThumbnails() (int, error) {
 		if d.IsDir() {
 			return nil // Will remove empty dirs after the walk
 		}
-		if strings.HasSuffix(strings.ToLower(path), ".jpg") {
+		if strings.HasSuffix(strings.ToLower(path), ".webp") {
 			if _, ok := validThumbs[path]; !ok {
 				if err := os.Remove(path); err == nil {
 					removed++
@@ -770,7 +694,7 @@ func (a *App) GetThumbnailData(fileID int64) (string, error) {
 
 	// Encode as base64 data URL
 	b64 := base64.StdEncoding.EncodeToString(data)
-	return "data:image/jpeg;base64," + b64, nil
+	return "data:image/webp;base64," + b64, nil
 }
 
 // ServeThumbnail reads a thumbnail file and returns its bytes.

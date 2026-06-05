@@ -87,8 +87,11 @@ func FindFFprobe() (string, error) {
 }
 
 // ExtractVideoFrame uses ffmpeg to extract a single frame from a video at the given
-// timestamp and saves it as a JPEG at the output path.
+// timestamp and saves it as a WebP at the output path.
 // timestamp is in seconds (e.g. "1" for 1 second in).
+//
+// EncodeImageToWebP uses ffmpeg to convert an image file to WebP format at the given size.
+// It supports all image formats FFmpeg can decode (jpg, png, gif, webp, bmp, tiff, etc.).
 func ExtractVideoFrame(videoPath, outputJpg string, size int, timestamp string) error {
 	ffmpeg, err := FindFFmpeg()
 	if err != nil {
@@ -102,9 +105,9 @@ func ExtractVideoFrame(videoPath, outputJpg string, size int, timestamp string) 
 		"-ss", timestamp,       // seek to timestamp (fast seek)
 		"-i", videoPath,        // input file
 		"-vframes", "1",        // extract exactly 1 frame
-		"-vf", "scale="+strconv.Itoa(size)+"."+strconv.Itoa(size)+":flags=lanczos", // resize with Lanczos
-		"-q:v", "2",            // JPEG quality (2 = high quality, ~80% equivalent)
-		"-f", "mjpeg",          // force MJPEG format
+		"-vf", "scale="+strconv.Itoa(size)+":"+strconv.Itoa(size)+":force_original_aspect_ratio=decrease:flags=lanczos", // fit within box, keep aspect ratio
+		"-q:v", "50",           // WebP quality (0-100, 50 ≈ 80% JPEG equivalent)
+		"-f", "webp",           // force WebP format
 		outputJpg,
 	)
 	cmd.SysProcAttr = noWindowAttr()
@@ -113,6 +116,36 @@ func ExtractVideoFrame(videoPath, outputJpg string, size int, timestamp string) 
 	if err != nil {
 		return &FFmpegError{
 			Msg:   "failed to extract video frame",
+			Err:   err,
+			Stderr: string(output),
+		}
+	}
+	return nil
+}
+
+// EncodeImageToWebP converts an image file to WebP format using FFmpeg.
+// The output is resized to fit within size×size while maintaining aspect ratio.
+func EncodeImageToWebP(imagePath, outputWebp string, size, quality int) error {
+	ffmpeg, err := FindFFmpeg()
+	if err != nil {
+		return &FFmpegError{Msg: "ffmpeg not found", Err: err}
+	}
+
+	cmd := exec.Command(ffmpeg,
+		"-y",                   // overwrite output
+		"-i", imagePath,        // input file
+		"-vframes", "1",        // extract exactly 1 frame (for GIFs)
+		"-vf", "scale="+strconv.Itoa(size)+":"+strconv.Itoa(size)+":force_original_aspect_ratio=decrease:flags=lanczos", // fit within box, keep aspect ratio
+		"-q:v", strconv.Itoa(quality), // WebP quality (0-100)
+		"-f", "webp",           // force WebP format
+		outputWebp,
+	)
+	cmd.SysProcAttr = noWindowAttr()
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return &FFmpegError{
+			Msg:   "failed to encode image to WebP",
 			Err:   err,
 			Stderr: string(output),
 		}
