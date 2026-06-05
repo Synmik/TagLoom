@@ -77,9 +77,13 @@ defineExpose({ focus })
   color: #555;
   cursor: pointer;
   font-size: 14px;
-  padding: 2px;
+  padding: 0;
   border-radius: 3px;
   transition: color 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 .clear-btn:hover { color: #e8e8e8; }
 </style>

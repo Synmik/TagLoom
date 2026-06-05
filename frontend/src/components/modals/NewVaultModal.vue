@@ -346,8 +346,46 @@ onMounted(() => {
 
 .slider-row input[type='range'] {
   flex: 1;
-  accent-color: #22c55e;
   height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: #2a2a2a;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.slider-row input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -4px;
+  background: #22c55e;
+  border: none;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.slider-row input[type='range']::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: #22c55e;
+  border: none;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.slider-row input[type='range']::-webkit-slider-runnable-track {
+  height: 4px;
+  background: #2a2a2a;
+  border-radius: 2px;
+}
+
+.slider-row input[type='range']::-moz-range-track {
+  height: 4px;
+  background: #2a2a2a;
+  border-radius: 2px;
 }
 
 .slider-value {

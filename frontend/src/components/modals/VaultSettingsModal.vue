@@ -68,9 +68,6 @@ const removeExcluded = async (path: string) => {
 // ── Thumbnail quality ──────────────────────────────────────────────
 const thumbnailQuality = ref(80)
 
-// ── Auto-tag by folder ─────────────────────────────────────────────
-const autoTagByFolder = ref(false)
-
 // ── Rescan ─────────────────────────────────────────────────────────
 const isRescanning = ref(false)
 
@@ -95,7 +92,6 @@ const save = async () => {
   isSaving.value = true
   try {
     vaultStore.config.settings.thumbnail_quality = thumbnailQuality.value
-    vaultStore.config.settings.auto_tag_by_folder = autoTagByFolder.value
     await vaultStore.saveConfig(vaultStore.config)
     success('Settings saved')
   } catch (e: any) {
@@ -115,7 +111,6 @@ onMounted(async () => {
   // Initialise settings from current config
   if (vaultStore.config?.settings) {
     thumbnailQuality.value = vaultStore.config.settings.thumbnail_quality ?? 80
-    autoTagByFolder.value = vaultStore.config.settings.auto_tag_by_folder ?? false
   }
 })
 </script>
@@ -156,15 +151,6 @@ onMounted(async () => {
             />
             <span class="slider-value">{{ thumbnailQuality }}%</span>
           </div>
-        </section>
-
-        <!-- Auto-tag by folder -->
-        <section class="section">
-          <h4>Auto-Tagging</h4>
-          <label class="checkbox-row">
-            <input type="checkbox" v-model="autoTagByFolder" />
-            <span>Auto-tag files by folder name</span>
-          </label>
         </section>
 
         <!-- Excluded folders -->
@@ -349,8 +335,46 @@ onMounted(async () => {
 
 .slider-row input[type='range'] {
   flex: 1;
-  accent-color: #22c55e;
   height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: #2a2a2a;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.slider-row input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -4px;
+  background: #22c55e;
+  border: none;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.slider-row input[type='range']::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: #22c55e;
+  border: none;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.slider-row input[type='range']::-webkit-slider-runnable-track {
+  height: 4px;
+  background: #2a2a2a;
+  border-radius: 2px;
+}
+
+.slider-row input[type='range']::-moz-range-track {
+  height: 4px;
+  background: #2a2a2a;
+  border-radius: 2px;
 }
 
 .slider-value {
