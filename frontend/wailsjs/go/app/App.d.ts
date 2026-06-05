@@ -22,6 +22,8 @@ export function CreateVault(arg1:string,arg2:app.NewVaultSettings):Promise<db.Va
 
 export function DeleteFile(arg1:number):Promise<void>;
 
+export function DeleteOriginalFile(arg1:number):Promise<void>;
+
 export function DeleteTag(arg1:number):Promise<void>;
 
 export function GenerateThumbnail(arg1:number):Promise<string>;
@@ -63,6 +65,10 @@ export function GetThumbnailInfo(arg1:number):Promise<app.ThumbnailInfo>;
 export function GetThumbnailPath(arg1:number):Promise<string>;
 
 export function GetVaultConfig():Promise<config.VaultConfig>;
+
+export function OpenFileFolder(arg1:number):Promise<void>;
+
+export function OpenOriginalFile(arg1:number):Promise<void>;
 
 export function OpenVault(arg1:string):Promise<db.VaultInfo>;
 

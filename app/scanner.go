@@ -489,6 +489,109 @@ func (a *App) GetExcludedFolders() ([]string, error) {
 	return folders, nil
 }
 
+// OpenOriginalFile opens the original file with the default OS application.
+func (a *App) OpenOriginalFile(fileID int64) error {
+	if a.db == nil {
+		return fmt.Errorf("no vault open")
+	}
+
+	path, err := a.getFilePath(fileID)
+	if err != nil {
+		return err
+	}
+
+	_, err = os.Stat(path)
+	if err != nil {
+		return fmt.Errorf("file not found on disk: %w", err)
+	}
+
+	return utils.OpenWithDefaultApp(path)
+}
+
+// OpenFileFolder opens the parent folder of the file in the system file explorer.
+func (a *App) OpenFileFolder(fileID int64) error {
+	if a.db == nil {
+		return fmt.Errorf("no vault open")
+	}
+
+	path, err := a.getFilePath(fileID)
+	if err != nil {
+		return err
+	}
+
+	folder := filepath.Dir(path)
+	_, err = os.Stat(folder)
+	if err != nil {
+		return fmt.Errorf("folder not found on disk: %w", err)
+	}
+
+	return utils.OpenFolder(folder)
+}
+
+// DeleteOriginalFile moves the original file to the recycle bin,
+// removes its thumbnail, and removes the record from the vault index.
+func (a *App) DeleteOriginalFile(fileID int64) error {
+	if a.db == nil {
+		return fmt.Errorf("no vault open")
+	}
+
+	// Get file info first
+	row := a.db.Conn().QueryRow(`
+		SELECT vault_path, thumbnail_path FROM files WHERE id = ?
+	`, fileID)
+
+	var vaultPath string
+	var thumbPath *string
+	err := row.Scan(&vaultPath, &thumbPath)
+	if err != nil {
+		return fmt.Errorf("file not found in vault: %w", err)
+	}
+
+	// Move original file to recycle bin
+	err = utils.DeleteToTrash(vaultPath)
+	if err != nil {
+		return fmt.Errorf("failed to delete original file: %w", err)
+	}
+
+	// Delete thumbnail from disk (if exists)
+	if thumbPath != nil && *thumbPath != "" {
+		thumbFullPath := filepath.Join(a.vaultPath, ".tagloom", *thumbPath)
+		_ = os.Remove(thumbFullPath)
+
+		// Clean up empty parent directory
+		_ = os.Remove(filepath.Dir(thumbFullPath))
+	}
+
+	// Remove from database (same as DeleteFile)
+	tx, err := a.db.Conn().Begin()
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	_, err = tx.Exec("DELETE FROM file_tags WHERE file_id = ?", fileID)
+	if err != nil {
+		return fmt.Errorf("delete file_tags: %w", err)
+	}
+
+	_, err = tx.Exec("DELETE FROM files WHERE id = ?", fileID)
+	if err != nil {
+		return fmt.Errorf("delete file: %w", err)
+	}
+
+	return tx.Commit()
+}
+
+// getFilePath returns the vault_path for a given file ID.
+func (a *App) getFilePath(fileID int64) (string, error) {
+	var path string
+	err := a.db.Conn().QueryRow("SELECT vault_path FROM files WHERE id = ?", fileID).Scan(&path)
+	if err != nil {
+		return "", fmt.Errorf("file not found: %w", err)
+	}
+	return path, nil
+}
+
 // DeleteFile removes a file from the vault index (DB only, does NOT delete the actual file on disk).
 func (a *App) DeleteFile(fileID int64) error {
 	if a.db == nil {

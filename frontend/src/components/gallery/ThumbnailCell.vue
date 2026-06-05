@@ -123,6 +123,33 @@ const onContextMenu = (e: MouseEvent) => {
     { type: 'divider' },
     {
       type: 'item',
+      label: 'Open file',
+      icon: '📁',
+      action: async () => {
+        try {
+          await filesStore.openOriginalFile(props.file.id)
+        } catch (e) {
+          toastError('Failed to open file')
+          console.error(e)
+        }
+      },
+    },
+    {
+      type: 'item',
+      label: 'Open file location',
+      icon: '📂',
+      action: async () => {
+        try {
+          await filesStore.openFileFolder(props.file.id)
+        } catch (e) {
+          toastError('Failed to open folder')
+          console.error(e)
+        }
+      },
+    },
+    { type: 'divider' },
+    {
+      type: 'item',
       label: 'Copy filename',
       icon: '📄',
       action: () => copyToClipboard(filename.value, 'Filename'),
@@ -151,6 +178,22 @@ const onContextMenu = (e: MouseEvent) => {
         await filesStore.deleteFile(props.file.id)
         success('File removed from vault')
         await filesStore.reloadFiles()
+      },
+    },
+    {
+      type: 'item',
+      label: 'Delete original file',
+      icon: '⚠️',
+      action: async () => {
+        if (!confirm(`Move "${filename.value}" to Recycle Bin?\n\nThe original file will be moved to Recycle Bin and the thumbnail removed.`)) return
+        try {
+          await filesStore.deleteOriginalFile(props.file.id)
+          success('File deleted')
+          await filesStore.reloadFiles()
+        } catch (e) {
+          toastError('Failed to delete file')
+          console.error(e)
+        }
       },
     },
   ]

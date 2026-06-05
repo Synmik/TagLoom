@@ -38,6 +38,10 @@ export function DeleteFile(arg1) {
   return window['go']['app']['App']['DeleteFile'](arg1);
 }
 
+export function DeleteOriginalFile(arg1) {
+  return window['go']['app']['App']['DeleteOriginalFile'](arg1);
+}
+
 export function DeleteTag(arg1) {
   return window['go']['app']['App']['DeleteTag'](arg1);
 }
@@ -120,6 +124,14 @@ export function GetThumbnailPath(arg1) {
 
 export function GetVaultConfig() {
   return window['go']['app']['App']['GetVaultConfig']();
+}
+
+export function OpenFileFolder(arg1) {
+  return window['go']['app']['App']['OpenFileFolder'](arg1);
+}
+
+export function OpenOriginalFile(arg1) {
+  return window['go']['app']['App']['OpenOriginalFile'](arg1);
 }
 
 export function OpenVault(arg1) {

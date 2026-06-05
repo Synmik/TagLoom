@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import type { File, FileUpdate, FilePage, FileFilter, SortOpts } from '../types/file'
-import { GetFiles, UpdateFile, SearchFiles, GenerateThumbnail, GenerateThumbnailsPool, GetThumbnailData, AddTagsToFiles, RemoveTagsFromFiles, SetRatingForFiles, SetFavoriteForFiles, DeleteFile } from '../api/backend'
+import { GetFiles, UpdateFile, SearchFiles, GenerateThumbnail, GenerateThumbnailsPool, GetThumbnailData, AddTagsToFiles, RemoveTagsFromFiles, SetRatingForFiles, SetFavoriteForFiles, DeleteFile, OpenOriginalFile, OpenFileFolder, DeleteOriginalFile } from '../api/backend'
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime'
 import { useFiltersStore } from './filters'
 import { useUIStore } from './ui'
@@ -264,12 +264,31 @@ export const useFilesStore = defineStore('files', {
     /** Delete a file from the vault index (DB only, not from disk) */
     async deleteFile(fileID: number) {
       await DeleteFile(fileID)
-      // Remove from local state
+      this.removeFileLocally(fileID)
+    },
+
+    /** Open the original file with the default OS application */
+    async openOriginalFile(fileID: number) {
+      await OpenOriginalFile(fileID)
+    },
+
+    /** Open the parent folder of the file in the system file explorer */
+    async openFileFolder(fileID: number) {
+      await OpenFileFolder(fileID)
+    },
+
+    /** Delete the original file from disk, remove thumbnail, and remove from vault index */
+    async deleteOriginalFile(fileID: number) {
+      await DeleteOriginalFile(fileID)
+      this.removeFileLocally(fileID)
+    },
+
+    /** Remove a file from local state (files list + selection) */
+    removeFileLocally(fileID: number) {
       const index = this.files.findIndex(f => f.id === fileID)
       if (index >= 0) {
         this.files.splice(index, 1)
       }
-      // Remove from selection if selected
       const selIndex = this.selectedFiles.findIndex(f => f.id === fileID)
       if (selIndex >= 0) {
         this.selectedFiles.splice(selIndex, 1)

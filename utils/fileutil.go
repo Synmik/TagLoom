@@ -1,12 +1,18 @@
 package utils
 
 import (
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"syscall"
 	"time"
+	"unsafe"
 
 	"github.com/rwcarlsen/goexif/exif"
+	"golang.org/x/sys/windows"
 )
 
 // SupportedExtensions maps file categories to their extensions.
@@ -97,4 +103,116 @@ func getEXIFCreationTime(path string) int64 {
 		return t.UnixNano()
 	}
 	return 0
+}
+
+// OpenWithDefaultApp opens a file with the default OS application.
+func OpenWithDefaultApp(path string) error {
+	var cmd *exec.Cmd
+
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("cmd", "/c", "start", "", filepath.ToSlash(path))
+		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	case "darwin":
+		cmd = exec.Command("open", path)
+	default:
+		cmd = exec.Command("xdg-open", path)
+	}
+
+	return cmd.Run()
+}
+
+// OpenFolder opens a folder in the system file explorer.
+func OpenFolder(folder string) error {
+	var cmd *exec.Cmd
+
+	switch runtime.GOOS {
+	case "windows":
+		// Use cmd /c start — explorer.exe can return non-zero even on success
+		// (it's a persistent process), so cmd /c start is more reliable.
+		cmd = exec.Command("cmd", "/c", "start", folder)
+		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	case "darwin":
+		cmd = exec.Command("open", folder)
+	default:
+		cmd = exec.Command("xdg-open", folder)
+	}
+
+	return cmd.Run()
+}
+
+// DeleteToTrash moves a file to the system trash/recycle bin.
+func DeleteToTrash(path string) error {
+	switch runtime.GOOS {
+	case "windows":
+		return moveToRecycleBin(path)
+	case "darwin":
+		cmd := exec.Command("osascript", "-e", fmt.Sprintf(`tell application "Finder" to delete POSIX file "%s"`, path))
+		return cmd.Run()
+	default:
+		// Linux: use gio trash if available, fallback to .Trash
+		cmd := exec.Command("gio", "trash", path)
+		if err := cmd.Run(); err != nil {
+			trashDir := filepath.Join(os.Getenv("HOME"), ".local", "share", "Trash")
+			_ = os.MkdirAll(trashDir, 0700)
+			_ = os.Rename(path, filepath.Join(trashDir, filepath.Base(path)))
+			return nil
+		}
+		return nil
+	}
+}
+
+const (
+	foDelete          = 3
+	fofAllowUndo      = 0x40
+	fofNoConfirmation = 0x10
+)
+
+var (
+	shell32            = syscall.NewLazyDLL("shell32.dll")
+	procSHFileOperationW = shell32.NewProc("SHFileOperationW")
+)
+
+// moveToRecycleBin moves a file to the Windows Recycle Bin via SHFileOperationW.
+func moveToRecycleBin(path string) error {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return fmt.Errorf("get absolute path: %w", err)
+	}
+
+	// SHFileOperationW expects a double-null-terminated UTF-16 string.
+	// windows.UTF16PtrFromString gives single-null, so we build our own
+	// buffer with an extra \x00\x00 at the end.
+	utf16Str, err := windows.UTF16FromString(absPath)
+	if err != nil {
+		return fmt.Errorf("UTF16 conversion: %w", err)
+	}
+	buf := make([]uint16, len(utf16Str)+1) // extra null for double-null termination
+	copy(buf, utf16Str)
+
+	// Must match C SHFILEOPSTRUCT layout exactly (64-bit Windows).
+	// https://learn.microsoft.com/en-us/windows/win32/api/shellapi/ns-shellapi-shfileopstructw
+	type shFileOpStruct struct {
+		hwnd              uintptr
+		wFunc             uint32
+		pFrom, pTo        *uint16
+		fFlags            uint16
+		fAnyOpsAborted    bool
+		hNameMappings     uintptr
+		lpszProgressTitle *uint16
+	}
+
+	op := &shFileOpStruct{
+		wFunc:  foDelete,
+		pFrom:  &buf[0],
+		fFlags: fofAllowUndo | fofNoConfirmation,
+	}
+
+	ret, _, _ := procSHFileOperationW.Call(
+		uintptr(unsafe.Pointer(op)),
+	)
+	if ret != 0 {
+		return fmt.Errorf("SHFileOperationW failed with code %d", ret)
+	}
+	return nil
 }
