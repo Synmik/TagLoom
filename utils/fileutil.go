@@ -173,6 +173,35 @@ var (
 	procSHFileOperationW = shell32.NewProc("SHFileOperationW")
 )
 
+// FileTimes holds creation and modification times extracted from os.FileInfo.
+type FileTimes struct {
+	CreatedAt time.Time
+	ModifiedAt time.Time
+}
+
+// GetFileTimes extracts creation and modification times from an os.FileInfo.
+// On Windows, creation time comes from Win32FileAttributeData.CreationTime.
+// On other platforms, creation time is left as zero (not set).
+func GetFileTimes(info os.FileInfo) FileTimes {
+	ft := FileTimes{
+		ModifiedAt: info.ModTime(),
+	}
+
+	// Try Windows creation time
+	sys := info.Sys()
+	if win, ok := sys.(*syscall.Win32FileAttributeData); ok {
+		nanos := win.CreationTime.Nanoseconds()
+		if nanos > 0 {
+			ft.CreatedAt = time.Unix(0, nanos)
+			return ft
+		}
+	}
+
+	// Fallback: leave CreatedAt as zero time (not set)
+	// DO NOT fall back to ModTime — creation time should be the real creation time or empty
+	return ft
+}
+
 // moveToRecycleBin moves a file to the Windows Recycle Bin via SHFileOperationW.
 func moveToRecycleBin(path string) error {
 	absPath, err := filepath.Abs(path)

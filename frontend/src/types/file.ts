@@ -21,6 +21,7 @@ export interface File {
   is_favorite: number
   folder_path: string
   filename: string
+  date_created: string
   date_modified: string
   indexed_at: string
   tags?: FileTag[]

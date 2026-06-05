@@ -11,8 +11,8 @@
           <div class="progress-fill" :style="{ width: progressPercent + '%' }"></div>
         </div>
         <div class="scan-stats">
-          <span>{{ vaultStore.scanCurrent }} / {{ vaultStore.scanTotal }}</span>
-          <span class="percent">{{ progressPercent }}%</span>
+          <span>{{ statsText }}</span>
+          <span v-if="!vaultStore.scanProgressUnknown" class="percent">{{ progressPercent }}%</span>
         </div>
         <div v-if="thumbProgress > 0" class="thumb-stats">
           <span><ImageIcon :size="14" class="inline-icon" /> Thumbnails: {{ thumbProgress }} generated</span>
@@ -33,11 +33,19 @@ let thumbUnsub: (() => void) | undefined
 
 const scanTitle = computed(() => {
   if (vaultStore.scanProgress >= 100) return 'Scan complete!'
+  if (vaultStore.scanProgressUnknown) return 'Scanning files...'
   return 'Indexing files...'
 })
 
 const progressPercent = computed(() => {
   return Math.min(vaultStore.scanProgress, 100)
+})
+
+const statsText = computed(() => {
+  if (vaultStore.scanProgressUnknown) {
+    return `${vaultStore.scanCurrent} files found…`
+  }
+  return `${vaultStore.scanCurrent} / ${vaultStore.scanTotal}`
 })
 
 const dismiss = () => {

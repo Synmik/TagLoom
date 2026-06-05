@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 
 	"TagLoom/utils"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 var ffmpegAvailable = false
@@ -23,10 +24,24 @@ func init() {
 }
 
 const (
-	defaultThumbnailSize  = 256
+	defaultThumbnailSize    = 256
 	defaultThumbnailQuality = 80
-	thumbnailWorkerCount  = 4
+	minWorkers              = 4
+	maxWorkers              = 16
 )
+
+// thumbnailWorkerCount returns the number of thumbnail workers based on
+// available CPU cores, clamped to [minWorkers, maxWorkers].
+func thumbnailWorkerCount() int {
+	n := runtime.NumCPU()
+	if n < minWorkers {
+		return minWorkers
+	}
+	if n > maxWorkers {
+		return maxWorkers
+	}
+	return n
+}
 
 // GenerateThumbnail creates a thumbnail for the given file ID.
 // Thumbnails are stored in .tagloom/thumbnails/{2char_hash}/{hash}.webp
@@ -160,7 +175,8 @@ func (a *App) GenerateThumbnailsPool() error {
 		return fmt.Errorf("no vault path set")
 	}
 
-	// Collect all file IDs that need thumbnails
+	// Collect all file IDs that need thumbnails.
+	// No pre-flight os.Stat — workers handle missing files gracefully.
 	rows, err := a.db.Conn().Query(`
 		SELECT id, vault_path, thumbnail_path
 		FROM files
@@ -184,16 +200,12 @@ func (a *App) GenerateThumbnailsPool() error {
 		if err := rows.Scan(&f.id, &f.vaultPath, &existingThumb); err != nil {
 			return fmt.Errorf("failed to scan row: %w", err)
 		}
-		// Skip if file doesn't exist on disk
-		if _, err := os.Stat(f.vaultPath); err != nil {
-			continue
-		}
 		pending = append(pending, f)
 	}
 
 	total := len(pending)
 	if total == 0 {
-		runtime.EventsEmit(a.ctx, "thumb:complete", map[string]int{
+		wailsruntime.EventsEmit(a.ctx, "thumb:complete", map[string]int{
 			"generated": 0,
 			"failed":    0,
 			"total":     0,
@@ -253,7 +265,7 @@ func (a *App) GenerateThumbnailsPool() error {
 				processedMu.Unlock()
 
 				if cur%10 == 0 || cur == total {
-					runtime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
+					wailsruntime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
 						"current": cur,
 						"total":   total,
 					})
@@ -276,7 +288,7 @@ func (a *App) GenerateThumbnailsPool() error {
 					processedMu.Unlock()
 
 					if cur%10 == 0 || cur == total {
-						runtime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
+						wailsruntime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
 							"current": cur,
 							"total":   total,
 						})
@@ -296,7 +308,7 @@ func (a *App) GenerateThumbnailsPool() error {
 					processedMu.Unlock()
 
 					if cur%10 == 0 || cur == total {
-						runtime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
+						wailsruntime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
 							"current": cur,
 							"total":   total,
 						})
@@ -315,7 +327,7 @@ func (a *App) GenerateThumbnailsPool() error {
 					processedMu.Unlock()
 
 					if cur%10 == 0 || cur == total {
-						runtime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
+						wailsruntime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
 							"current": cur,
 							"total":   total,
 						})
@@ -333,7 +345,7 @@ func (a *App) GenerateThumbnailsPool() error {
 				processedMu.Unlock()
 
 				if cur%10 == 0 || cur == total {
-					runtime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
+					wailsruntime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
 						"current": cur,
 						"total":   total,
 					})
@@ -352,7 +364,7 @@ func (a *App) GenerateThumbnailsPool() error {
 					processedMu.Unlock()
 
 					if cur%10 == 0 || cur == total {
-						runtime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
+						wailsruntime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
 							"current": cur,
 							"total":   total,
 						})
@@ -372,7 +384,7 @@ func (a *App) GenerateThumbnailsPool() error {
 					processedMu.Unlock()
 
 					if cur%10 == 0 || cur == total {
-						runtime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
+						wailsruntime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
 							"current": cur,
 							"total":   total,
 						})
@@ -391,7 +403,7 @@ func (a *App) GenerateThumbnailsPool() error {
 					processedMu.Unlock()
 
 					if cur%10 == 0 || cur == total {
-						runtime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
+						wailsruntime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
 							"current": cur,
 							"total":   total,
 						})
@@ -409,7 +421,7 @@ func (a *App) GenerateThumbnailsPool() error {
 				processedMu.Unlock()
 
 				if cur%10 == 0 || cur == total {
-					runtime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
+					wailsruntime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
 						"current": cur,
 						"total":   total,
 					})
@@ -427,7 +439,7 @@ func (a *App) GenerateThumbnailsPool() error {
 				processedMu.Unlock()
 
 				if cur%10 == 0 || cur == total {
-					runtime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
+					wailsruntime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
 						"current": cur,
 						"total":   total,
 					})
@@ -438,9 +450,10 @@ func (a *App) GenerateThumbnailsPool() error {
 		}
 	}
 
-	// Start workers
+	// Start workers — count scales with CPU cores
+	workers := thumbnailWorkerCount()
 	var wg sync.WaitGroup
-	for i := 0; i < thumbnailWorkerCount; i++ {
+	for i := 0; i < workers; i++ {
 		wg.Add(1)
 		go worker(i, jobs, &wg)
 	}
@@ -483,7 +496,7 @@ func (a *App) GenerateThumbnailsPool() error {
 	}
 
 	// Emit completion event
-	runtime.EventsEmit(a.ctx, "thumb:complete", map[string]int{
+	wailsruntime.EventsEmit(a.ctx, "thumb:complete", map[string]int{
 		"generated": generated,
 		"failed":    failed,
 		"total":     total,
@@ -502,7 +515,7 @@ func incrementCounters(mu *sync.Mutex, generated, current *int, total int, ctx c
 
 	// Emit progress every 10 files
 	if *current%10 == 0 || *current == total {
-		runtime.EventsEmit(ctx, "thumb:progress", map[string]int{
+		wailsruntime.EventsEmit(ctx, "thumb:progress", map[string]int{
 			"current":   *current,
 			"total":     total,
 			"generated": *generated,
@@ -513,7 +526,7 @@ func incrementCounters(mu *sync.Mutex, generated, current *int, total int, ctx c
 // CancelThumbnailGeneration cancels an ongoing thumbnail generation pool.
 func (a *App) CancelThumbnailGeneration() {
 	// This will be wired to a cancel context in the future
-	runtime.EventsEmit(a.ctx, "thumb:cancelled", true)
+	wailsruntime.EventsEmit(a.ctx, "thumb:cancelled", true)
 }
 
 // decodeImage opens and decodes an image file, supporting multiple formats.

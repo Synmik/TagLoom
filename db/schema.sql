@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS files (
     is_favorite INTEGER DEFAULT 0,
     folder_path TEXT NOT NULL,
     filename TEXT NOT NULL DEFAULT '',
+    date_created TEXT NOT NULL DEFAULT '',
     date_modified TEXT NOT NULL DEFAULT '',
     indexed_at TEXT NOT NULL
 );

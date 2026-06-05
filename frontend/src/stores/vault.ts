@@ -28,6 +28,10 @@ export const useVaultStore = defineStore('vault', {
       if (state.scanTotal <= 0) return 0
       return Math.min(Math.round((state.scanCurrent / state.scanTotal) * 100), 100)
     },
+    /** True when scan is running but total is not yet known (single-pass walk phase) */
+    scanProgressUnknown: (state: any) => {
+      return state.isScanning && state.scanTotal <= 0 && state.scanCurrent > 0
+    },
   },
   actions: {
     /** Auto-open the last vault from global app settings */

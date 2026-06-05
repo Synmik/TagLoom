@@ -100,14 +100,16 @@ func (a *App) GetFileMetadata(fileID int64) (*FileMetadata, error) {
 		FormatName:   utils.GetFormatName(file.VaultPath),
 		MimeType:     mimeTypeMap[ext],
 		SizeBytes:    info.Size(),
+		DateCreated:  formatDateCreated(file.DateCreated),
 		DateModified: info.ModTime().Format("2006-01-02 15:04:05"),
 	}
 
-	// Get file creation time from Windows
-	if created := getFileCreationTime(file.VaultPath); created != "" {
-		metadata.DateCreated = created
-	} else {
-		metadata.DateCreated = metadata.DateModified
+	// If DB has no date_created yet (pre-migration), try to extract it from the filesystem
+	if metadata.DateCreated == "" {
+		created := getFileCreationTime(file.VaultPath)
+		if created != "" {
+			metadata.DateCreated = created
+		}
 	}
 
 	// Extract resolution and duration based on file category
@@ -327,13 +329,8 @@ func getFileCreationTime(path string) string {
 		return t
 	}
 
-	// Last resort: ModTime
-	info, err := os.Stat(path)
-	if err != nil {
-		return ""
-	}
-
-	return info.ModTime().Format("2006-01-02 15:04:05")
+	// No reliable creation time available — return empty instead of lying with ModTime
+	return ""
 }
 
 // getWindowsCreationTime reads the file creation time from Windows.
@@ -344,9 +341,25 @@ func getWindowsCreationTime(path string) string {
 	}
 	sys := info.Sys()
 	if win, ok := sys.(*syscall.Win32FileAttributeData); ok {
-		return time.Unix(0, win.CreationTime.Nanoseconds()).Format("2006-01-02 15:04:05")
+		nanos := win.CreationTime.Nanoseconds()
+		if nanos > 0 {
+			return time.Unix(0, nanos).Format("2006-01-02 15:04:05")
+		}
 	}
 	return ""
+}
+
+// formatDateCreated converts an RFC3339 date string from the DB to the same
+// display format as date_modified ("2006-01-02 15:04:05").
+func formatDateCreated(rfc3339 string) string {
+	if rfc3339 == "" {
+		return ""
+	}
+	t, err := time.Parse(time.RFC3339, rfc3339)
+	if err != nil {
+		return "" // don't propagate malformed dates
+	}
+	return t.Format("2006-01-02 15:04:05")
 }
 
 // GetBatchMetadata extracts lightweight metadata for a batch of files.

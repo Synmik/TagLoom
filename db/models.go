@@ -14,6 +14,7 @@ type File struct {
 	IsFavorite   int     `json:"is_favorite"`
 	FolderPath   string  `json:"folder_path"`
 	Filename     string  `json:"filename"`
+	DateCreated  string  `json:"date_created"`
 	DateModified string  `json:"date_modified"`
 	IndexedAt    string  `json:"indexed_at"`
 	Tags         []Tag   `json:"tags,omitempty"`

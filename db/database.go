@@ -66,6 +66,10 @@ func NewDatabase(dbPath string) (*Database, error) {
 		conn.Close()
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
+	if err := db.MigrateAddDateCreated(); err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("failed to run migrations: %w", err)
+	}
 
 	return db, nil
 }
@@ -131,6 +135,25 @@ func (d *Database) MigrateAddFilenameAndDateCreated() error {
 	_, err = d.conn.Exec("UPDATE files SET filename = substr(vault_path, length(replace(vault_path, '/', '')) + 2)")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "filename backfill failed, will populate on next scan: %v\n", err)
+	}
+	return nil
+}
+
+// MigrateAddDateCreated adds the date_created column for existing databases.
+// New databases get this from schema.sql.
+// IMPORTANT: does NOT backfill — date_created should come from real filesystem
+// creation time (Windows Win32FileAttributeData), not from date_modified.
+// Existing rows without a date_created will get it populated on next re-scan
+// or on-demand via GetFileMetadata fallback.
+func (d *Database) MigrateAddDateCreated() error {
+	var exists int
+	err := d.conn.QueryRow("SELECT COUNT(*) FROM pragma_table_info('files') WHERE name='date_created'").Scan(&exists)
+	if err != nil || exists > 0 {
+		return nil // column already exists
+	}
+	_, err = d.conn.Exec("ALTER TABLE files ADD COLUMN date_created TEXT NOT NULL DEFAULT ''")
+	if err != nil {
+		return fmt.Errorf("failed to add date_created column: %w", err)
 	}
 	return nil
 }

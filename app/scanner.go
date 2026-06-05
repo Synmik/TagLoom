@@ -14,8 +14,18 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
+// scanEntry holds a file path and its os.FileInfo collected during a single
+// filepath.WalkDir pass. Keeping the info in memory avoids a second walk of
+// the directory tree and an extra os.Stat per file.
+type scanEntry struct {
+	path string
+	info os.FileInfo
+}
+
 // ScanVault performs a full re-scan of the vault directory.
-// It discovers all supported media files and indexes them.
+// It discovers all supported media files and indexes them in a single
+// directory walk — entries (path + FileInfo) are collected in-memory,
+// then batch-inserted in a transaction.
 // Emits "scan:progress" events with {current, total} payload.
 // Returns the total number of indexed files.
 func (a *App) ScanVault() (int, error) {
@@ -36,47 +46,10 @@ func (a *App) ScanVault() (int, error) {
 		excludedSet[strings.ToLower(filepath.Clean(fp))] = true
 	}
 
-	// First pass: count total supported files for progress tracking
-	var totalCount int
-	err = filepath.WalkDir(a.vaultPath, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return nil // Skip errors during count
-		}
-		if d.IsDir() {
-			if isExcluded(path, excludedSet) {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if utils.IsSupported(path) {
-			totalCount++
-		}
-		return nil
-	})
-	if err != nil {
-		return 0, fmt.Errorf("failed to walk directory: %w", err)
-	}
-
-	// Second pass: insert files into the database
-	tx, err := a.db.Conn().Begin()
-	if err != nil {
-		return 0, fmt.Errorf("failed to begin transaction: %w", err)
-	}
-
-	stmt, err := tx.Prepare(`
-		INSERT INTO files (vault_path, folder_path, filename, date_modified, indexed_at)
-		VALUES (?, ?, ?, ?, ?)
-		ON CONFLICT(vault_path) DO UPDATE SET folder_path = excluded.folder_path, filename = excluded.filename, date_modified = excluded.date_modified, indexed_at = excluded.indexed_at
-	`)
-	if err != nil {
-		tx.Rollback()
-		return 0, fmt.Errorf("failed to prepare statement: %w", err)
-	}
-	defer stmt.Close()
-
-	var indexedCount int
-	now := time.Now().Format(time.RFC3339)
-
+	// Single-pass: collect all supported files (path + info) in memory.
+	// This avoids a second directory walk and uses entry.Info() instead
+	// of a separate os.Stat() call.
+	var entries []scanEntry
 	err = filepath.WalkDir(a.vaultPath, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil
@@ -91,48 +64,82 @@ func (a *App) ScanVault() (int, error) {
 			return nil
 		}
 
-		folderPath := filepath.Dir(path)
-		fileName := filepath.Base(path)
-		info, statErr := os.Stat(path)
-		modStr := ""
-		if statErr == nil {
-			modStr = info.ModTime().Format(time.RFC3339)
+		info, infoErr := d.Info()
+		if infoErr != nil {
+			return nil // Skip files we can't stat
 		}
-		_, execErr := stmt.Exec(path, folderPath, fileName, modStr, now)
-		if execErr != nil {
-			return fmt.Errorf("failed to insert %s: %w", path, execErr)
-		}
+		entries = append(entries, scanEntry{path: path, info: info})
+		return nil
+	})
+	if err != nil {
+		return 0, fmt.Errorf("failed to walk directory: %w", err)
+	}
 
-		indexedCount++
+	// Batch-insert collected entries in a single transaction
+	tx, err := a.db.Conn().Begin()
+	if err != nil {
+		return 0, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	stmt, err := tx.Prepare(`
+		INSERT INTO files (vault_path, folder_path, filename, date_created, date_modified, indexed_at)
+		VALUES (?, ?, ?, ?, ?, ?)
+		ON CONFLICT(vault_path) DO UPDATE SET
+			folder_path = excluded.folder_path,
+			filename = excluded.filename,
+			date_created = excluded.date_created,
+			date_modified = excluded.date_modified,
+			indexed_at = excluded.indexed_at
+	`)
+	if err != nil {
+		tx.Rollback()
+		return 0, fmt.Errorf("failed to prepare statement: %w", err)
+	}
+	defer stmt.Close()
+
+	totalCount := len(entries)
+	now := time.Now().Format(time.RFC3339)
+
+	for i, e := range entries {
+		ft := utils.GetFileTimes(e.info)
+		createdAtStr := ""
+		if !ft.CreatedAt.IsZero() {
+			createdAtStr = ft.CreatedAt.Format(time.RFC3339)
+		}
+		_, execErr := stmt.Exec(
+			e.path,
+			filepath.Dir(e.path),
+			filepath.Base(e.path),
+			createdAtStr,
+			ft.ModifiedAt.Format(time.RFC3339),
+			now,
+		)
+		if execErr != nil {
+			tx.Rollback()
+			return 0, fmt.Errorf("failed to insert %s: %w", e.path, execErr)
+		}
 
 		// Emit progress every 100 files
-		if indexedCount%100 == 0 || indexedCount == totalCount {
+		if (i+1)%100 == 0 || i+1 == totalCount {
 			runtime.EventsEmit(a.ctx, "scan:progress", map[string]int{
-				"current": indexedCount,
+				"current": i + 1,
 				"total":   totalCount,
 			})
 		}
-
-		return nil
-	})
-
-	if err != nil {
-		tx.Rollback()
-		return 0, fmt.Errorf("failed to scan vault: %w", err)
 	}
 
 	if err := tx.Commit(); err != nil {
 		return 0, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
-	// Emit final progress
+	// Emit completion
 	runtime.EventsEmit(a.ctx, "scan:progress", map[string]int{
-		"current": indexedCount,
-		"total":   indexedCount,
+		"current": totalCount,
+		"total":   totalCount,
 	})
-	runtime.EventsEmit(a.ctx, "scan:complete", indexedCount)
+	runtime.EventsEmit(a.ctx, "scan:complete", totalCount)
 
-	return indexedCount, nil
+	return totalCount, nil
 }
 
 // isExcluded checks if a directory path is in the excluded set.
@@ -153,6 +160,7 @@ func isExcluded(path string, excluded map[string]bool) bool {
 }
 
 // RescanVault performs a diff scan, detecting added and removed files.
+// Uses a single directory walk (collecting path + info) to avoid redundant I/O.
 // Returns the number of added files. Removed count is sent via rescan:complete event.
 func (a *App) RescanVault() (int, error) {
 	if a.db == nil {
@@ -172,9 +180,9 @@ func (a *App) RescanVault() (int, error) {
 		excludedSet[strings.ToLower(filepath.Clean(fp))] = true
 	}
 
-	// Step 1: Collect all files from the filesystem
-	fsFiles := make(map[string]bool)
-	var fsPaths []string
+	// Step 1: Single-pass — collect all filesystem files (path + info)
+	var fsEntries []scanEntry
+	fsPaths := make(map[string]int) // path → index in fsEntries
 	err = filepath.WalkDir(a.vaultPath, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil
@@ -185,10 +193,17 @@ func (a *App) RescanVault() (int, error) {
 			}
 			return nil
 		}
-		if utils.IsSupported(path) {
-			fsFiles[path] = true
-			fsPaths = append(fsPaths, path)
+		if !utils.IsSupported(path) {
+			return nil
 		}
+
+		info, infoErr := d.Info()
+		if infoErr != nil {
+			return nil
+		}
+		idx := len(fsEntries)
+		fsEntries = append(fsEntries, scanEntry{path: path, info: info})
+		fsPaths[path] = idx
 		return nil
 	})
 	if err != nil {
@@ -212,16 +227,16 @@ func (a *App) RescanVault() (int, error) {
 	}
 
 	// Step 3: Compute diff
-	var added []string
-	for _, p := range fsPaths {
-		if !dbFiles[p] {
-			added = append(added, p)
+	var added []scanEntry
+	for _, e := range fsEntries {
+		if !dbFiles[e.path] {
+			added = append(added, e)
 		}
 	}
 
 	var removed []string
 	for p := range dbFiles {
-		if !fsFiles[p] {
+		if _, ok := fsPaths[p]; !ok {
 			removed = append(removed, p)
 		}
 	}
@@ -230,16 +245,16 @@ func (a *App) RescanVault() (int, error) {
 	runtime.EventsEmit(a.ctx, "rescan:diff", map[string]int{
 		"added":   len(added),
 		"removed": len(removed),
-		"total":   len(fsFiles),
+		"total":   len(fsEntries),
 	})
 
-	// Step 4: Insert new files in a transaction
+	// Step 4: Insert new files and delete removed in a transaction
 	tx, err := a.db.Conn().Begin()
 	if err != nil {
 		return 0, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
-	// Insert new files
+	// Insert new files — use info collected during walk (no os.Stat needed)
 	if len(added) > 0 {
 		stmt, err := tx.Prepare(`
 			INSERT INTO files (vault_path, folder_path, filename, date_created, date_modified, indexed_at)
@@ -251,20 +266,26 @@ func (a *App) RescanVault() (int, error) {
 		}
 
 		now := time.Now().Format(time.RFC3339)
-		for i, path := range added {
-			info, statErr := os.Stat(path)
-			fileName := filepath.Base(path)
-			modStr := ""
-			if statErr == nil {
-				modStr = info.ModTime().Format(time.RFC3339)
+		for i, e := range added {
+			ft := utils.GetFileTimes(e.info)
+			createdAtStr := ""
+			if !ft.CreatedAt.IsZero() {
+				createdAtStr = ft.CreatedAt.Format(time.RFC3339)
 			}
-			_, err := stmt.Exec(path, filepath.Dir(path), fileName, modStr, now)
+			_, err := stmt.Exec(
+				e.path,
+				filepath.Dir(e.path),
+				filepath.Base(e.path),
+				createdAtStr,
+				ft.ModifiedAt.Format(time.RFC3339),
+				now,
+			)
 			if err != nil {
 				stmt.Close()
 				tx.Rollback()
-				return 0, fmt.Errorf("failed to insert %s: %w", path, err)
+				return 0, fmt.Errorf("failed to insert %s: %w", e.path, err)
 			}
-			// Emit progress frequently enough for small batches too
+
 			step := (i + 1) * 100 / len(added)
 			if step%25 == 0 || i+1 == len(added) {
 				runtime.EventsEmit(a.ctx, "rescan:progress", map[string]interface{}{
@@ -293,7 +314,7 @@ func (a *App) RescanVault() (int, error) {
 			return 0, fmt.Errorf("failed to prepare delete: %w", err)
 		}
 
-			for i, p := range removed {
+		for i, p := range removed {
 			_, err := delFileStmt.Exec(p)
 			if err != nil {
 				delFileStmt.Close()
@@ -629,16 +650,29 @@ func (a *App) indexFile(filePath string) error {
 	fileName := filepath.Base(filePath)
 	now := time.Now().Format(time.RFC3339)
 	info, statErr := os.Stat(filePath)
-	modStr := ""
-	if statErr == nil {
-		modStr = info.ModTime().Format(time.RFC3339)
+	if statErr != nil {
+		return fmt.Errorf("failed to stat %s: %w", filePath, statErr)
+	}
+	ft := utils.GetFileTimes(info)
+
+	createdAtStr := ""
+	if !ft.CreatedAt.IsZero() {
+		createdAtStr = ft.CreatedAt.Format(time.RFC3339)
 	}
 
 	_, err := a.db.Conn().Exec(`
-		INSERT INTO files (vault_path, folder_path, filename, date_modified, indexed_at)
-		VALUES (?, ?, ?, ?, ?)
-		ON CONFLICT(vault_path) DO UPDATE SET folder_path = excluded.folder_path, filename = excluded.filename, date_modified = excluded.date_modified, indexed_at = excluded.indexed_at
-	`, filePath, folderPath, fileName, modStr, now)
+		INSERT INTO files (vault_path, folder_path, filename, date_created, date_modified, indexed_at)
+		VALUES (?, ?, ?, ?, ?, ?)
+		ON CONFLICT(vault_path) DO UPDATE SET
+			folder_path = excluded.folder_path,
+			filename = excluded.filename,
+			date_created = excluded.date_created,
+			date_modified = excluded.date_modified,
+			indexed_at = excluded.indexed_at
+	`, filePath, folderPath, fileName,
+		createdAtStr,
+		ft.ModifiedAt.Format(time.RFC3339),
+		now)
 
 	return err
 }

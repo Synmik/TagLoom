@@ -169,6 +169,7 @@ export namespace db {
 	    is_favorite: number;
 	    folder_path: string;
 	    filename: string;
+	    date_created: string;
 	    date_modified: string;
 	    indexed_at: string;
 	    tags?: Tag[];
@@ -189,6 +190,7 @@ export namespace db {
 	        this.is_favorite = source["is_favorite"];
 	        this.folder_path = source["folder_path"];
 	        this.filename = source["filename"];
+	        this.date_created = source["date_created"];
 	        this.date_modified = source["date_modified"];
 	        this.indexed_at = source["indexed_at"];
 	        this.tags = this.convertValues(source["tags"], Tag);
