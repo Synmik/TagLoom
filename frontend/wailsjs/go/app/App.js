@@ -106,6 +106,10 @@ export function GetOriginalFilePath(arg1) {
   return window['go']['app']['App']['GetOriginalFilePath'](arg1);
 }
 
+export function GetRecentVaults() {
+  return window['go']['app']['App']['GetRecentVaults']();
+}
+
 export function GetTagFileCount(arg1) {
   return window['go']['app']['App']['GetTagFileCount'](arg1);
 }
@@ -144,6 +148,10 @@ export function OpenVault(arg1) {
 
 export function RemoveExcludedFolder(arg1) {
   return window['go']['app']['App']['RemoveExcludedFolder'](arg1);
+}
+
+export function RemoveRecentVault(arg1) {
+  return window['go']['app']['App']['RemoveRecentVault'](arg1);
 }
 
 export function RemoveTagFromFile(arg1, arg2) {

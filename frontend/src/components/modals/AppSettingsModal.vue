@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { X, Check, FolderOpen } from '@lucide/vue'
-import { GetAppSettings, SetAppSettings, SelectFolder } from '../../api/backend'
+import { X, Check, FolderOpen, Trash2, FolderOpen as FolderOpenIcon } from '@lucide/vue'
+import { GetAppSettings, SetAppSettings, SelectFolder, GetRecentVaults, RemoveRecentVault } from '../../api/backend'
 import { useToast } from '../../composables/useToast'
+import type { RecentVault } from '../../types/vault'
+import { useVaultStore } from '../../stores/vault'
+
+const vaultStore = useVaultStore()
 
 defineEmits<{ close: [] }>()
 
@@ -19,6 +23,36 @@ const confirmBeforeExit = ref(false)
 const isSaving = ref(false)
 const isLoaded = ref(false)
 
+// ── Recent vaults ─────────────────────────────────────────────────
+const recentVaults = ref<RecentVault[]>([])
+
+const loadRecentVaults = async () => {
+  recentVaults.value = await GetRecentVaults()
+}
+
+const openRecentVault = async (vault: RecentVault) => {
+  await vaultStore.openVault(vault.path)
+}
+
+const removeRecentVault = async (path: string) => {
+  try {
+    await RemoveRecentVault(path)
+    await loadRecentVaults()
+  } catch (e: any) {
+    toastError('Failed to remove vault: ' + (e.message || String(e)))
+  }
+}
+
+const formatDate = (iso: string) => {
+  try {
+    const d = new Date(iso)
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) +
+      ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+  } catch {
+    return iso
+  }
+}
+
 // ── Load settings on mount ────────────────────────────────────────
 onMounted(async () => {
   try {
@@ -34,6 +68,7 @@ onMounted(async () => {
   } catch (e) {
     console.warn('[AppSettingsModal] failed to load settings:', e)
   }
+  await loadRecentVaults()
   isLoaded.value = true
 })
 
@@ -43,12 +78,13 @@ const save = async () => {
   try {
     await SetAppSettings({
       last_vault_path: lastVaultPath.value,
+      recent_vaults: recentVaults.value,
       auto_open_last_vault: autoOpenLastVault.value,
       default_grid_size: defaultGridSize.value,
       default_sort_field: defaultSortField.value,
       default_sort_order: defaultSortOrder.value,
       confirm_before_exit: confirmBeforeExit.value,
-    })
+    } as any)
     success('Settings saved')
   } catch (e: any) {
     toastError('Failed to save settings: ' + (e.message || String(e)))
@@ -123,6 +159,40 @@ const sortOrderOptions = [
             </button>
           </div>
           <p class="hint">Auto-opened when the app starts (if enabled above).</p>
+        </section>
+
+        <!-- Recent Vaults -->
+        <section class="section">
+          <h4>Recent Vaults ({{ recentVaults.length }})</h4>
+          <div v-if="recentVaults.length === 0" class="empty-recent">
+            <p>No recent vaults.</p>
+          </div>
+          <div v-else class="recent-list">
+            <div
+              v-for="vault in recentVaults"
+              :key="vault.path"
+              class="recent-item"
+              @click="openRecentVault(vault)"
+            >
+              <div class="recent-info">
+                <FolderOpenIcon :size="14" class="recent-icon" />
+                <div class="recent-text">
+                  <span class="recent-name">{{ vault.name }}</span>
+                  <span class="recent-path">{{ vault.path }}</span>
+                </div>
+              </div>
+              <div class="recent-actions">
+                <span class="recent-date">{{ formatDate(vault.opened_at) }}</span>
+                <button
+                  class="remove-btn"
+                  @click.stop="removeRecentVault(vault.path)"
+                  title="Remove from list"
+                >
+                  <Trash2 :size="12" />
+                </button>
+              </div>
+            </div>
+          </div>
         </section>
 
         <!-- Display -->
@@ -379,5 +449,108 @@ const sortOrderOptions = [
 .save-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* ── Recent vaults ──────────────────────────────────────────────── */
+.empty-recent {
+  color: #555;
+  font-size: 12px;
+  padding: 8px 0;
+}
+
+.empty-recent p {
+  margin: 0;
+}
+
+.recent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.recent-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.recent-item:hover {
+  background: #222;
+  border-color: #333;
+}
+
+.recent-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.recent-icon {
+  color: #22c55e;
+  flex-shrink: 0;
+}
+
+.recent-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.recent-name {
+  color: #e8e8e8;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.recent-path {
+  color: #666;
+  font-size: 10px;
+  font-family: monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.recent-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.recent-date {
+  color: #555;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.remove-btn {
+  background: none;
+  border: none;
+  color: #555;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.remove-btn:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
 }
 </style>

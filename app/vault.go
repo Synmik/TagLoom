@@ -84,8 +84,10 @@ func (a *App) OpenVault(path string) (*db.VaultInfo, error) {
 	// Save as last opened vault in global app settings
 	if a.appCfg != nil {
 		a.appCfg.LastVaultPath = path
-		_ = config.SaveAppSettings(a.appCfg)
 	}
+
+	// Add to recent vaults list
+	a.addToRecentVaults(path, cfg.Name)
 
 	// Count indexed files
 	fileCount := 0
@@ -228,8 +230,10 @@ func (a *App) CreateVault(path string, settings NewVaultSettings) (*db.VaultInfo
 	// Save as last opened vault
 	if a.appCfg != nil {
 		a.appCfg.LastVaultPath = path
-		_ = config.SaveAppSettings(a.appCfg)
 	}
+
+	// Add to recent vaults list
+	a.addToRecentVaults(path, cfg.Name)
 
 	// Auto-scan (vault is new, file count is 0)
 	go func() {

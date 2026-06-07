@@ -90,7 +90,24 @@ const handleClick = async (e: MouseEvent) => {
   toggleSelection(props.file, e.ctrlKey, e.shiftKey)
 }
 
-const openPreview = () => {
+// Extensions that browsers can display in <img> / <video> tags.
+// Everything else opens with the OS default application.
+const browserPreviewable = new Set([
+  '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.avif',
+])
+
+const isBrowserPreviewable = (path: string): boolean => {
+  const ext = path.split('.').pop()?.toLowerCase() || ''
+  return browserPreviewable.has(`.${ext}`)
+}
+
+const openPreview = async () => {
+  if (!isBrowserPreviewable(props.file.vault_path)) {
+    // Open with OS default app (TIFF, JPEGXL, SVG, video, etc.)
+    await filesStore.openOriginalFile(props.file.id)
+    return
+  }
+  // Browser can display it — open in-app preview modal
   previewStore.setFile(props.file)
   previewStore.openFullPreview()
 }

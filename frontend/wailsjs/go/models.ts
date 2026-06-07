@@ -69,8 +69,25 @@ export namespace app {
 
 export namespace config {
 	
+	export class RecentVault {
+	    path: string;
+	    name: string;
+	    opened_at: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new RecentVault(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.name = source["name"];
+	        this.opened_at = source["opened_at"];
+	    }
+	}
 	export class AppSettings {
 	    last_vault_path: string;
+	    recent_vaults: RecentVault[];
 	    auto_open_last_vault: boolean;
 	    default_grid_size: string;
 	    default_sort_field: string;
@@ -84,13 +101,33 @@ export namespace config {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.last_vault_path = source["last_vault_path"];
+	        this.recent_vaults = this.convertValues(source["recent_vaults"], RecentVault);
 	        this.auto_open_last_vault = source["auto_open_last_vault"];
 	        this.default_grid_size = source["default_grid_size"];
 	        this.default_sort_field = source["default_sort_field"];
 	        this.default_sort_order = source["default_sort_order"];
 	        this.confirm_before_exit = source["confirm_before_exit"];
 	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
+	
 	export class Settings {
 	    auto_tag_by_folder: boolean;
 	    excluded_folders: string[];

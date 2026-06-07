@@ -56,6 +56,8 @@ export function GetLastVaultPath():Promise<string>;
 
 export function GetOriginalFilePath(arg1:number):Promise<string>;
 
+export function GetRecentVaults():Promise<Array<config.RecentVault>>;
+
 export function GetTagFileCount(arg1:number):Promise<number>;
 
 export function GetTags(arg1:string):Promise<Array<db.Tag>>;
@@ -75,6 +77,8 @@ export function OpenOriginalFile(arg1:number):Promise<void>;
 export function OpenVault(arg1:string):Promise<db.VaultInfo>;
 
 export function RemoveExcludedFolder(arg1:string):Promise<void>;
+
+export function RemoveRecentVault(arg1:string):Promise<void>;
 
 export function RemoveTagFromFile(arg1:number,arg2:number):Promise<void>;
 

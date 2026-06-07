@@ -6,14 +6,22 @@ import (
 	"path/filepath"
 )
 
+// RecentVault represents a recently opened vault in the history list.
+type RecentVault struct {
+	Path        string `json:"path"`
+	Name        string `json:"name"`
+	OpenedAt    string `json:"opened_at"` // ISO8601 timestamp
+}
+
 // AppSettings holds global application preferences stored outside any vault.
 type AppSettings struct {
-	LastVaultPath      string `json:"last_vault_path"`
-	AutoOpenLastVault  bool   `json:"auto_open_last_vault"`
-	DefaultGridSize    string `json:"default_grid_size"`
-	DefaultSortField   string `json:"default_sort_field"`
-	DefaultSortOrder   string `json:"default_sort_order"`
-	ConfirmBeforeExit  bool   `json:"confirm_before_exit"`
+	LastVaultPath      string        `json:"last_vault_path"`
+	RecentVaults       []RecentVault `json:"recent_vaults"`
+	AutoOpenLastVault  bool          `json:"auto_open_last_vault"`
+	DefaultGridSize    string        `json:"default_grid_size"`
+	DefaultSortField   string        `json:"default_sort_field"`
+	DefaultSortOrder   string        `json:"default_sort_order"`
+	ConfirmBeforeExit  bool          `json:"confirm_before_exit"`
 }
 
 // AppSettingsDir returns the directory for global app settings.

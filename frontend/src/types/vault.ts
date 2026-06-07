@@ -9,12 +9,22 @@ export interface VaultInfo {
 
 export interface AppSettings {
   last_vault_path: string
+  recent_vaults: RecentVault[]
   auto_open_last_vault: boolean
   default_grid_size: string
   default_sort_field: string
   default_sort_order: string
   confirm_before_exit: boolean
 }
+
+export interface RecentVault {
+  path: string
+  name: string
+  opened_at: string
+}
+
+// Re-export from generated Wails types for API calls
+export { config } from '../../wailsjs/go/models'
 
 export interface VaultConfig {
   name: string
