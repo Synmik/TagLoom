@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"runtime"
 	"time"
 
 	"TagLoom/config"
 	"TagLoom/db"
+	"TagLoom/utils"
 )
 
 const maxRecentVaults = 10
@@ -143,4 +145,48 @@ func (a *App) RemoveRecentVault(path string) error {
 		return fmt.Errorf("failed to save settings: %w", err)
 	}
 	return nil
+}
+
+// FFmpegStatus holds the install status of ffmpeg and ffprobe.
+type FFmpegStatus struct {
+	FFmpegPath  string `json:"ffmpeg_path"`
+	FFprobePath string `json:"ffprobe_path"`
+	FFmpegOK    bool   `json:"ffmpeg_ok"`
+	FFprobeOK   bool   `json:"ffprobe_ok"`
+}
+
+// CheckFFmpeg returns the install status of ffmpeg and ffprobe.
+func (a *App) CheckFFmpeg() *FFmpegStatus {
+	status := &FFmpegStatus{}
+
+	ffmpegPath, err := utils.FindFFmpeg()
+	if err == nil {
+		status.FFmpegPath = ffmpegPath
+		status.FFmpegOK = true
+	}
+
+	ffprobePath, err := utils.FindFFprobe()
+	if err == nil {
+		status.FFprobePath = ffprobePath
+		status.FFprobeOK = true
+	}
+
+	return status
+}
+
+// GetAppInfo returns basic application info for the About dialog.
+func (a *App) GetAppInfo() map[string]string {
+	return map[string]string{
+		"os":   runtime.GOOS,
+		"arch": runtime.GOARCH,
+		"go":   runtime.Version(),
+	}
+}
+
+// GetVersion returns the application version.
+// Keep in sync with wails.json → info.productVersion.
+const appVersion = "0.2.0"
+
+func (a *App) GetVersion() string {
+	return appVersion
 }

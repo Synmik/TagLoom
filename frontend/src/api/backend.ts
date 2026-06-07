@@ -30,3 +30,6 @@ export { AddTagsToFiles, RemoveTagsFromFiles, SetRatingForFiles, SetFavoriteForF
 
 // App Settings
 export { GetAppSettings, SetAppSettings } from '../../wailsjs/go/app/App'
+
+// App Info
+export { CheckFFmpeg, GetAppInfo, GetVersion } from '../../wailsjs/go/app/App'

@@ -55,12 +55,15 @@
     <button class="action-btn" title="Tag Manager" @click="onTagManager">
       <Tags :size="15" />
     </button>
+    <button class="action-btn" title="About TagLoom" @click="onAbout">
+      <Info :size="15" />
+    </button>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { Plus, FolderOpen, RefreshCw, FolderSearch, Settings, FolderCog, Tags } from '@lucide/vue'
+import { Plus, FolderOpen, RefreshCw, FolderSearch, Settings, FolderCog, Tags, Info } from '@lucide/vue'
 import { useVaultStore } from '../../stores/vault'
 import { useUIStore } from '../../stores/ui'
 import { GetRecentVaults } from '../../api/backend'
@@ -112,6 +115,7 @@ const onAppSettings = () => {
   uiStore.openAppSettings()
 }
 const onTagManager = () => uiStore.openTagManager()
+const onAbout = () => uiStore.openAbout()
 </script>
 
 <style scoped>

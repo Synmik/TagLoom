@@ -48,6 +48,10 @@
               <Tags :size="16" class="menu-icon" /> Tag Manager
             </button>
             <div class="menu-divider"></div>
+            <button class="menu-item" @click="onAbout">
+              <Info :size="16" class="menu-icon" /> About TagLoom
+            </button>
+            <div class="menu-divider"></div>
             <button class="menu-item" @click="onExit">
               <LogOut :size="16" class="menu-icon" /> Exit
             </button>
@@ -95,7 +99,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { Menu, Plus, FolderOpen, X, RefreshCw, FolderSearch, Settings, FolderCog, Tags, LogOut, Minus, Maximize, Minimize2 } from '@lucide/vue'
+import { Menu, Plus, FolderOpen, X, RefreshCw, FolderSearch, Settings, FolderCog, Tags, Info, LogOut, Minus, Maximize, Minimize2 } from '@lucide/vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import { useVaultStore } from '../../stores/vault'
 import { useUIStore } from '../../stores/ui'
@@ -176,6 +180,10 @@ const onAppSettings = () => {
 const onTagManager = () => {
   showMenu.value = false
   uiStore.openTagManager()
+}
+const onAbout = () => {
+  showMenu.value = false
+  uiStore.openAbout()
 }
 const onExit = async () => {
   showMenu.value = false

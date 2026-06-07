@@ -17,6 +17,7 @@
     <AppSettingsModal v-if="uiStore.showAppSettings" @close="uiStore.closeAppSettings" />
     <TagManagerModal v-if="uiStore.showTagManager" @close="uiStore.closeTagManager" />
     <NewVaultModal v-if="uiStore.showNewVault" @close="uiStore.closeNewVault" />
+    <AboutModal v-if="uiStore.showAbout" @close="uiStore.closeAbout" />
   </div>
 </template>
 
@@ -35,6 +36,7 @@ import VaultSettingsModal from './components/modals/VaultSettingsModal.vue'
 import AppSettingsModal from './components/modals/AppSettingsModal.vue'
 import TagManagerModal from './components/modals/TagManagerModal.vue'
 import NewVaultModal from './components/modals/NewVaultModal.vue'
+import AboutModal from './components/modals/AboutModal.vue'
 import { usePreviewStore } from './stores/preview'
 import { useUIStore } from './stores/ui'
 import { useTagsStore } from './stores/tags'

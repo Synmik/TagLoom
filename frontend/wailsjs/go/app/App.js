@@ -18,6 +18,10 @@ export function CancelThumbnailGeneration() {
   return window['go']['app']['App']['CancelThumbnailGeneration']();
 }
 
+export function CheckFFmpeg() {
+  return window['go']['app']['App']['CheckFFmpeg']();
+}
+
 export function CleanupOrphanThumbnails() {
   return window['go']['app']['App']['CleanupOrphanThumbnails']();
 }
@@ -64,6 +68,10 @@ export function GenerateThumbnailsPool() {
 
 export function GetAllTagFileCounts() {
   return window['go']['app']['App']['GetAllTagFileCounts']();
+}
+
+export function GetAppInfo() {
+  return window['go']['app']['App']['GetAppInfo']();
 }
 
 export function GetAppSettings() {
@@ -140,6 +148,10 @@ export function GetThumbnailPath(arg1) {
 
 export function GetVaultConfig() {
   return window['go']['app']['App']['GetVaultConfig']();
+}
+
+export function GetVersion() {
+  return window['go']['app']['App']['GetVersion']();
 }
 
 export function OpenFileFolder(arg1) {

@@ -1,5 +1,23 @@
 export namespace app {
 	
+	export class FFmpegStatus {
+	    ffmpeg_path: string;
+	    ffprobe_path: string;
+	    ffmpeg_ok: boolean;
+	    ffprobe_ok: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new FFmpegStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ffmpeg_path = source["ffmpeg_path"];
+	        this.ffprobe_path = source["ffprobe_path"];
+	        this.ffmpeg_ok = source["ffmpeg_ok"];
+	        this.ffprobe_ok = source["ffprobe_ok"];
+	    }
+	}
 	export class FileMetadata {
 	    filename: string;
 	    extension: string;
