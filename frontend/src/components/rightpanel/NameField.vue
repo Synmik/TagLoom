@@ -2,7 +2,8 @@
   <section class="field-section">
     <label class="field-label">Name</label>
     <input
-      v-model="localName"
+      :value="localName"
+      @input="onInput"
       placeholder="Enter name…"
       class="field-input"
     />
@@ -15,17 +16,39 @@ import { usePreviewStore } from '../../stores/preview'
 
 const previewStore = usePreviewStore()
 
-// Local copy — synced from store when file changes
+// Track which file we are currently editing so debounce doesn't save to the wrong file
+const editingFileId = shallowRef<number | null>(null)
 const localName = shallowRef('')
 
+// Watch for file changes — reset local state and mark editing file
 watch(
-  () => previewStore.currentFile?.name,
-  (val) => { localName.value = val || '' },
+  () => previewStore.currentFile,
+  (file) => {
+    editingFileId.value = file?.id ?? null
+    localName.value = file?.name || ''
+  },
+  { immediate: true },
 )
 
-// Debounced auto-save (500ms)
+// Use @input instead of v-model so we can distinguish user edits from resets
+function onInput(event: Event) {
+  localName.value = (event.target as HTMLInputElement).value
+}
+
+// Debounced auto-save (500ms) — guarded by file ID + value comparison
 watch(localName, (value, _prev, onCleanup) => {
+  const currentFile = previewStore.currentFile
+  if (!currentFile) return
+
+  // If the value matches what's already in the store, this is a
+  // programmatic reset (file switch), not a user edit — skip entirely.
+  if (value === (currentFile.name || '')) return
+
+  const savedFileId = currentFile.id
+
   const timer = setTimeout(() => {
+    // Guard: only save if we're still on the same file
+    if (previewStore.currentFile?.id !== savedFileId) return
     previewStore.updateName(value)
   }, 500)
   onCleanup(() => clearTimeout(timer))

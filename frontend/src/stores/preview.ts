@@ -68,11 +68,13 @@ export const usePreviewStore = defineStore('preview', {
     _updateField(field: string, value: any) {
       if (!this.currentFile) return Promise.resolve()
       const f = this.currentFile
+      // Coerce nullable string fields (name, notes, link) to empty string
+      // so Go backend receives a valid string instead of undefined
       return UpdateFile({
         id: f.id,
-        name: field === 'name' ? value : f.name,
-        notes: field === 'notes' ? value : f.notes,
-        link: field === 'link' ? value : f.link,
+        name: field === 'name' ? value : (f.name ?? ''),
+        notes: field === 'notes' ? value : (f.notes ?? ''),
+        link: field === 'link' ? value : (f.link ?? ''),
         rating: field === 'rating' ? value : f.rating,
         is_favorite: field === 'is_favorite' ? value : f.is_favorite,
       }).then(() => {

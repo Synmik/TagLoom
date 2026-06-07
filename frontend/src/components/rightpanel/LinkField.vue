@@ -2,7 +2,8 @@
   <section class="field-section">
     <label class="field-label">Link</label>
     <input
-      v-model="localLink"
+      :value="localLink"
+      @input="onInput"
       placeholder="https://…"
       class="field-input"
       :class="{ 'invalid-url': isInvalid }"
@@ -17,12 +18,21 @@ import { usePreviewStore } from '../../stores/preview'
 
 const previewStore = usePreviewStore()
 
+const editingFileId = shallowRef<number | null>(null)
 const localLink = shallowRef('')
 
 watch(
-  () => previewStore.currentFile?.link,
-  (val) => { localLink.value = val || '' },
+  () => previewStore.currentFile,
+  (file) => {
+    editingFileId.value = file?.id ?? null
+    localLink.value = file?.link || ''
+  },
+  { immediate: true },
 )
+
+function onInput(event: Event) {
+  localLink.value = (event.target as HTMLInputElement).value
+}
 
 // Simple URL validation: empty is allowed, otherwise must be a valid URL
 const isInvalid = computed(() => {
@@ -32,10 +42,23 @@ const isInvalid = computed(() => {
   return false
 })
 
+// Debounced auto-save (500ms) — guarded by file ID + value comparison
 watch(localLink, (value, _prev, onCleanup) => {
+  const currentFile = previewStore.currentFile
+  if (!currentFile) return
+
+  const currentLink = currentFile.link || ''
+  // If the value matches what's already in the store, this is a
+  // programmatic reset (file switch), not a user edit — skip entirely.
+  if (value === currentLink) return
+
+  const savedFileId = currentFile.id
+
   const timer = setTimeout(() => {
+    if (previewStore.currentFile?.id !== savedFileId) return
+
     const trimmed = value.trim()
-    // Only save if empty or valid
+    // Only save if empty or a valid URL
     if (!trimmed || !isInvalid.value) {
       previewStore.updateLink(trimmed)
     }

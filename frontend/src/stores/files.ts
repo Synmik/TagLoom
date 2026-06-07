@@ -136,6 +136,8 @@ export const useFilesStore = defineStore('files', {
       }
     },
     selectFile(file: File, multi: boolean = false) {
+      // Clear folder bulk edit mode when user manually selects files
+      this.folderBulkEditPath = ''
       if (multi) {
         const index = this.selectedFiles.findIndex(f => f.id === file.id)
         if (index >= 0) {

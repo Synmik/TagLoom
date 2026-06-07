@@ -2,7 +2,8 @@
   <section class="field-section">
     <label class="field-label">Notes</label>
     <textarea
-      v-model="localNotes"
+      :value="localNotes"
+      @input="onInput"
       placeholder="Add notes…"
       class="field-textarea"
       rows="4"
@@ -16,15 +17,36 @@ import { usePreviewStore } from '../../stores/preview'
 
 const previewStore = usePreviewStore()
 
+const editingFileId = shallowRef<number | null>(null)
 const localNotes = shallowRef('')
 
 watch(
-  () => previewStore.currentFile?.notes,
-  (val) => { localNotes.value = val || '' },
+  () => previewStore.currentFile,
+  (file) => {
+    editingFileId.value = file?.id ?? null
+    localNotes.value = file?.notes || ''
+  },
+  { immediate: true },
 )
 
+function onInput(event: Event) {
+  localNotes.value = (event.target as HTMLTextAreaElement).value
+}
+
+// Debounced auto-save (500ms) — guarded by file ID + value comparison
 watch(localNotes, (value, _prev, onCleanup) => {
+  const currentFile = previewStore.currentFile
+  if (!currentFile) return
+
+  // If the value matches what's already in the store, this is a
+  // programmatic reset (file switch), not a user edit — skip entirely.
+  if (value === (currentFile.notes || '')) return
+
+  const savedFileId = currentFile.id
+
   const timer = setTimeout(() => {
+    // Guard: only save if we're still on the same file
+    if (previewStore.currentFile?.id !== savedFileId) return
     previewStore.updateNotes(value)
   }, 500)
   onCleanup(() => clearTimeout(timer))
