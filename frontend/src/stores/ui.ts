@@ -11,7 +11,7 @@ export const useUIStore = defineStore('ui', {
     sortBy: 'indexed_at' as SortField,
     sortOrder: 'desc' as 'asc' | 'desc',
     leftPanelWidth: 280,
-    rightPanelWidth: 320,
+    rightPanelWidth: 400,
     leftPanelSplit: 50,
     showBatchEdit: false,
     showVaultSettings: false,
