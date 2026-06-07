@@ -138,8 +138,9 @@ func EncodeImageToWebP(imagePath, outputWebp string, size, quality int) error {
 	cmd := exec.Command(ffmpeg,
 		"-y",                   // overwrite output
 		"-i", imagePath,        // input file
-		"-vframes", "1",        // extract exactly 1 frame (for GIFs)
+		"-vframes", "1",        // extract exactly 1 frame (for GIFs/animated)
 		"-vf", "scale="+strconv.Itoa(size)+":"+strconv.Itoa(size)+":force_original_aspect_ratio=decrease:flags=lanczos", // fit within box, keep aspect ratio
+		"-c:v", "libwebp",     // force static WebP (not libwebp_anim)
 		"-q:v", strconv.Itoa(quality), // WebP quality (0-100)
 		"-f", "webp",           // force WebP format
 		outputWebp,

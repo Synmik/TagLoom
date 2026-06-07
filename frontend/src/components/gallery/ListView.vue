@@ -77,6 +77,14 @@ onMounted(() => {
       const headerHeight = headerEl?.offsetHeight ?? 37
       setContainerHeight(scrollContainerRef.value.clientHeight - headerHeight)
     }
+
+    // Observe sentinel immediately if hasMore is already true on mount.
+    // The watch(hasMore) below is lazy (doesn't fire on initial creation),
+    // so without this the sentinel is never observed when ListView mounts
+    // with data already loaded (e.g. switching from grid to list view).
+    if (hasMore.value && sentinelRef.value && sentinelObserver) {
+      sentinelObserver.observe(sentinelRef.value)
+    }
   })
 
   resizeObserver = new ResizeObserver((entries) => {

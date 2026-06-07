@@ -76,6 +76,14 @@ onMounted(() => {
         scrollContainerRef.value.clientHeight,
       )
     }
+
+    // Observe sentinel immediately if hasMore is already true on mount.
+    // The watch(hasMore) below is lazy (doesn't fire on initial creation),
+    // so without this the sentinel is never observed when ThumbnailGrid
+    // mounts with data already loaded.
+    if (hasMore.value && sentinelRef.value && sentinelObserver) {
+      sentinelObserver.observe(sentinelRef.value)
+    }
   })
 
   // Watch for container size changes

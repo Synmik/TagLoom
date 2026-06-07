@@ -26,8 +26,8 @@ func main() {
 	// Create application with options
 	err := wails.Run(&options.App{
 		Title:       "TagLoom",
-		Width:       1280,
-		Height:      800,
+		Width:       1600,
+		Height:      900,
 		MinWidth:    900,
 		MinHeight:   600,
 		Frameless:   true,
