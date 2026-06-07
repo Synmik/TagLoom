@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import type { File, FileUpdate, FilePage, FileFilter, SortOpts } from '../types/file'
-import { GetFiles, UpdateFile, SearchFiles, GenerateThumbnail, GenerateThumbnailsPool, GetThumbnailData, AddTagsToFiles, RemoveTagsFromFiles, SetRatingForFiles, SetFavoriteForFiles, DeleteFile, OpenOriginalFile, OpenFileFolder, DeleteOriginalFile } from '../api/backend'
+import { GetFiles, UpdateFile, SearchFiles, GenerateThumbnail, GenerateThumbnailsPool, GetThumbnailData, AddTagsToFiles, RemoveTagsFromFiles, SetRatingForFiles, SetFavoriteForFiles, DeleteFile, OpenOriginalFile, OpenFileFolder, DeleteOriginalFile, CopyImageToClipboard } from '../api/backend'
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime'
 import { useFiltersStore } from './filters'
 import { useUIStore } from './ui'
@@ -347,6 +347,11 @@ export const useFilesStore = defineStore('files', {
     async deleteOriginalFile(fileID: number) {
       await DeleteOriginalFile(fileID)
       this.removeFileLocally(fileID)
+    },
+
+    /** Copy the original image file to the system clipboard as a bitmap */
+    async copyImageToClipboard(fileID: number) {
+      await CopyImageToClipboard(fileID)
     },
 
     /** Remove a file from local state (files list + selection) */

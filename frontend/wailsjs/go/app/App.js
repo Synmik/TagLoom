@@ -26,6 +26,10 @@ export function CloseVault() {
   return window['go']['app']['App']['CloseVault']();
 }
 
+export function CopyImageToClipboard(arg1) {
+  return window['go']['app']['App']['CopyImageToClipboard'](arg1);
+}
+
 export function CreateTag(arg1) {
   return window['go']['app']['App']['CreateTag'](arg1);
 }

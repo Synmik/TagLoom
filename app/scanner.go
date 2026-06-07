@@ -603,6 +603,27 @@ func (a *App) DeleteOriginalFile(fileID int64) error {
 	return tx.Commit()
 }
 
+// CopyImageToClipboard reads the original image file and places it on the
+// system clipboard as a CF_DIB bitmap. Returns an error for non-image files
+// or if the clipboard operation fails.
+func (a *App) CopyImageToClipboard(fileID int64) error {
+	if a.db == nil {
+		return fmt.Errorf("no vault open")
+	}
+
+	path, err := a.getFilePath(fileID)
+	if err != nil {
+		return err
+	}
+
+	_, err = os.Stat(path)
+	if err != nil {
+		return fmt.Errorf("file not found on disk: %w", err)
+	}
+
+	return utils.CopyImageToClipboard(path)
+}
+
 // getFilePath returns the vault_path for a given file ID.
 func (a *App) getFilePath(fileID int64) (string, error) {
 	var path string

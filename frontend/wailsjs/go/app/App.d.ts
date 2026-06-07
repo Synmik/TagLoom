@@ -16,6 +16,8 @@ export function CleanupOrphanThumbnails():Promise<number>;
 
 export function CloseVault():Promise<void>;
 
+export function CopyImageToClipboard(arg1:number):Promise<void>;
+
 export function CreateTag(arg1:db.TagCreate):Promise<db.Tag>;
 
 export function CreateVault(arg1:string,arg2:app.NewVaultSettings):Promise<db.VaultInfo>;

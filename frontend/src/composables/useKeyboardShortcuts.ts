@@ -12,9 +12,11 @@ import { useToast } from './useToast'
  * Shortcuts:
  *   Ctrl+A    — Select all files matching current filters
  *   Ctrl+B    — Open batch edit modal (requires selection)
+ *   Ctrl+C    — Copy original image to clipboard (single selection)
  *   Ctrl+F    — Focus search bar
  *   Ctrl+R    — Reindex/rescan the vault
  *   Ctrl+D    — Toggle favorite on selected file(s)
+ *   Enter     — Open preview (same as double-click on thumbnail)
  *   Escape    — Close open modals (priority order), then clear selection
  *   ← / →     — Navigate gallery (previous / next file)
  */
@@ -23,7 +25,7 @@ export function useKeyboardShortcuts() {
   const filesStore = useFilesStore()
   const previewStore = usePreviewStore()
   const vaultStore = useVaultStore()
-  const { info } = useToast()
+  const { info, success, error: error } = useToast()
 
   // Custom event channel for child components
   const listeners: Record<string, Set<() => void>> = {
@@ -113,6 +115,51 @@ export function useKeyboardShortcuts() {
     // No selection — do nothing silently
   }
 
+  // Extensions that browsers can display in <img> / <video> tags.
+  // Everything else opens with the OS default application.
+  const browserPreviewable = new Set([
+    '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.avif',
+  ])
+
+  const isBrowserPreviewable = (path: string): boolean => {
+    const ext = path.split('.').pop()?.toLowerCase() || ''
+    return browserPreviewable.has(`.${ext}`)
+  }
+
+  /** Open preview for the currently selected file (same as double-click) */
+  const handleOpenPreview = async () => {
+    const file = filesStore.selectedFiles[0]
+    if (!file) return
+
+    if (!isBrowserPreviewable(file.vault_path)) {
+      // Open with OS default app (TIFF, JPEGXL, SVG, video, etc.)
+      try {
+        await filesStore.openOriginalFile(file.id)
+      } catch (e) {
+        error('Failed to open file')
+        console.error(e)
+      }
+      return
+    }
+    // Browser can display it — open in-app preview modal
+    previewStore.setFile(file)
+    previewStore.openFullPreview()
+  }
+
+  /** Copy the original image of the selected file to the system clipboard */
+  const handleCopyToClipboard = async () => {
+    const file = filesStore.selectedFiles[0]
+    if (!file) return
+
+    try {
+      await filesStore.copyImageToClipboard(file.id)
+      success('Image copied to clipboard')
+    } catch (e) {
+      error('Failed to copy image to clipboard')
+      console.error(e)
+    }
+  }
+
   const handleSelectAll = () => {
     const files = filesStore.files
     if (files.length === 0) return
@@ -184,6 +231,18 @@ export function useKeyboardShortcuts() {
       return
     }
 
+    // Ctrl+C — copy original image to clipboard (only when not in an input)
+    if (ctrl && e.key === 'c') {
+      const inInput = document.activeElement instanceof HTMLInputElement ||
+        document.activeElement instanceof HTMLTextAreaElement ||
+        document.activeElement instanceof HTMLSelectElement
+      if (!inInput && filesStore.selectedFiles.length >= 1) {
+        e.preventDefault()
+        handleCopyToClipboard()
+      }
+      return
+    }
+
     // Ctrl+F — focus search
     if (ctrl && e.key === 'f') {
       e.preventDefault()
@@ -240,6 +299,18 @@ export function useKeyboardShortcuts() {
     // Ctrl+D — toggle favorite
     if (ctrl && e.key === 'd') {
       handleToggleFavorite(e)
+      return
+    }
+
+    // Enter — open preview (same as double-click on thumbnail)
+    if (e.key === 'Enter') {
+      const inInput = document.activeElement instanceof HTMLInputElement ||
+        document.activeElement instanceof HTMLTextAreaElement ||
+        document.activeElement instanceof HTMLSelectElement
+      if (!inInput && filesStore.selectedFiles.length >= 1) {
+        e.preventDefault()
+        handleOpenPreview()
+      }
       return
     }
   }
