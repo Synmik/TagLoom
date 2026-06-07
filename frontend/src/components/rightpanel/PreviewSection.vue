@@ -38,11 +38,24 @@
             </button>
             <span class="time-display">{{ currentTime }} / {{ totalTime }}</span>
             <div class="ctrl-spacer"></div>
-            <button class="ctrl-btn" @click.stop="toggleMute" :title="isMuted ? 'Unmute' : 'Mute'">
-              <Volume2 v-if="!isMuted && volume > 0.5" :size="16" />
-              <Volume1 v-else-if="!isMuted && volume > 0" :size="16" />
-              <VolumeX v-else :size="16" />
-            </button>
+            <div class="volume-group" @mouseenter="showVolumeSlider = true" @mouseleave="showVolumeSlider = false">
+              <button class="ctrl-btn" @click.stop="toggleMute" :title="isMuted ? 'Unmute' : 'Mute'">
+                <Volume2 v-if="!isMuted && volume > 0.5" :size="16" />
+                <Volume1 v-else-if="!isMuted && volume > 0" :size="16" />
+                <VolumeX v-else :size="16" />
+              </button>
+              <div class="volume-slider-wrap" :class="{ visible: showVolumeSlider || !isMuted }">
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  :value="isMuted ? 0 : volume"
+                  @input="onVolumeChange($event)"
+                  class="volume-slider"
+                />
+              </div>
+            </div>
             <button class="ctrl-btn" @click.stop="togglePiP" title="Picture in Picture">
               <PictureInPicture2 :size="16" />
             </button>
@@ -60,7 +73,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch, onUnmounted } from 'vue'
-import { PlayCircle, Pause, Volume2, Volume1, VolumeX, PictureInPicture2 } from '@lucide/vue'
+import { PlayCircle, Pause, Volume2, Volume1, VolumeX, Volume, PictureInPicture2 } from '@lucide/vue'
 import { usePreviewStore } from '../../stores/preview'
 
 const previewStore = usePreviewStore()
@@ -69,6 +82,7 @@ const videoEl = ref<HTMLVideoElement | null>(null)
 const isPlaying = ref(false)
 const isMuted = ref(true)
 const volume = ref(0)
+const showVolumeSlider = ref(false)
 const currentTimeVal = ref(0)
 const duration = ref(0)
 const bufferedPercent = ref(0)
@@ -139,6 +153,18 @@ const toggleMute = () => {
   if (!isMuted.value && volume.value === 0) {
     volume.value = 1
     videoEl.value.volume = 1
+  }
+}
+
+const onVolumeChange = (event: Event) => {
+  if (!videoEl.value) return
+  const target = event.target as HTMLInputElement
+  const newVol = parseFloat(target.value)
+  volume.value = newVol
+  videoEl.value.volume = newVol
+  if (newVol > 0) {
+    isMuted.value = false
+    videoEl.value.muted = false
   }
 }
 
@@ -271,6 +297,58 @@ const formatName = computed(() => {
   white-space: nowrap;
 }
 .ctrl-spacer { flex: 1; }
+
+/* Volume slider */
+.volume-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.volume-slider-wrap {
+  height: 16px;
+  display: flex;
+  align-items: center;
+  width: 0;
+  overflow: hidden;
+  transition: width 0.2s ease;
+}
+
+.volume-slider-wrap.visible {
+  width: 60px;
+}
+
+.volume-slider {
+  width: 60px;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 10px;
+  height: 10px;
+  margin-top: -3px;
+  background: #22c55e;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.volume-slider::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  background: #22c55e;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
 
 .no-preview { color: #444; font-size: 12px; }
 .format-info { margin-top: 8px; }

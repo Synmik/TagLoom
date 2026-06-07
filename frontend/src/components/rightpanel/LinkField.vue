@@ -1,20 +1,32 @@
 <template>
   <section class="field-section">
     <label class="field-label">Link</label>
-    <input
-      :value="localLink"
-      @input="onInput"
-      placeholder="https://…"
-      class="field-input"
-      :class="{ 'invalid-url': isInvalid }"
-    />
+    <div class="input-row">
+      <input
+        :value="localLink"
+        @input="onInput"
+        placeholder="https://…"
+        class="field-input"
+        :class="{ 'invalid-url': isInvalid }"
+      />
+      <button
+        v-if="localLink.trim() && !isInvalid"
+        class="open-link-btn"
+        @click="openInBrowser"
+        title="Open in browser"
+      >
+        <ExternalLink :size="14" />
+      </button>
+    </div>
     <span v-if="isInvalid" class="error-msg">Enter a valid URL (e.g. https://example.com)</span>
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, shallowRef, watch } from 'vue'
+import { ExternalLink } from '@lucide/vue'
 import { usePreviewStore } from '../../stores/preview'
+import { BrowserOpenURL } from '../../../wailsjs/runtime/runtime'
 
 const previewStore = usePreviewStore()
 
@@ -32,6 +44,13 @@ watch(
 
 function onInput(event: Event) {
   localLink.value = (event.target as HTMLInputElement).value
+}
+
+const openInBrowser = () => {
+  const url = localLink.value.trim()
+  if (url && !isInvalid.value) {
+    BrowserOpenURL(url)
+  }
 }
 
 // Simple URL validation: empty is allowed, otherwise must be a valid URL
@@ -70,7 +89,9 @@ watch(localLink, (value, _prev, onCleanup) => {
 <style scoped>
 .field-section { display: flex; flex-direction: column; gap: 6px; }
 .field-label { color: #666; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.input-row { display: flex; gap: 4px; align-items: center; }
 .field-input {
+  flex: 1; min-width: 0;
   background: #1a1a1a; border: 1px solid #2a2a2a; color: #e8e8e8;
   border-radius: 6px; padding: 7px 10px; font-size: 13px;
   font-family: 'Inter', sans-serif;
@@ -79,5 +100,12 @@ watch(localLink, (value, _prev, onCleanup) => {
 .field-input:focus { border-color: #22c55e; }
 .field-input::placeholder { color: #444; }
 .invalid-url { border-color: #ef4444 !important; }
+.open-link-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; flex-shrink: 0;
+  background: #1a1a1a; border: 1px solid #2a2a2a; color: #666;
+  border-radius: 6px; cursor: pointer; transition: all 0.15s;
+}
+.open-link-btn:hover { background: #222; border-color: #333; color: #e8e8e8; }
 .error-msg { color: #ef4444; font-size: 10px; margin-top: 2px; }
 </style>
