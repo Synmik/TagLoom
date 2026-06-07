@@ -144,6 +144,9 @@ func (a *App) GetFiles(filter db.FileFilter, sortOpts db.SortOpts, page, limit i
 	if filter.FavoritesOnly {
 		conditions = append(conditions, "f.is_favorite = 1")
 	}
+	if filter.UntaggedOnly {
+		conditions = append(conditions, "f.id NOT IN (SELECT file_id FROM file_tags)")
+	}
 
 	whereClause := ""
 	if len(conditions) > 0 {

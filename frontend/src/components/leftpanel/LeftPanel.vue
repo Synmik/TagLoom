@@ -11,6 +11,15 @@
         <Star :size="14" :fill="filtersStore.activeFilters.favoritesOnly ? 'currentColor' : 'none'" />
         <span>Favorites</span>
       </button>
+      <button
+        class="filter-btn"
+        :class="{ active: filtersStore.activeFilters.untaggedOnly }"
+        @click="toggleUntagged"
+        title="Show only untagged items"
+      >
+        <Tags :size="14" />
+        <span>Untagged</span>
+      </button>
     </div>
 
     <section class="panel-section" :style="{ height: `${uiStore.leftPanelSplit}%` }">
@@ -37,7 +46,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onBeforeUnmount } from 'vue'
-import { FolderOpen, Plus, Star } from '@lucide/vue'
+import { FolderOpen, Plus, Star, Tags } from '@lucide/vue'
 import FolderTree from './FolderTree.vue'
 import TagTree from './TagTree.vue'
 import TagManagerModal from '../modals/TagManagerModal.vue'
@@ -59,6 +68,11 @@ const openVault = () => vaultStore.pickAndOpenVault()
 const toggleFavorites = () => {
   const newState = !filtersStore.activeFilters.favoritesOnly
   filtersStore.setFavoritesFilter(newState)
+}
+
+const toggleUntagged = () => {
+  const newState = !filtersStore.activeFilters.untaggedOnly
+  filtersStore.setUntaggedFilter(newState)
 }
 
 const openTagManager = (tag: Tag | null) => {

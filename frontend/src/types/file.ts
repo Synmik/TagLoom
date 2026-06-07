@@ -49,6 +49,7 @@ export interface FileFilter {
   file_formats: string[]
   min_rating: number
   favorites_only: boolean
+  untagged_only: boolean
 }
 
 export interface SortOpts {

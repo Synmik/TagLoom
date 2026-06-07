@@ -279,6 +279,7 @@ export namespace db {
 	    file_formats: string[];
 	    min_rating: number;
 	    favorites_only: boolean;
+	    untagged_only: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new FileFilter(source);
@@ -291,6 +292,7 @@ export namespace db {
 	        this.file_formats = source["file_formats"];
 	        this.min_rating = source["min_rating"];
 	        this.favorites_only = source["favorites_only"];
+	        this.untagged_only = source["untagged_only"];
 	    }
 	}
 	export class FilePage {

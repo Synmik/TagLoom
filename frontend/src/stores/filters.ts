@@ -7,6 +7,7 @@ export interface FilterState {
   fileFormats: string[]
   minRating: number
   favoritesOnly: boolean
+  untaggedOnly: boolean
   searchQuery: string
 }
 
@@ -18,6 +19,7 @@ export const useFiltersStore = defineStore('filters', {
       fileFormats: [] as string[],
       minRating: 0,
       favoritesOnly: false,
+      untaggedOnly: false,
       searchQuery: '',
     } as FilterState,
   }),
@@ -29,6 +31,7 @@ export const useFiltersStore = defineStore('filters', {
         f.fileFormats.length > 0 ||
         f.minRating > 0 ||
         f.favoritesOnly ||
+        f.untaggedOnly ||
         f.searchQuery.trim() !== ''
     },
     hasActiveSearch: (state: any) => {
@@ -43,6 +46,7 @@ export const useFiltersStore = defineStore('filters', {
         file_formats: f.fileFormats,
         min_rating: f.minRating,
         favorites_only: f.favoritesOnly,
+        untagged_only: f.untaggedOnly,
       }
     },
   },
@@ -70,12 +74,16 @@ export const useFiltersStore = defineStore('filters', {
     setFavoritesFilter(favoritesOnly: boolean) {
       this.activeFilters.favoritesOnly = favoritesOnly
     },
+    setUntaggedFilter(untaggedOnly: boolean) {
+      this.activeFilters.untaggedOnly = untaggedOnly
+    },
     clearFilters() {
       this.activeFilters.folderPath = ''
       this.activeFilters.tagIds = []
       this.activeFilters.fileFormats = []
       this.activeFilters.minRating = 0
       this.activeFilters.favoritesOnly = false
+      this.activeFilters.untaggedOnly = false
       this.activeFilters.searchQuery = ''
     },
   },

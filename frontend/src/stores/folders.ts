@@ -19,6 +19,13 @@ export const useFoldersStore = defineStore('folders', {
         if (vault) {
           const root = await GetFolderTree(vault.path)
           this.tree = root ? [root] : []
+          // Expand root folder by default
+          if (root) {
+            const idx = this.expandedPaths.indexOf(root.path)
+            if (idx === -1) {
+              this.expandedPaths.push(root.path)
+            }
+          }
         } else {
           this.tree = []
         }

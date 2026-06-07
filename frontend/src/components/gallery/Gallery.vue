@@ -182,6 +182,7 @@ watch(
     fileFormats: [...filtersStore.activeFilters.fileFormats],
     minRating: filtersStore.activeFilters.minRating,
     favoritesOnly: filtersStore.activeFilters.favoritesOnly,
+    untaggedOnly: filtersStore.activeFilters.untaggedOnly,
   }),
   async () => {
     resetPage()

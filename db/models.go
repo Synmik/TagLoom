@@ -4,20 +4,20 @@ package db
 // Stores user-editable data, structural references, and lightweight sort fields.
 // Heavy metadata (size, resolution, duration, etc.) is fetched on-demand from the filesystem.
 type File struct {
-	ID           int64   `json:"id"`
-	VaultPath    string  `json:"vault_path"`
+	ID            int64   `json:"id"`
+	VaultPath     string  `json:"vault_path"`
 	ThumbnailPath *string `json:"thumbnail_path"` // nullable in DB
-	Name         *string `json:"name"`           // nullable in DB
-	Notes        *string `json:"notes"`          // nullable in DB
-	Link         *string `json:"link"`           // nullable in DB
-	Rating       int     `json:"rating"`
-	IsFavorite   int     `json:"is_favorite"`
-	FolderPath   string  `json:"folder_path"`
-	Filename     string  `json:"filename"`
-	DateCreated  string  `json:"date_created"`
-	DateModified string  `json:"date_modified"`
-	IndexedAt    string  `json:"indexed_at"`
-	Tags         []Tag   `json:"tags,omitempty"`
+	Name          *string `json:"name"`           // nullable in DB
+	Notes         *string `json:"notes"`          // nullable in DB
+	Link          *string `json:"link"`           // nullable in DB
+	Rating        int     `json:"rating"`
+	IsFavorite    int     `json:"is_favorite"`
+	FolderPath    string  `json:"folder_path"`
+	Filename      string  `json:"filename"`
+	DateCreated   string  `json:"date_created"`
+	DateModified  string  `json:"date_modified"`
+	IndexedAt     string  `json:"indexed_at"`
+	Tags          []Tag   `json:"tags,omitempty"`
 }
 
 // FileUpdate contains fields that can be updated by the user.
@@ -32,13 +32,13 @@ type FileUpdate struct {
 
 // Tag represents a user-defined tag.
 type Tag struct {
-	ID        int64  `json:"id"`
-	Name      string `json:"name"`
-	Color     string `json:"color"`
-	ParentID  *int64 `json:"parent_id"`
-	IsCategory int   `json:"is_category"`
-	SortOrder int    `json:"sort_order"`
-	CreatedAt string `json:"created_at"`
+	ID         int64  `json:"id"`
+	Name       string `json:"name"`
+	Color      string `json:"color"`
+	ParentID   *int64 `json:"parent_id"`
+	IsCategory int    `json:"is_category"`
+	SortOrder  int    `json:"sort_order"`
+	CreatedAt  string `json:"created_at"`
 }
 
 // TagCreate is used when creating a new tag.
@@ -83,11 +83,12 @@ type ExcludedFolder struct {
 
 // FileFilter holds query parameters for GetFiles.
 type FileFilter struct {
-	FolderPath  string   `json:"folder_path"`
-	TagIDs      []int64  `json:"tag_ids"`
-	FileFormats []string `json:"file_formats"`
-	MinRating   int      `json:"min_rating"`
-	FavoritesOnly bool   `json:"favorites_only"`
+	FolderPath    string   `json:"folder_path"`
+	TagIDs        []int64  `json:"tag_ids"`
+	FileFormats   []string `json:"file_formats"`
+	MinRating     int      `json:"min_rating"`
+	FavoritesOnly bool     `json:"favorites_only"`
+	UntaggedOnly  bool     `json:"untagged_only"`
 }
 
 // SortOpts holds sorting parameters.
@@ -106,10 +107,10 @@ type FilePage struct {
 
 // FolderNode represents a node in the vault folder tree.
 type FolderNode struct {
-	Path     string       `json:"path"`
-	Name     string       `json:"name"`
-	FileCount int        `json:"file_count"`
-	Children []FolderNode `json:"children"`
+	Path      string       `json:"path"`
+	Name      string       `json:"name"`
+	FileCount int          `json:"file_count"`
+	Children  []FolderNode `json:"children"`
 }
 
 // VaultInfo contains information about the current vault.
