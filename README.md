@@ -1,14 +1,15 @@
 <h1>
   <img valign="middle" src=".github/media/Icon512.png" width="48px">
-  TagLoom - Simple and fast multimedia tagging/library management app
+  TagLoom - Simple multimedia tagging/library management app
 </h1>
-
+<p align="center">
 <img align=center src="https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white">
 <img align=center src="https://img.shields.io/badge/MIT-green?style=for-the-badge">
 <img align=center src="https://img.shields.io/badge/Go-00ADD8?style=for-the-badge&logo=go&logoColor=white">
 <img align=center src="https://img.shields.io/badge/Vue%20js-35495E?style=for-the-badge&logo=vuedotjs&logoColor=4FC08D">
 <img align=center src="https://img.shields.io/badge/version-0.2.0-blue?style=for-the-badge">
 <img align=center src="https://img.shields.io/badge/size-18MB-green?style=for-the-badge"><br><br>
+</p>
 
 **TagLoom** is a desktop multimedia tagging and library management application for images, videos, and GIFs.
 It indexes existing folders (vaults) without modifying any original files — all metadata and thumbnails live inside a `.tagloom/` directory.
