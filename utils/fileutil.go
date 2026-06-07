@@ -139,7 +139,9 @@ func OpenFolder(folder string) error {
 	case "windows":
 		// Use cmd /c start — explorer.exe can return non-zero even on success
 		// (it's a persistent process), so cmd /c start is more reliable.
-		cmd = exec.Command("cmd", "/c", "start", folder)
+		// The empty string "" is the window title — required so the folder path
+		// is not misinterpreted as a title by the `start` command.
+		cmd = exec.Command("cmd", "/c", "start", "", folder)
 		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	case "darwin":
 		cmd = exec.Command("open", folder)
