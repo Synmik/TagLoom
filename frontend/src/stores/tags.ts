@@ -7,6 +7,7 @@ import {
   UpdateTag,
   DeleteTag,
   GetAllTagFileCounts,
+  GetTagAliases,
   AddTagToFile,
   RemoveTagFromFile,
   GetFileTags,
@@ -80,6 +81,9 @@ export const useTagsStore = defineStore('tags', {
     },
     async getFileTags(fileID: number): Promise<Tag[]> {
       return await GetFileTags(fileID)
+    },
+    async getTagAliases(tagID: number): Promise<string[]> {
+      return await GetTagAliases(tagID)
     },
   },
 })

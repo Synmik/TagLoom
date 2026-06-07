@@ -1,4 +1,11 @@
 <template>
+  <ConfirmDialog
+    v-if="showExitConfirm"
+    message="Are you sure you want to exit TagLoom?"
+    confirm-text="Exit"
+    @confirm="doExit"
+    @cancel="showExitConfirm = false"
+  />
   <div class="titlebar" style="--wails-draggable: drag">
     <div class="titlebar-left">
       <div class="menu-wrapper" ref="menuRef">
@@ -89,6 +96,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { Menu, Plus, FolderOpen, X, RefreshCw, FolderSearch, Settings, FolderCog, Tags, LogOut, Minus, Maximize, Minimize2 } from '@lucide/vue'
+import ConfirmDialog from './ConfirmDialog.vue'
 import { useVaultStore } from '../../stores/vault'
 import { useUIStore } from '../../stores/ui'
 import { GetAppSettings } from '../../api/backend'
@@ -105,6 +113,7 @@ const uiStore = useUIStore()
 const showMenu = ref(false)
 const menuRef = ref<HTMLElement | null>(null)
 const isMaximised = ref(false)
+const showExitConfirm = ref(false)
 
 // Track maximised state
 const updateMaximisedState = () => {
@@ -130,7 +139,8 @@ const toggleMaximise = async () => {
 const close = async () => {
   const settings = await GetAppSettings().catch(() => null)
   if (settings?.confirm_before_exit) {
-    if (!window.confirm('Are you sure you want to exit TagLoom?')) return
+    showExitConfirm.value = true
+    return
   }
   Quit()
 }
@@ -171,8 +181,14 @@ const onExit = async () => {
   showMenu.value = false
   const settings = await GetAppSettings().catch(() => null)
   if (settings?.confirm_before_exit) {
-    if (!window.confirm('Are you sure you want to exit TagLoom?')) return
+    showExitConfirm.value = true
+    return
   }
+  Quit()
+}
+
+const doExit = () => {
+  showExitConfirm.value = false
   Quit()
 }
 

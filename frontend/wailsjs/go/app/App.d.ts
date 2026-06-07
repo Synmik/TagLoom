@@ -58,6 +58,8 @@ export function GetOriginalFilePath(arg1:number):Promise<string>;
 
 export function GetRecentVaults():Promise<Array<config.RecentVault>>;
 
+export function GetTagAliases(arg1:number):Promise<Array<string>>;
+
 export function GetTagFileCount(arg1:number):Promise<number>;
 
 export function GetTags(arg1:string):Promise<Array<db.Tag>>;

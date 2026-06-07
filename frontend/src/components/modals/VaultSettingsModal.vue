@@ -3,6 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import { X, FolderOpen, Plus } from '@lucide/vue'
 import { useVaultStore } from '../../stores/vault'
 import { useToast } from '../../composables/useToast'
+import ConfirmDialog from '../common/ConfirmDialog.vue'
 import {
   GetExcludedFolders,
   AddExcludedFolder,
@@ -71,8 +72,14 @@ const thumbnailQuality = ref(80)
 // ── Rescan ─────────────────────────────────────────────────────────
 const isRescanning = ref(false)
 
-const rescanVault = async () => {
-  if (!confirm('Re-scan the vault? This will detect added/removed files.')) return
+const showRescanConfirm = ref(false)
+
+const rescanVault = () => {
+  showRescanConfirm.value = true
+}
+
+const confirmRescan = async () => {
+  showRescanConfirm.value = false
   isRescanning.value = true
   try {
     await vaultStore.rescanVault()
@@ -116,6 +123,13 @@ onMounted(async () => {
 </script>
 
 <template>
+  <ConfirmDialog
+    v-if="showRescanConfirm"
+    message="Re-scan the vault? This will detect added/removed files."
+    confirm-text="Re-scan"
+    @confirm="confirmRescan"
+    @cancel="showRescanConfirm = false"
+  />
   <div class="modal-overlay" @click.self="$emit('close')">
     <div class="modal">
       <div class="modal-header">

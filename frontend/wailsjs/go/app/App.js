@@ -110,6 +110,10 @@ export function GetRecentVaults() {
   return window['go']['app']['App']['GetRecentVaults']();
 }
 
+export function GetTagAliases(arg1) {
+  return window['go']['app']['App']['GetTagAliases'](arg1);
+}
+
 export function GetTagFileCount(arg1) {
   return window['go']['app']['App']['GetTagFileCount'](arg1);
 }

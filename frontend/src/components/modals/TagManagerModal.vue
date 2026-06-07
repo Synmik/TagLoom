@@ -1,4 +1,11 @@
 <template>
+  <ConfirmDialog
+    v-if="showConfirm"
+    :message="confirmMessage"
+    confirm-text="Delete"
+    @confirm="confirmDelete"
+    @cancel="showConfirm = false"
+  />
   <div class="modal-overlay" @click.self="$emit('close')">
     <div class="modal">
       <div class="modal-header">
@@ -23,13 +30,20 @@
           </select>
         </div>
         <div class="form-group">
-          <label>Aliases (comma-separated)</label>
-          <input v-model="form.aliases" placeholder="alt1, alt2" class="form-input" />
-        </div>
-        <div class="form-group checkbox">
-          <label>
-            <input type="checkbox" v-model="form.isCategory" /> Is Category
-          </label>
+          <label>Aliases</label>
+          <div class="aliases-list">
+            <div v-for="(alias, idx) in form.aliasList" :key="idx" class="alias-chip">
+              <span>{{ alias }}</span>
+              <button type="button" class="alias-remove" @click="removeAlias(idx)"><X :size="12" /></button>
+            </div>
+          </div>
+          <input
+            ref="aliasInput"
+            v-model="newAlias"
+            placeholder="Add alias and press Enter"
+            class="form-input"
+            @keyup.enter="addAlias"
+          />
         </div>
         <div class="form-actions">
           <button class="save-btn" @click="saveTag">{{ isEditing ? 'Save' : 'Create' }}</button>
@@ -44,6 +58,7 @@
 import { ref, computed, watch } from 'vue'
 import { X } from '@lucide/vue'
 import ColorPicker from '../common/ColorPicker.vue'
+import ConfirmDialog from '../common/ConfirmDialog.vue'
 import { useTagsStore } from '../../stores/tags'
 import { useToast } from '../../composables/useToast'
 import type { Tag } from '../../types/tag'
@@ -62,24 +77,47 @@ const form = ref({
   name: '',
   color: '',
   parentId: null as number | null,
-  aliases: '',
-  isCategory: false,
+  aliasList: [] as string[],
 })
 
+const newAlias = ref('')
+const aliasInput = ref<HTMLInputElement | null>(null)
+const showConfirm = ref(false)
+
+const confirmMessage = computed(() =>
+  `Delete tag "${props.tag?.name}"? Files will lose this tag.`
+)
+
 // Populate form when editing an existing tag
-watch(() => props.tag, (tag) => {
+watch(() => props.tag, async (tag) => {
   if (tag) {
+    const aliases = await tagsStore.getTagAliases(tag.id)
     form.value = {
       name: tag.name,
       color: tag.color || '',
       parentId: tag.parent_id ?? null,
-      aliases: '',
-      isCategory: tag.is_category === 1,
+      aliasList: aliases || [],
     }
   } else {
-    form.value = { name: '', color: '', parentId: null, aliases: '', isCategory: false }
+    form.value = { name: '', color: '', parentId: null, aliasList: [] }
   }
+  newAlias.value = ''
 }, { immediate: true })
+
+const addAlias = () => {
+  const val = newAlias.value.trim().toLowerCase()
+  if (!val) return
+  if (form.value.aliasList.includes(val)) {
+    newAlias.value = ''
+    return
+  }
+  form.value.aliasList.push(val)
+  newAlias.value = ''
+}
+
+const removeAlias = (idx: number) => {
+  form.value.aliasList.splice(idx, 1)
+}
 
 // Exclude the current tag from parent dropdown to avoid self-reference
 const parentTags = computed(() => {
@@ -106,6 +144,8 @@ const saveTag = async () => {
   if (!form.value.name.trim()) return
   if (nameError.value) return
 
+  const aliasesStr = form.value.aliasList.join(',')
+
   try {
     if (isEditing.value && props.tag) {
       await tagsStore.updateTag({
@@ -113,9 +153,9 @@ const saveTag = async () => {
         name: form.value.name.trim(),
         color: form.value.color,
         parent_id: form.value.parentId ?? undefined,
-        is_category: form.value.isCategory ? 1 : 0,
+        is_category: 0,
         sort_order: 0,
-        aliases: form.value.aliases,
+        aliases: aliasesStr,
       })
       success(`Tag "${form.value.name}" updated`)
     } else {
@@ -123,9 +163,9 @@ const saveTag = async () => {
         name: form.value.name.trim(),
         color: form.value.color,
         parent_id: form.value.parentId ?? undefined,
-        is_category: form.value.isCategory ? 1 : 0,
+        is_category: 0,
         sort_order: 0,
-        aliases: form.value.aliases,
+        aliases: aliasesStr,
       })
       success(`Tag "${form.value.name}" created`)
     }
@@ -136,9 +176,14 @@ const saveTag = async () => {
   emit('close')
 }
 
-const deleteTag = async () => {
+const deleteTag = () => {
   if (!props.tag) return
-  if (!confirm(`Delete tag "${props.tag.name}"? Files will lose this tag.`)) return
+  showConfirm.value = true
+}
+
+const confirmDelete = async () => {
+  if (!props.tag) return
+  showConfirm.value = false
   try {
     await tagsStore.deleteTag(props.tag.id)
     success(`Tag "${props.tag.name}" deleted`)
@@ -180,12 +225,24 @@ const deleteTag = async () => {
 .error-text {
   color: #ef4444; font-size: 11px; margin-top: 2px;
 }
-.checkbox { flex-direction: row; align-items: center; gap: 8px; }
-.checkbox label {
-  display: flex; align-items: center; gap: 8px;
-  text-transform: none; font-size: 13px; color: #ccc; cursor: pointer;
+.aliases-list {
+  display: flex; flex-wrap: wrap; gap: 6px; min-height: 30px;
+  background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 6px;
+  padding: 6px 8px; transition: border-color 0.15s;
 }
-.checkbox input[type="checkbox"] { accent-color: #22c55e; }
+.alias-chip {
+  display: flex; align-items: center; gap: 4px;
+  background: #2a2a2a; border-radius: 4px; padding: 3px 8px;
+  font-size: 12px; color: #ccc;
+}
+.alias-chip span { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.alias-remove {
+  background: none; border: none; color: #666; cursor: pointer;
+  padding: 0; display: flex; align-items: center; line-height: 1;
+  transition: color 0.15s;
+}
+.alias-remove:hover { color: #ef4444; }
+
 .form-actions { display: flex; gap: 8px; margin-top: 4px; padding-top: 12px; border-top: 1px solid #1a1a1a; }
 .save-btn {
   flex: 1; background: #22c55e; color: #000; border: none; border-radius: 6px;

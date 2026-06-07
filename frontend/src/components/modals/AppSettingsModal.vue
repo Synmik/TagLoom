@@ -15,9 +15,6 @@ const { success, error: toastError } = useToast()
 // ── Settings state ────────────────────────────────────────────────
 const lastVaultPath = ref('')
 const autoOpenLastVault = ref(true)
-const defaultGridSize = ref<'small' | 'medium' | 'large'>('medium')
-const defaultSortField = ref('indexed_at')
-const defaultSortOrder = ref('desc')
 const confirmBeforeExit = ref(false)
 
 const isSaving = ref(false)
@@ -60,9 +57,6 @@ onMounted(async () => {
     if (settings) {
       lastVaultPath.value = settings.last_vault_path || ''
       autoOpenLastVault.value = settings.auto_open_last_vault ?? true
-      defaultGridSize.value = (settings.default_grid_size as any) || 'medium'
-      defaultSortField.value = settings.default_sort_field || 'indexed_at'
-      defaultSortOrder.value = settings.default_sort_order || 'desc'
       confirmBeforeExit.value = settings.confirm_before_exit ?? false
     }
   } catch (e) {
@@ -80,9 +74,6 @@ const save = async () => {
       last_vault_path: lastVaultPath.value,
       recent_vaults: recentVaults.value,
       auto_open_last_vault: autoOpenLastVault.value,
-      default_grid_size: defaultGridSize.value,
-      default_sort_field: defaultSortField.value,
-      default_sort_order: defaultSortOrder.value,
       confirm_before_exit: confirmBeforeExit.value,
     } as any)
     success('Settings saved')
@@ -98,28 +89,6 @@ const pickLastVault = async () => {
   const dir = await SelectFolder()
   if (dir) lastVaultPath.value = dir
 }
-
-// ── Options ───────────────────────────────────────────────────────
-const gridSizeOptions = [
-  { value: 'small', label: 'Small (128px)' },
-  { value: 'medium', label: 'Medium (192px)' },
-  { value: 'large', label: 'Large (256px)' },
-] as const
-
-const sortFieldOptions = [
-  { value: 'indexed_at', label: 'Indexed At' },
-  { value: 'filename', label: 'Filename' },
-  { value: 'name', label: 'Name' },
-  { value: 'file_size', label: 'File Size' },
-  { value: 'rating', label: 'Rating' },
-  { value: 'date_modified', label: 'Date Modified' },
-  { value: 'date_created', label: 'Date Created' },
-] as const
-
-const sortOrderOptions = [
-  { value: 'desc', label: 'Descending' },
-  { value: 'asc', label: 'Ascending' },
-] as const
 </script>
 
 <template>
@@ -192,32 +161,6 @@ const sortOrderOptions = [
                 </button>
               </div>
             </div>
-          </div>
-        </section>
-
-        <!-- Display -->
-        <section class="section">
-          <h4>Display Defaults</h4>
-          <div class="select-row">
-            <label>Default Grid Size</label>
-            <select v-model="defaultGridSize" class="form-select">
-              <option v-for="opt in gridSizeOptions" :key="opt.value" :value="opt.value">
-                {{ opt.label }}
-              </option>
-            </select>
-          </div>
-          <div class="select-row">
-            <label>Default Sort</label>
-            <select v-model="defaultSortField" class="form-select">
-              <option v-for="opt in sortFieldOptions" :key="opt.value" :value="opt.value">
-                {{ opt.label }}
-              </option>
-            </select>
-            <select v-model="defaultSortOrder" class="form-select order-select">
-              <option v-for="opt in sortOrderOptions" :key="opt.value" :value="opt.value">
-                {{ opt.label }}
-              </option>
-            </select>
           </div>
         </section>
 
@@ -376,44 +319,6 @@ const sortOrderOptions = [
   background: #222;
   border-color: #333;
   color: #e8e8e8;
-}
-
-/* ── Select rows ────────────────────────────────────────────────── */
-.select-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: #ccc;
-  padding: 4px 0;
-}
-
-.select-row label {
-  min-width: 120px;
-  font-size: 12px;
-  color: #999;
-}
-
-.form-select {
-  flex: 1;
-  background: #1a1a1a;
-  border: 1px solid #2a2a2a;
-  color: #e8e8e8;
-  border-radius: 6px;
-  padding: 6px 8px;
-  font-size: 12px;
-  outline: none;
-  font-family: 'Inter', sans-serif;
-  cursor: pointer;
-  transition: border-color 0.15s;
-}
-
-.form-select:focus {
-  border-color: #22c55e;
-}
-
-.order-select {
-  max-width: 120px;
 }
 
 /* ── Actions ────────────────────────────────────────────────────── */

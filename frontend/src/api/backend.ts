@@ -13,7 +13,7 @@ export { GetFiles, GetFileByID, UpdateFile, SearchFiles, DeleteFile, OpenOrigina
 export { GetFolderTree } from '../../wailsjs/go/app/App'
 
 // Tags
-export { GetTags, CreateTag, UpdateTag, DeleteTag, GetTagFileCount, GetAllTagFileCounts } from '../../wailsjs/go/app/App'
+export { GetTags, CreateTag, UpdateTag, DeleteTag, GetTagFileCount, GetAllTagFileCounts, GetTagAliases } from '../../wailsjs/go/app/App'
 export { AddTagToFile, RemoveTagFromFile, GetFileTags } from '../../wailsjs/go/app/App'
 
 // Metadata

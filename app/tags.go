@@ -229,6 +229,31 @@ func (a *App) GetAllTagFileCounts() (map[int64]int, error) {
 	return counts, nil
 }
 
+// GetTagAliases returns all aliases for a given tag.
+func (a *App) GetTagAliases(tagID int64) ([]string, error) {
+	if a.db == nil {
+		return nil, fmt.Errorf("no vault open")
+	}
+
+	rows, err := a.db.Conn().Query(`
+		SELECT alias FROM tag_aliases WHERE tag_id = ? ORDER BY alias ASC
+	`, tagID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var aliases []string
+	for rows.Next() {
+		var alias string
+		if err := rows.Scan(&alias); err != nil {
+			return nil, err
+		}
+		aliases = append(aliases, alias)
+	}
+	return aliases, nil
+}
+
 // GetFileTags returns all tags associated with a file.
 func (a *App) GetFileTags(fileID int64) ([]db.Tag, error) {
 	if a.db == nil {

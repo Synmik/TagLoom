@@ -24,10 +24,17 @@
     <span class="col-rating">{{ '★'.repeat(file.rating) }}{{ '☆'.repeat(5 - file.rating) }}</span>
   </div>
   <ContextMenu :visible="visible" :x="x" :y="y" :items="items" @close="close" />
+  <ConfirmDialog
+    v-if="showDeleteConfirm"
+    :message="deleteConfirmMessage"
+    confirm-text="Delete"
+    @confirm="confirmDeleteOriginal"
+    @cancel="showDeleteConfirm = false"
+  />
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useSelection } from '../../composables/useSelection'
 import { useContextMenu, type ContextMenuItem } from '../../composables/useContextMenu'
 import { usePreviewStore } from '../../stores/preview'
@@ -36,6 +43,7 @@ import { useUIStore } from '../../stores/ui'
 import { ClipboardSetText } from '../../../wailsjs/runtime/runtime'
 import { useToast } from '../../composables/useToast'
 import ContextMenu from '../common/ContextMenu.vue'
+import ConfirmDialog from '../common/ConfirmDialog.vue'
 import type { File } from '../../types/file'
 
 const props = defineProps<{ file: File }>()
@@ -45,9 +53,25 @@ const filesStore = useFilesStore()
 const uiStore = useUIStore()
 const { success, error: toastError } = useToast()
 const { visible, x, y, items, open, close } = useContextMenu()
+const showDeleteConfirm = ref(false)
 
 const filename = computed(() => props.file.vault_path.split(/[\\/]/).pop() || '')
 const tagsText = computed(() => '—') // TODO: Load tags for this file
+const deleteConfirmMessage = computed(() =>
+  `Move "${filename.value}" to Recycle Bin?\n\nThe original file will be moved to Recycle Bin and the thumbnail removed.`
+)
+
+const confirmDeleteOriginal = async () => {
+  showDeleteConfirm.value = false
+  try {
+    await filesStore.deleteOriginalFile(props.file.id)
+    success('File deleted')
+    await filesStore.reloadFiles()
+  } catch (e) {
+    toastError('Failed to delete file')
+    console.error(e)
+  }
+}
 
 const formattedDate = computed(() => {
   if (!props.file.date_modified) return '—'
@@ -171,16 +195,9 @@ const onContextMenu = (e: MouseEvent) => {
       type: 'item',
       label: 'Delete original file',
       icon: 'alert-triangle',
-      action: async () => {
-        if (!confirm(`Move "${filename.value}" to Recycle Bin?\n\nThe original file will be moved to Recycle Bin and the thumbnail removed.`)) return
-        try {
-          await filesStore.deleteOriginalFile(props.file.id)
-          success('File deleted')
-          await filesStore.reloadFiles()
-        } catch (e) {
-          toastError('Failed to delete file')
-          console.error(e)
-        }
+      action: () => {
+        close()
+        showDeleteConfirm.value = true
       },
     },
   ]
