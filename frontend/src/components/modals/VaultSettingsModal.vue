@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { X, FolderOpen, Plus } from '@lucide/vue'
+import { X, FolderOpen, Plus, Pencil } from '@lucide/vue'
 import { useVaultStore } from '../../stores/vault'
 import { useToast } from '../../composables/useToast'
 import ConfirmDialog from '../common/ConfirmDialog.vue'
@@ -94,23 +94,53 @@ const confirmRescan = async () => {
 // ── Save config (quality + auto-tag) ───────────────────────────────
 const isSaving = ref(false)
 
-const save = async () => {
+const saveNameAndSettings = async () => {
   if (!vaultStore.config) return
   isSaving.value = true
+  const wasEditingName = editingName.value
   try {
     vaultStore.config.settings.thumbnail_quality = thumbnailQuality.value
+    // Update vault name if editing
+    const newNameTrimmed = newName.value.trim()
+    if (wasEditingName && newNameTrimmed) {
+      vaultStore.config.name = newNameTrimmed
+      // Also update currentVault so TitleBar reflects the change
+      if (vaultStore.currentVault) {
+        vaultStore.currentVault.name = newNameTrimmed
+      }
+      editingName.value = false
+    }
     await vaultStore.saveConfig(vaultStore.config)
     success('Settings saved')
   } catch (e: any) {
-    toastError('Failed to save settings')
+    const msg = e.message || String(e)
+    if (wasEditingName) {
+      toastError('Failed to rename vault: ' + msg)
+    } else {
+      toastError('Failed to save settings')
+    }
   } finally {
     isSaving.value = false
   }
 }
 
-// ── Vault info (read-only display) ─────────────────────────────────
-const vaultName = computed(() => vaultStore.currentVault?.name ?? '—')
+// ── Vault info ─────────────────────────────────────────────────────
+const vaultName = computed(() => vaultStore.config?.name ?? vaultStore.currentVault?.name ?? '—')
 const vaultPath = computed(() => vaultStore.currentVault?.path ?? '—')
+const editingName = ref(false)
+const newName = ref('')
+
+const startEditingName = () => {
+  newName.value = vaultStore.config?.name ?? vaultStore.currentVault?.name ?? ''
+  editingName.value = true
+}
+
+const cancelEditingName = () => {
+  editingName.value = false
+  newName.value = ''
+}
+
+
 
 // ── Lifecycle ──────────────────────────────────────────────────────
 onMounted(async () => {
@@ -143,7 +173,21 @@ onMounted(async () => {
           <h4>Vault</h4>
           <div class="info-row">
             <span class="label">Name</span>
-            <span class="value">{{ vaultName }}</span>
+            <div class="name-cell">
+              <template v-if="editingName">
+                <input
+                  v-model="newName"
+                  class="name-input"
+                  @keydown.enter="saveNameAndSettings()"
+                  @keydown.escape="cancelEditingName()"
+                  autofocus
+                />
+              </template>
+              <template v-else>
+                <span class="value">{{ vaultName }}</span>
+                <button class="edit-btn" @click="startEditingName" title="Rename"><Pencil :size="12" /></button>
+              </template>
+            </div>
           </div>
           <div class="info-row">
             <span class="label">Path</span>
@@ -211,7 +255,7 @@ onMounted(async () => {
           <button
             class="save-btn"
             :disabled="isSaving"
-            @click="save"
+            @click="saveNameAndSettings"
           >
             {{ isSaving ? 'Saving…' : 'Save Settings' }}
           </button>
@@ -310,6 +354,7 @@ onMounted(async () => {
 .info-row {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   font-size: 12px;
   padding: 4px 0;
 }
@@ -322,10 +367,46 @@ onMounted(async () => {
 .info-row .value {
   color: #ccc;
   text-align: right;
-  max-width: 70%;
+  max-width: 85%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.name-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-direction: row-reverse;
+  flex: 1;
+  min-width: 0;
+}
+
+.name-input {
+  background: #1a1a1a;
+  border: 1px solid #22c55e;
+  color: #e8e8e8;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 12px;
+  outline: none;
+  width: 250px;
+  text-align: right;
+  font-family: 'Inter', sans-serif;
+}
+
+.edit-btn {
+  background: none;
+  border: none;
+  color: #555;
+  cursor: pointer;
+  padding: 2px;
+  transition: color 0.15s;
+  flex-shrink: 0;
+}
+
+.edit-btn:hover {
+  color: #22c55e;
 }
 
 .info-row .path {

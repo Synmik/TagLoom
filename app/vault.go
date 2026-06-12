@@ -270,6 +270,20 @@ func (a *App) SetVaultConfig(cfg *config.VaultConfig) error {
 	if err := config.SaveConfig(a.vaultPath, cfg); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
+
+	// If the vault name changed, update recent vaults entry too
+	if a.vaultCfg != nil && cfg.Name != a.vaultCfg.Name && cfg.Name != "" {
+		if a.appCfg != nil {
+			for i := range a.appCfg.RecentVaults {
+				if a.appCfg.RecentVaults[i].Path == a.vaultPath {
+					a.appCfg.RecentVaults[i].Name = cfg.Name
+					break
+				}
+			}
+			_ = config.SaveAppSettings(a.appCfg)
+		}
+	}
+
 	a.vaultCfg = cfg
 	return nil
 }
