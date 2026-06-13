@@ -45,7 +45,7 @@ export interface FilePage {
 
 export interface FileFilter {
   folder_path: string
-  tag_ids: number[]
+  tag_groups: number[][]  // Each group = OR; between groups = AND
   file_formats: string[]
   min_rating: number
   favorites_only: boolean

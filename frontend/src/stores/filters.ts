@@ -3,7 +3,7 @@ import type { FileFilter } from '../types/file'
 
 export interface FilterState {
   folderPath: string
-  tagIds: number[]
+  tagGroups: number[][]  // Each group = [tagId, ...descendants]; between groups = AND
   fileFormats: string[]
   minRating: number
   favoritesOnly: boolean
@@ -15,7 +15,7 @@ export const useFiltersStore = defineStore('filters', {
   state: () => ({
     activeFilters: {
       folderPath: '',
-      tagIds: [] as number[],
+      tagGroups: [] as number[][],
       fileFormats: [] as string[],
       minRating: 0,
       favoritesOnly: false,
@@ -27,7 +27,7 @@ export const useFiltersStore = defineStore('filters', {
     hasActiveFilters: (state: any) => {
       const f = state.activeFilters
       return f.folderPath !== '' ||
-        f.tagIds.length > 0 ||
+        f.tagGroups.length > 0 ||
         f.fileFormats.length > 0 ||
         f.minRating > 0 ||
         f.favoritesOnly ||
@@ -42,7 +42,7 @@ export const useFiltersStore = defineStore('filters', {
       const f = state.activeFilters
       return {
         folder_path: f.folderPath,
-        tag_ids: f.tagIds,
+        tag_groups: f.tagGroups,
         file_formats: f.fileFormats,
         min_rating: f.minRating,
         favorites_only: f.favoritesOnly,
@@ -54,15 +54,32 @@ export const useFiltersStore = defineStore('filters', {
     setFolderFilter(path: string) {
       this.activeFilters.folderPath = path
     },
-    setTagFilter(tagIds: number[]) {
-      this.activeFilters.tagIds = tagIds
+    setTagFilter(groups: number[][]) {
+      this.activeFilters.tagGroups = groups
     },
-    toggleTagFilter(tagId: number) {
-      const index = this.activeFilters.tagIds.indexOf(tagId)
-      if (index >= 0) {
-        this.activeFilters.tagIds.splice(index, 1)
+    /**
+     * Toggle a tag filter.
+     * @param tagId - The primary tag ID (used for selection matching)
+     * @param groupIds - Full group of IDs (tag + descendants) to query
+     * @param accumulate - If true, add as a new AND group instead of replacing
+     */
+    toggleTagFilter(tagId: number, groupIds?: number[], accumulate = false) {
+      const idsToUse = groupIds ?? [tagId]
+
+      // Find if this tag's group is already in the selection
+      const existingIndex = this.activeFilters.tagGroups.findIndex(
+        group => group.length > 0 && group.includes(tagId)
+      )
+
+      if (existingIndex >= 0) {
+        // This tag is already selected — remove its group
+        this.activeFilters.tagGroups.splice(existingIndex, 1)
+      } else if (accumulate) {
+        // Add as a new AND group
+        this.activeFilters.tagGroups.push(idsToUse)
       } else {
-        this.activeFilters.tagIds.push(tagId)
+        // Replace all with just this group
+        this.activeFilters.tagGroups = [idsToUse]
       }
     },
     setFormatFilter(formats: string[]) {
@@ -79,7 +96,7 @@ export const useFiltersStore = defineStore('filters', {
     },
     clearFilters() {
       this.activeFilters.folderPath = ''
-      this.activeFilters.tagIds = []
+      this.activeFilters.tagGroups = []
       this.activeFilters.fileFormats = []
       this.activeFilters.minRating = 0
       this.activeFilters.favoritesOnly = false

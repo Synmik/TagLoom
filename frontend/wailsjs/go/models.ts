@@ -293,7 +293,7 @@ export namespace db {
 	}
 	export class FileFilter {
 	    folder_path: string;
-	    tag_ids: number[];
+	    tag_groups: number[][];
 	    file_formats: string[];
 	    min_rating: number;
 	    favorites_only: boolean;
@@ -306,7 +306,7 @@ export namespace db {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.folder_path = source["folder_path"];
-	        this.tag_ids = source["tag_ids"];
+	        this.tag_groups = source["tag_groups"];
 	        this.file_formats = source["file_formats"];
 	        this.min_rating = source["min_rating"];
 	        this.favorites_only = source["favorites_only"];

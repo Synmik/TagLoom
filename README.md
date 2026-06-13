@@ -1,7 +1,12 @@
 <h1>
-  <img valign="middle" src=".github/media/Icon512.png" width="48px">
-  TagLoom - Simple multimedia tagging/library management app
+    <p align="center">
+        <img valign="middle" src=".github/media/Icon512.png" width="48px"> TagLoom
+    </p>
 </h1>
+<p align="center">
+    <b>Simple multimedia tagging/library management app</b>
+</p>
+
 <p align="center">
 <img align=center src="https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white">
 <img align=center src="https://img.shields.io/badge/MIT-green?style=for-the-badge">

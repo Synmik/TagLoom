@@ -178,7 +178,7 @@ onMounted(async () => {
 watch(
   () => ({
     folderPath: filtersStore.activeFilters.folderPath,
-    tagIds: [...filtersStore.activeFilters.tagIds],
+    tagGroups: filtersStore.activeFilters.tagGroups.map(g => [...g]),
     fileFormats: [...filtersStore.activeFilters.fileFormats],
     minRating: filtersStore.activeFilters.minRating,
     favoritesOnly: filtersStore.activeFilters.favoritesOnly,

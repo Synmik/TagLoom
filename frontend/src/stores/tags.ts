@@ -21,6 +21,33 @@ export const useTagsStore = defineStore('tags', {
     tagCounts: {} as Record<number, number>,
     isLoading: false,
   }),
+  getters: {
+    /** Get all descendant tag IDs (children, grandchildren, etc.) — does NOT include the tag itself */
+    getAllDescendantIds: () => (tagId: number): number[] => {
+      const allIds: number[] = []
+      const children = useTagsStore().tags.filter(t => t.parent_id === tagId)
+      for (const child of children) {
+        allIds.push(child.id)
+        // Recursively collect grandchildren
+        allIds.push(...useTagsStore().getAllDescendantIds(child.id))
+      }
+      return allIds
+    },
+    /** Get aggregate file count for a tag (direct count + all descendant counts) */
+    getAggregateCount: () => (tagId: number): number => {
+      const counts = useTagsStore().tagCounts
+      let total = counts[tagId] ?? 0
+      const children = useTagsStore().tags.filter(t => t.parent_id === tagId)
+      for (const child of children) {
+        total += useTagsStore().getAggregateCount(child.id)
+      }
+      return total
+    },
+    /** Check if a tag has children */
+    hasChildren: () => (tagId: number): boolean => {
+      return useTagsStore().tags.some(t => t.parent_id === tagId)
+    },
+  },
   actions: {
     async loadTags() {
       this.isLoading = true
@@ -65,9 +92,9 @@ export const useTagsStore = defineStore('tags', {
       const { useFiltersStore } = await import('./filters')
       const { useFilesStore } = await import('./files')
       const filtersStore = useFiltersStore()
-      const idx = filtersStore.activeFilters.tagIds.indexOf(id)
+      const idx = filtersStore.activeFilters.tagGroups.findIndex(g => g.includes(id))
       if (idx >= 0) {
-        filtersStore.activeFilters.tagIds.splice(idx, 1)
+        filtersStore.activeFilters.tagGroups.splice(idx, 1)
         await useFilesStore().reloadFiles()
       }
     },

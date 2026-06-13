@@ -2,8 +2,8 @@
   <div class="tag-node-wrapper">
     <div
       class="tag-node"
-      :class="{ selected: filtersStore.activeFilters.tagIds.includes(tag.id) }"
-      @click="toggleFilter"
+      :class="{ selected: isSelected }"
+      @click="handleClick"
       @contextmenu.prevent="handleContextMenu"
     >
       <span v-if="hasChildren" class="arrow" @click.stop="toggleExpand">
@@ -13,7 +13,7 @@
       <span v-else class="arrow spacer"></span>
       <span class="color-dot" :style="{ background: tag.color || '#666' }"></span>
       <span class="tag-name">{{ tag.name }}</span>
-      <span class="file-count">{{ fileCount }}</span>
+      <span class="file-count">{{ displayCount }}</span>
     </div>
     <div v-if="hasChildren && isExpanded" class="tag-children">
       <TagNode
@@ -49,16 +49,29 @@ const children = computed(() => {
 
 const hasChildren = computed(() => children.value.length > 0)
 
-const fileCount = computed(() => {
-  return tagsStore.tagCounts[props.tag.id] ?? 0
+// Aggregate count: direct files + all descendant files
+const displayCount = computed(() => {
+  return tagsStore.getAggregateCount(props.tag.id)
+})
+
+// Check if this tag is currently selected
+const isSelected = computed(() => {
+  const groups = filtersStore.activeFilters.tagGroups
+  if (groups.length === 0) return false
+  // Check if any group contains this tag's ID
+  return groups.some(group => group.includes(props.tag.id))
 })
 
 const toggleExpand = () => { isExpanded.value = !isExpanded.value }
 
-const toggleFilter = () => {
-  filtersStore.toggleTagFilter(props.tag.id)
+const handleClick = (event: MouseEvent) => {
+  const allDescendants = tagsStore.getAllDescendantIds(props.tag.id)
+  const groupIds = allDescendants.length > 0 ? [props.tag.id, ...allDescendants] : [props.tag.id]
+  const accumulate = event.ctrlKey || event.metaKey  // Ctrl on Windows, Cmd on Mac
+
+  filtersStore.toggleTagFilter(props.tag.id, groupIds, accumulate)
   // Gallery.vue watcher handles reload automatically
-  }
+}
 
 const handleContextMenu = () => {
   emit('edit', props.tag)

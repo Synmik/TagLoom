@@ -120,12 +120,25 @@ func (a *App) GetFiles(filter db.FileFilter, sortOpts db.SortOpts, page, limit i
 		args = append(args, filter.FolderPath)
 		argIdx++
 	}
-	if len(filter.TagIDs) > 0 {
-		// Files must have ALL specified tags (AND logic)
-		for _, tagID := range filter.TagIDs {
-			conditions = append(conditions, fmt.Sprintf("f.id IN (SELECT file_id FROM file_tags WHERE tag_id = ?)"))
-			args = append(args, tagID)
-			argIdx++
+	if len(filter.TagGroups) > 0 {
+		// Each group = OR (tag + descendants); between groups = AND
+		for _, group := range filter.TagGroups {
+			if len(group) == 0 {
+				continue
+			}
+			if len(group) == 1 {
+				// Single tag — simple equality
+				conditions = append(conditions, "f.id IN (SELECT file_id FROM file_tags WHERE tag_id = ?)")
+				args = append(args, group[0])
+			} else {
+				// Multiple tags in group — OR via IN
+				placeholders := make([]string, len(group))
+				for i, tagID := range group {
+					placeholders[i] = "?"
+					args = append(args, tagID)
+				}
+				conditions = append(conditions, fmt.Sprintf("f.id IN (SELECT file_id FROM file_tags WHERE tag_id IN (%s))", strings.Join(placeholders, ",")))
+			}
 		}
 	}
 	if len(filter.FileFormats) > 0 {
