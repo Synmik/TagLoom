@@ -15,7 +15,7 @@ export function useSearch() {
     async (storeQuery) => {
       if (storeQuery === '' && query.value !== '') {
         query.value = ''
-        await filesStore.loadFiles()
+        await filesStore.reloadFiles()
       }
     }
   )
@@ -28,7 +28,7 @@ export function useSearch() {
       if (query.value.trim()) {
         await filesStore.searchFiles(query.value.trim())
       } else {
-        await filesStore.loadFiles()
+        await filesStore.reloadFiles()
       }
     }, 300)
   }
@@ -36,7 +36,7 @@ export function useSearch() {
   const clearSearch = () => {
     query.value = ''
     filtersStore.activeFilters.searchQuery = ''
-    filesStore.loadFiles()
+    filesStore.reloadFiles()
   }
 
   return { query, search, clearSearch }

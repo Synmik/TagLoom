@@ -127,6 +127,7 @@ const saveNameAndSettings = async () => {
 // ── Vault info ─────────────────────────────────────────────────────
 const vaultName = computed(() => vaultStore.config?.name ?? vaultStore.currentVault?.name ?? '—')
 const vaultPath = computed(() => vaultStore.currentVault?.path ?? '—')
+const fileCount = computed(() => vaultStore.currentVault?.file_count ?? '—')
 const editingName = ref(false)
 const newName = ref('')
 
@@ -192,6 +193,10 @@ onMounted(async () => {
           <div class="info-row">
             <span class="label">Path</span>
             <span class="value path">{{ vaultPath }}</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Files Indexed</span>
+            <span class="value">{{ fileCount }}</span>
           </div>
         </section>
 

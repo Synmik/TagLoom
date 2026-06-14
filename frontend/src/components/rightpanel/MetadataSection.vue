@@ -2,7 +2,7 @@
   <section class="metadata-section">
     <label class="field-label">Metadata</label>
     <div class="metadata-grid">
-      <div class="meta-row"><span class="meta-label">Filename</span><span class="meta-value">{{ meta?.filename || '—' }}</span></div>
+      <div class="meta-row"><span class="meta-label">Filename</span><span class="meta-value" :class="{ truncated: displayFilenameTruncated }" :title="displayFilenameTruncated ? meta?.filename : undefined">{{ displayFilename }}</span></div>
       <div class="meta-row"><span class="meta-label">Date Created</span><span class="meta-value">{{ meta?.date_created || '—' }}</span></div>
       <div class="meta-row"><span class="meta-label">Date Modified</span><span class="meta-value">{{ meta?.date_modified || '—' }}</span></div>
       <div class="meta-row"><span class="meta-label">File Size</span><span class="meta-value">{{ formatSize }}</span></div>
@@ -38,6 +38,18 @@ import { usePreviewStore } from '../../stores/preview'
 const previewStore = usePreviewStore()
 const meta = computed(() => previewStore.metadata)
 
+const displayFilenameTruncated = computed(() => {
+  const fn = meta.value?.filename
+  return fn && fn.length > 40
+})
+
+const displayFilename = computed(() => {
+  const fn = meta.value?.filename
+  if (!fn) return '—'
+  if (fn.length <= 40) return fn
+  return fn.slice(0, 37) + '…'
+})
+
 const formatSize = computed(() => {
   if (!meta.value?.size_bytes) return '—'
   const bytes = meta.value.size_bytes
@@ -71,6 +83,7 @@ const toggleFavorite = () => previewStore.toggleFavorite()
 .meta-row { display: flex; flex-direction: column; gap: 2px; }
 .meta-label { color: #555; font-size: 10px; }
 .meta-value { color: #bbb; font-size: 12px; }
+.meta-value.truncated { overflow: hidden; white-space: nowrap; max-width: 100%; display: block; }
 .rating-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
 .favorite-row { margin-top: 4px; }
 .favorite-btn {

@@ -124,7 +124,7 @@ onBeforeUnmount(() => {
 .left-panel {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100%;
   overflow: hidden;
   border-right: 1px solid #1a1a1a;
   background: #111111;

@@ -32,7 +32,8 @@ const chipColor = computed(() => {
 <style scoped>
 .tag-chip {
   display: inline-flex; align-items: center; gap: 5px;
-  padding: 2px 8px; border-radius: 10px; font-size: 12px; color: #ddd;
+  padding: 4px 8px; border-radius: 10px; font-size: 12px; color: #ddd;
+  min-height: 26px;
 }
 .tag-text { }
 .remove-btn {
