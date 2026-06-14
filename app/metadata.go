@@ -82,25 +82,28 @@ func (a *App) GetFileMetadata(fileID int64) (*FileMetadata, error) {
 		return nil, fmt.Errorf("no vault open")
 	}
 
-	// Fetch vault_path from DB
+	// Fetch file from DB (vault_path is relative)
 	file, err := a.GetFileByID(fileID)
 	if err != nil {
 		return nil, fmt.Errorf("file not found: %w", err)
 	}
 
+	// Resolve relative path to absolute for file operations
+	absPath := a.resolvePath(file.VaultPath)
+
 	// Check if file still exists
-	info, err := os.Stat(file.VaultPath)
+	info, err := os.Stat(absPath)
 	if err != nil {
 		return nil, fmt.Errorf("file not accessible: %w", err)
 	}
 
-	ext := strings.ToLower(filepath.Ext(file.VaultPath))
-	category := utils.GetFileCategory(file.VaultPath)
+	ext := strings.ToLower(filepath.Ext(absPath))
+	category := utils.GetFileCategory(absPath)
 
 	metadata := &FileMetadata{
-		Filename:     utils.GetFilename(file.VaultPath),
+		Filename:     utils.GetFilename(absPath),
 		Extension:    ext,
-		FormatName:   utils.GetFormatName(file.VaultPath),
+		FormatName:   utils.GetFormatName(absPath),
 		MimeType:     mimeTypeMap[ext],
 		SizeBytes:    info.Size(),
 		DateCreated:  formatDateCreated(file.DateCreated),
@@ -109,7 +112,7 @@ func (a *App) GetFileMetadata(fileID int64) (*FileMetadata, error) {
 
 	// If DB has no date_created yet (pre-migration), try to extract it from the filesystem
 	if metadata.DateCreated == "" {
-		created := getFileCreationTime(file.VaultPath)
+		created := getFileCreationTime(absPath)
 		if created != "" {
 			metadata.DateCreated = created
 		}
@@ -118,13 +121,13 @@ func (a *App) GetFileMetadata(fileID int64) (*FileMetadata, error) {
 	// Extract resolution and duration based on file category
 	switch category {
 	case "image":
-		w, h, err := getImageDimensions(file.VaultPath, ext)
+		w, h, err := getImageDimensions(absPath, ext)
 		if err == nil {
 			metadata.ResolutionWidth = w
 			metadata.ResolutionHeight = h
 		}
 		// Try EXIF for additional data
-		if exifData, exifErr := extractEXIF(file.VaultPath); exifErr == nil {
+		if exifData, exifErr := extractEXIF(absPath); exifErr == nil {
 			if metadata.ResolutionWidth == 0 && metadata.ResolutionHeight == 0 {
 				if exifData.Width > 0 && exifData.Height > 0 {
 					metadata.ResolutionWidth = exifData.Width
@@ -134,20 +137,20 @@ func (a *App) GetFileMetadata(fileID int64) (*FileMetadata, error) {
 		}
 		// Fallback: try ffprobe for formats image.DecodeConfig can't handle (SVG, etc.)
 		if metadata.ResolutionWidth == 0 && metadata.ResolutionHeight == 0 {
-			if probeInfo, probeErr := utils.ProbeVideo(file.VaultPath); probeErr == nil {
+			if probeInfo, probeErr := utils.ProbeVideo(absPath); probeErr == nil {
 				metadata.ResolutionWidth = probeInfo.Width
 				metadata.ResolutionHeight = probeInfo.Height
 			}
 		}
 	case "animated":
 		// Animated files (GIF, WebM): get resolution from image decode
-		w, h, err := getImageDimensions(file.VaultPath, ext)
+		w, h, err := getImageDimensions(absPath, ext)
 		if err == nil {
 			metadata.ResolutionWidth = w
 			metadata.ResolutionHeight = h
 		}
 		// Also try ffprobe for resolution + duration (works for both GIF and WebM)
-		if probeInfo, probeErr := utils.ProbeVideo(file.VaultPath); probeErr == nil {
+		if probeInfo, probeErr := utils.ProbeVideo(absPath); probeErr == nil {
 			if metadata.ResolutionWidth == 0 && metadata.ResolutionHeight == 0 {
 				metadata.ResolutionWidth = probeInfo.Width
 				metadata.ResolutionHeight = probeInfo.Height
@@ -158,13 +161,13 @@ func (a *App) GetFileMetadata(fileID int64) (*FileMetadata, error) {
 		}
 	case "video":
 		// Use ffprobe for all video metadata (duration, resolution, codec)
-		if probeInfo, probeErr := utils.ProbeVideo(file.VaultPath); probeErr == nil {
+		if probeInfo, probeErr := utils.ProbeVideo(absPath); probeErr == nil {
 			metadata.DurationSeconds = probeInfo.DurationSeconds
 			metadata.ResolutionWidth = probeInfo.Width
 			metadata.ResolutionHeight = probeInfo.Height
 		} else {
 			// Fallback to legacy moov parsing for MP4/MOV
-			if d, err := getVideoDuration(file.VaultPath, ext); err == nil {
+			if d, err := getVideoDuration(absPath, ext); err == nil {
 				metadata.DurationSeconds = d
 			}
 		}

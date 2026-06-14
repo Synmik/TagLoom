@@ -64,6 +64,12 @@ func (a *App) OpenVault(path string) (*db.VaultInfo, error) {
 		return nil, fmt.Errorf("failed to seed default tags: %w", err)
 	}
 
+	// Migrate absolute paths to relative paths for existing vaults.
+	// This ensures the vault can be moved to a different location.
+	if err := a.migrateToRelativePaths(); err != nil {
+		fmt.Printf("path migration warning: %v\n", err)
+	}
+
 	// Load or create config
 	cfg, err := config.LoadConfig(path)
 	if err != nil {
@@ -285,5 +291,54 @@ func (a *App) SetVaultConfig(cfg *config.VaultConfig) error {
 	}
 
 	a.vaultCfg = cfg
+	return nil
+}
+
+// migrateToRelativePaths converts absolute vault_path and folder_path values
+// to relative paths from the vault root. This allows the vault to be moved
+// to a different location without breaking file references.
+// Also migrates excluded_folders paths to relative.
+// No-op for new vaults (all paths already relative).
+func (a *App) migrateToRelativePaths() error {
+	if a.db == nil || a.vaultPath == "" {
+		return nil
+	}
+
+	// Check if any files have absolute paths
+	var count int
+	err := a.db.Conn().QueryRow(`
+		SELECT COUNT(*) FROM files WHERE vault_path LIKE '/%' OR vault_path LIKE '%:%'
+	`).Scan(&count)
+	if err != nil || count == 0 {
+		return nil // No absolute paths found (new vault or already migrated)
+	}
+
+	fmt.Printf("migrating %d file records from absolute to relative paths\n", count)
+
+	// Use a single UPDATE with SQLite string functions
+	// vault_path: strip the vault prefix to get relative path
+	// folder_path: strip the vault prefix to get relative path
+	vaultPrefix := a.vaultPath + string(filepath.Separator)
+	vaultPrefixLen := len(vaultPrefix)
+
+	_, err = a.db.Conn().Exec(`
+		UPDATE files SET
+			vault_path = SUBSTR(vault_path, ?),
+			folder_path = CASE
+				WHEN SUBSTR(folder_path, ?) = '' THEN '.'
+				ELSE SUBSTR(folder_path, ?)
+			END
+		WHERE vault_path LIKE ?
+	`, vaultPrefixLen+1, vaultPrefixLen+1, vaultPrefixLen+1, vaultPrefix+"%")
+	if err != nil {
+		return fmt.Errorf("failed to migrate file paths: %w", err)
+	}
+
+	// Also migrate excluded_folders if they have absolute paths
+	_, _ = a.db.Conn().Exec(`
+		UPDATE excluded_folders SET path = SUBSTR(path, ?)
+		WHERE path LIKE ?
+	`, vaultPrefixLen+1, vaultPrefix+"%")
+
 	return nil
 }

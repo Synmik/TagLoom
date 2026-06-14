@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -117,7 +118,13 @@ func (a *App) GetFiles(filter db.FileFilter, sortOpts db.SortOpts, page, limit i
 
 	if filter.FolderPath != "" {
 		conditions = append(conditions, fmt.Sprintf("f.folder_path = ?"))
-		args = append(args, filter.FolderPath)
+		// Convert absolute folder path to relative for DB comparison.
+		// Root folder (vault path) → ".", subfolder → relative path.
+		folderFilter := filter.FolderPath
+		if filepath.IsAbs(folderFilter) {
+			folderFilter = a.toRelativePath(folderFilter)
+		}
+		args = append(args, folderFilter)
 		argIdx++
 	}
 	if len(filter.TagGroups) > 0 {
@@ -231,12 +238,13 @@ func (a *App) GetFiles(filter db.FileFilter, sortOpts db.SortOpts, page, limit i
 		}
 		var stats []idPathStat
 		for _, ip := range allFiles {
-			info, err := os.Stat(ip.path)
+			absPath := a.resolvePath(ip.path)
+			info, err := os.Stat(absPath)
 			if err != nil {
 				continue // skip deleted files
 			}
-			created := utils.GetCreationTimeNanos(ip.path)
-			stats = append(stats, idPathStat{id: ip.id, path: ip.path, size: info.Size(), created: created})
+			created := utils.GetCreationTimeNanos(absPath)
+			stats = append(stats, idPathStat{id: ip.id, path: absPath, size: info.Size(), created: created})
 		}
 
 		// Sort in-memory
@@ -416,17 +424,18 @@ func getTagsForFiles(database *db.Database, fileIDs []int64) (map[int64][]db.Tag
 }
 
 // GetOriginalFilePath returns the absolute path of the original file on disk.
+// The vault_path in DB is relative; this resolves it to an absolute path.
 func (a *App) GetOriginalFilePath(id int64) (string, error) {
 	if a.db == nil {
 		return "", fmt.Errorf("no vault open")
 	}
 
-	var vaultPath string
-	err := a.db.Conn().QueryRow("SELECT vault_path FROM files WHERE id = ?", id).Scan(&vaultPath)
+	var relPath string
+	err := a.db.Conn().QueryRow("SELECT vault_path FROM files WHERE id = ?", id).Scan(&relPath)
 	if err != nil {
 		return "", fmt.Errorf("file not found: %w", err)
 	}
-	return vaultPath, nil
+	return a.resolvePath(relPath), nil
 }
 
 // GetFileByID returns a single file by its ID.

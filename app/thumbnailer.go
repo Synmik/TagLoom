@@ -53,45 +53,50 @@ func (a *App) GenerateThumbnail(fileID int64) (string, error) {
 		return "", fmt.Errorf("no vault path set")
 	}
 
-	// Fetch file info from DB
+	// Fetch file info from DB (vault_path is relative)
 	row := a.db.Conn().QueryRow(`
 		SELECT id, vault_path, thumbnail_path
 		FROM files WHERE id = ?
 	`, fileID)
 
 	var id int64
-	var vaultPath string
+	var relVaultPath string
 	var existingThumb *string // nullable in DB
-	if err := row.Scan(&id, &vaultPath, &existingThumb); err != nil {
+	if err := row.Scan(&id, &relVaultPath, &existingThumb); err != nil {
 		return "", fmt.Errorf("failed to find file %d: %w", fileID, err)
 	}
 
-	// Dereference nullable thumbnail path
+	// Resolve relative path to absolute for file operations
+	absPath := a.resolvePath(relVaultPath)
+
+	// Dereference nullable thumbnail path (stored as relative to vault root)
 	thumbStr := ""
 	if existingThumb != nil {
 		thumbStr = *existingThumb
 	}
 
 	// Check if file actually exists on disk
-	if _, err := os.Stat(vaultPath); err != nil {
+	if _, err := os.Stat(absPath); err != nil {
 		return "", fmt.Errorf("file not found on disk: %w", err)
 	}
 
 	// Determine target thumbnail path
-	thumbPath := GenerateThumbnailPath(a.vaultPath, vaultPath)
+	// Hash is based on relative path (portable across vault moves)
+	thumbPath := a.generateThumbnailAbsolutePath(relVaultPath)
 
 	// If thumbnail already exists, check if source is newer
-	if thumbStr == thumbPath {
+	// thumbStr is relative (from DB), resolve it for comparison
+	if a.resolvePath(thumbStr) == thumbPath {
 		thumbStat, err1 := os.Stat(thumbPath)
-		srcStat, err2 := os.Stat(vaultPath)
+		srcStat, err2 := os.Stat(absPath)
 		if err1 == nil && err2 == nil && !srcStat.ModTime().After(thumbStat.ModTime()) {
 			return thumbPath, nil // Thumbnail is up to date
 		}
 	}
 
 	// Determine file category
-	ext := strings.ToLower(filepath.Ext(vaultPath))
-	category := utils.GetFileCategory(vaultPath)
+	ext := strings.ToLower(filepath.Ext(absPath))
+	category := utils.GetFileCategory(absPath)
 
 	// Get config for thumbnail size/quality (needed before switch for video case)
 	size := defaultThumbnailSize
@@ -117,16 +122,17 @@ func (a *App) GenerateThumbnail(fileID int64) (string, error) {
 		}
 		var encErr error
 		if ext == ".svg" {
-			encErr = utils.EncodeSVGToWebP(vaultPath, thumbPath, size, quality)
+			encErr = utils.EncodeSVGToWebP(absPath, thumbPath, size, quality)
 		} else {
-			encErr = utils.EncodeImageToWebP(vaultPath, thumbPath, size, quality)
+			encErr = utils.EncodeImageToWebP(absPath, thumbPath, size, quality)
 		}
 		if encErr != nil {
 			os.Remove(thumbPath)
 			return "", fmt.Errorf("failed to encode image to WebP: %w", encErr)
 		}
-		// Update DB with thumbnail path
-		_, execErr := a.db.Conn().Exec("UPDATE files SET thumbnail_path = ? WHERE id = ?", thumbPath, fileID)
+		// Update DB with thumbnail path (store relative to vault root)
+		relThumbPath := a.toRelativePath(thumbPath)
+		_, execErr := a.db.Conn().Exec("UPDATE files SET thumbnail_path = ? WHERE id = ?", relThumbPath, fileID)
 		if execErr != nil {
 			return "", fmt.Errorf("failed to update thumbnail_path: %w", execErr)
 		}
@@ -135,22 +141,19 @@ func (a *App) GenerateThumbnail(fileID int64) (string, error) {
 		if !ffmpegAvailable {
 			return "", fmt.Errorf("ffmpeg not found — cannot generate video thumbnail for %s", ext)
 		}
-		// Generate thumbnail path first (needed for FFmpeg output)
-		if thumbPath == "" {
-			thumbPath = GenerateThumbnailPath(a.vaultPath, vaultPath)
-		}
 		// Ensure output directory exists
 		thumbDir := filepath.Dir(thumbPath)
 		if err := os.MkdirAll(thumbDir, 0755); err != nil {
 			return "", fmt.Errorf("failed to create thumbnail directory: %w", err)
 		}
-		if err := utils.ExtractVideoFrame(vaultPath, thumbPath, size, utils.DefaultVideoThumbTimestamp); err != nil {
+		if err := utils.ExtractVideoFrame(absPath, thumbPath, size, utils.DefaultVideoThumbTimestamp); err != nil {
 			os.Remove(thumbPath)
 			return "", fmt.Errorf("failed to extract video frame: %w", err)
 		}
 		// For video, skip the image resize/encode path — FFmpeg already produced the WebP
-		// Update DB with thumbnail path
-		_, execErr := a.db.Conn().Exec("UPDATE files SET thumbnail_path = ? WHERE id = ?", thumbPath, fileID)
+		// Update DB with thumbnail path (store relative to vault root)
+		relThumbPath := a.toRelativePath(thumbPath)
+		_, execErr := a.db.Conn().Exec("UPDATE files SET thumbnail_path = ? WHERE id = ?", relThumbPath, fileID)
 		if execErr != nil {
 			return "", fmt.Errorf("failed to update thumbnail_path: %w", execErr)
 		}
@@ -257,7 +260,10 @@ func (a *App) GenerateThumbnailsPool() error {
 			default:
 			}
 
-			thumbPath := GenerateThumbnailPath(a.vaultPath, f.vaultPath)
+			// f.vaultPath is relative — resolve for file operations
+			absPath := a.resolvePath(f.vaultPath)
+			// Hash based on relative path (portable across vault moves)
+			thumbPath := a.generateThumbnailAbsolutePath(f.vaultPath)
 
 			// Skip if already generated (another worker may have done it)
 			if _, err := os.Stat(thumbPath); err == nil {
@@ -279,7 +285,7 @@ func (a *App) GenerateThumbnailsPool() error {
 				continue
 			}
 
-			category := utils.GetFileCategory(f.vaultPath)
+			category := utils.GetFileCategory(absPath)
 
 			switch category {
 			case "image", "animated":
@@ -321,12 +327,12 @@ func (a *App) GenerateThumbnailsPool() error {
 					}
 					continue
 				}
-				ext := strings.ToLower(filepath.Ext(f.vaultPath))
+				ext := strings.ToLower(filepath.Ext(absPath))
 				var encErr error
 				if ext == ".svg" {
-					encErr = utils.EncodeSVGToWebP(f.vaultPath, thumbPath, size, quality)
+					encErr = utils.EncodeSVGToWebP(absPath, thumbPath, size, quality)
 				} else {
-					encErr = utils.EncodeImageToWebP(f.vaultPath, thumbPath, size, quality)
+					encErr = utils.EncodeImageToWebP(absPath, thumbPath, size, quality)
 				}
 				if encErr != nil {
 					os.Remove(thumbPath)
@@ -404,7 +410,7 @@ func (a *App) GenerateThumbnailsPool() error {
 					}
 					continue
 				}
-				if ffErr := utils.ExtractVideoFrame(f.vaultPath, thumbPath, size, utils.DefaultVideoThumbTimestamp); ffErr != nil {
+				if ffErr := utils.ExtractVideoFrame(absPath, thumbPath, size, utils.DefaultVideoThumbTimestamp); ffErr != nil {
 					os.Remove(thumbPath)
 					resultsMu.Lock()
 					results = append(results, thumbResult{fileID: f.id, ok: false})
@@ -481,13 +487,15 @@ func (a *App) GenerateThumbnailsPool() error {
 	wg.Wait()
 
 	// Batch DB update — sequential writes avoid SQLITE_BUSY entirely
+	// Store thumbnail_path as relative to vault root
 	tx, err := a.db.Conn().Begin()
 	if err == nil {
 		stmt, prepErr := tx.Prepare("UPDATE files SET thumbnail_path = ? WHERE id = ?")
 		if prepErr == nil {
 			for _, r := range results {
 				if r.ok {
-					_, _ = stmt.Exec(r.thumbPath, r.fileID)
+					relThumbPath := a.toRelativePath(r.thumbPath)
+					_, _ = stmt.Exec(relThumbPath, r.fileID)
 				}
 			}
 			stmt.Close()
@@ -543,14 +551,6 @@ func (a *App) CancelThumbnailGeneration() {
 }
 
 // decodeImage opens and decodes an image file, supporting multiple formats.
-// GenerateThumbnailPath returns the expected thumbnail path for a given file path.
-func GenerateThumbnailPath(vaultPath, filePath string) string {
-	hash := utils.HashPath(filePath)
-	subdir := utils.ThumbnailSubdir(hash)
-	thumbDir := filepath.Join(vaultPath, ".tagloom", "thumbnails", subdir)
-	os.MkdirAll(thumbDir, 0755)
-	return filepath.Join(thumbDir, hash+".webp")
-}
 
 // GenerateThumbnailsForFiles generates thumbnails for a list of file IDs.
 // Returns the number of thumbnails generated.
@@ -582,6 +582,8 @@ func (a *App) CleanupOrphanThumbnails() (int, error) {
 	}
 
 	// Collect all valid thumbnail paths from the database
+	// thumbnail_path is stored as relative to vault root; resolve to absolute
+	// for comparison with absolute paths from filepath.WalkDir
 	validThumbs := make(map[string]struct{})
 	rows, err := a.db.Conn().Query("SELECT thumbnail_path FROM files WHERE thumbnail_path IS NOT NULL AND thumbnail_path != ''")
 	if err != nil {
@@ -592,7 +594,8 @@ func (a *App) CleanupOrphanThumbnails() (int, error) {
 	for rows.Next() {
 		var tp string
 		if err := rows.Scan(&tp); err == nil && tp != "" {
-			validThumbs[tp] = struct{}{}
+			absThumb := a.resolvePath(tp)
+			validThumbs[absThumb] = struct{}{}
 		}
 	}
 
@@ -636,8 +639,9 @@ func (a *App) CleanupOrphanThumbnails() (int, error) {
 	return removed, nil
 }
 
-// GetThumbnailPath returns the thumbnail path for a file ID.
+// GetThumbnailPath returns the absolute thumbnail path for a file ID.
 // Used by the HTTP handler to serve thumbnails.
+// The thumbnail_path in DB is relative; this resolves it to an absolute path.
 func (a *App) GetThumbnailPath(fileID int64) (string, error) {
 	if a.db == nil {
 		return "", fmt.Errorf("no vault open")
@@ -652,12 +656,15 @@ func (a *App) GetThumbnailPath(fileID int64) (string, error) {
 		return "", fmt.Errorf("no thumbnail path for file %d", fileID)
 	}
 
+	// Resolve relative path to absolute
+	absThumb := a.resolvePath(*thumbPath)
+
 	// Verify file exists
-	if _, err := os.Stat(*thumbPath); err != nil {
+	if _, err := os.Stat(absThumb); err != nil {
 		return "", fmt.Errorf("thumbnail file not found: %w", err)
 	}
 
-	return *thumbPath, nil
+	return absThumb, nil
 }
 
 // ThumbnailInfo holds metadata about a thumbnail.
@@ -685,8 +692,9 @@ func (a *App) GetThumbnailInfo(fileID int64) (*ThumbnailInfo, error) {
 	}
 
 	if thumbPath != nil && *thumbPath != "" {
-		info.ThumbnailPath = *thumbPath
-		stat, err := os.Stat(*thumbPath)
+		absThumb := a.resolvePath(*thumbPath)
+		info.ThumbnailPath = absThumb
+		stat, err := os.Stat(absThumb)
 		if err == nil {
 			info.Exists = true
 			info.SizeBytes = stat.Size()
@@ -713,7 +721,9 @@ func (a *App) GetThumbnailData(fileID int64) (string, error) {
 		return "", fmt.Errorf("no thumbnail path for file %d", fileID)
 	}
 
-	data, err := os.ReadFile(*thumbPath)
+	// Resolve relative path to absolute
+	absThumb := a.resolvePath(*thumbPath)
+	data, err := os.ReadFile(absThumb)
 	if err != nil {
 		return "", fmt.Errorf("failed to read thumbnail: %w", err)
 	}

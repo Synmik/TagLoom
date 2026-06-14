@@ -55,7 +55,7 @@ func (a *App) ScanVault() (int, error) {
 			return nil
 		}
 		if d.IsDir() {
-			if isExcluded(path, excludedSet) {
+			if isExcluded(path, a.vaultPath, excludedSet) {
 				return filepath.SkipDir
 			}
 			return nil
@@ -107,8 +107,8 @@ func (a *App) ScanVault() (int, error) {
 			createdAtStr = ft.CreatedAt.Format(time.RFC3339)
 		}
 		_, execErr := stmt.Exec(
-			e.path,
-			filepath.Dir(e.path),
+			a.toRelativePath(e.path),
+			a.toRelativePath(filepath.Dir(e.path)),
 			filepath.Base(e.path),
 			createdAtStr,
 			ft.ModifiedAt.Format(time.RFC3339),
@@ -144,7 +144,9 @@ func (a *App) ScanVault() (int, error) {
 
 // isExcluded checks if a directory path is in the excluded set.
 // Always skips ".tagloom" (internal metadata directory) regardless of user config.
-func isExcluded(path string, excluded map[string]bool) bool {
+// The excluded paths are relative to vault root; they are resolved to absolute
+// for comparison with the absolute paths from filepath.WalkDir.
+func isExcluded(path string, vaultPath string, excluded map[string]bool) bool {
 	clean := strings.ToLower(filepath.Clean(path))
 	// Always exclude .tagloom — it contains thumbnails, DB, and config
 	base := filepath.Base(clean)
@@ -152,7 +154,13 @@ func isExcluded(path string, excluded map[string]bool) bool {
 		return true
 	}
 	for excl := range excluded {
-		if clean == excl || strings.HasPrefix(clean, excl+string(filepath.Separator)) {
+		// Resolve relative excluded path to absolute for comparison
+		exclAbs := excl
+		if !filepath.IsAbs(excl) {
+			exclAbs = filepath.Join(vaultPath, excl)
+		}
+		exclAbs = strings.ToLower(filepath.Clean(exclAbs))
+		if clean == exclAbs || strings.HasPrefix(clean, exclAbs+string(filepath.Separator)) {
 			return true
 		}
 	}
@@ -180,15 +188,16 @@ func (a *App) RescanVault() (int, error) {
 		excludedSet[strings.ToLower(filepath.Clean(fp))] = true
 	}
 
-	// Step 1: Single-pass — collect all filesystem files (path + info)
+	// Step 1: Single-pass — collect all filesystem files (path + info).
+	// Store relative paths for comparison with DB (vault_path is relative).
 	var fsEntries []scanEntry
-	fsPaths := make(map[string]int) // path → index in fsEntries
+	fsRelPaths := make(map[string]int) // relative path → index in fsEntries
 	err = filepath.WalkDir(a.vaultPath, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
 		if d.IsDir() {
-			if isExcluded(path, excludedSet) {
+			if isExcluded(path, a.vaultPath, excludedSet) {
 				return filepath.SkipDir
 			}
 			return nil
@@ -203,7 +212,7 @@ func (a *App) RescanVault() (int, error) {
 		}
 		idx := len(fsEntries)
 		fsEntries = append(fsEntries, scanEntry{path: path, info: info})
-		fsPaths[path] = idx
+		fsRelPaths[a.toRelativePath(path)] = idx
 		return nil
 	})
 	if err != nil {
@@ -226,17 +235,18 @@ func (a *App) RescanVault() (int, error) {
 		dbFiles[vp] = true
 	}
 
-	// Step 3: Compute diff
+	// Step 3: Compute diff — compare relative paths on both sides.
 	var added []scanEntry
 	for _, e := range fsEntries {
-		if !dbFiles[e.path] {
+		relPath := a.toRelativePath(e.path)
+		if !dbFiles[relPath] {
 			added = append(added, e)
 		}
 	}
 
 	var removed []string
 	for p := range dbFiles {
-		if _, ok := fsPaths[p]; !ok {
+		if _, ok := fsRelPaths[p]; !ok {
 			removed = append(removed, p)
 		}
 	}
@@ -273,8 +283,8 @@ func (a *App) RescanVault() (int, error) {
 				createdAtStr = ft.CreatedAt.Format(time.RFC3339)
 			}
 			_, err := stmt.Exec(
-				e.path,
-				filepath.Dir(e.path),
+				a.toRelativePath(e.path),
+				a.toRelativePath(filepath.Dir(e.path)),
 				filepath.Base(e.path),
 				createdAtStr,
 				ft.ModifiedAt.Format(time.RFC3339),
@@ -375,7 +385,8 @@ func (a *App) GetFolderTree(path string) *db.FolderNode {
 	}
 	defer rows.Close()
 
-	// Build a map of folder_path → file count
+	// Build a map of folder_path → file count.
+	// Normalize "." (files directly in vault root) to the vault root path.
 	folderCounts := make(map[string]int)
 	for rows.Next() {
 		var fPath string
@@ -383,7 +394,10 @@ func (a *App) GetFolderTree(path string) *db.FolderNode {
 		if err := rows.Scan(&fPath, &count); err != nil {
 			continue
 		}
-		folderCounts[fPath] = count
+		if fPath == "." {
+			fPath = path // vault root
+		}
+		folderCounts[fPath] += count
 	}
 
 	// Build a children map: parentPath → []childPath.
@@ -453,14 +467,22 @@ func buildFolderTree(counts map[string]int, childrenOf map[string][]string, path
 }
 
 // resolveParent returns the parent of fPath, clamped to the vault root.
-// If filepath.Dir(fPath) is outside the vault (e.g. the drive root), returns vaultPath.
-// Also guards against self-parent (e.g. drive roots where Dir(x) == x).
+// fPath is a relative path (e.g. "photos/vacation"). The vault root is an
+// absolute path (e.g. "C:\Vault").
+//
+// When filepath.Dir(fPath) yields "." (direct child of vault root) or
+// resolves outside the vault, returns vaultPath as the root node.
 func resolveParent(fPath string, vaultPath string) string {
 	parentPath := filepath.Dir(fPath)
-	rel, err := filepath.Rel(vaultPath, parentPath)
-	if err != nil || strings.HasPrefix(rel, "..") {
+
+	// "fPath" is a relative path — if Dir returns "." it means the file
+	// lives directly in the vault root.
+	if parentPath == "." {
 		return vaultPath
 	}
+
+	// For deeper relative paths (e.g. "photos/vacation" → "photos")
+	// the parent is already a valid relative path — return it as-is.
 	return parentPath
 }
 
@@ -624,14 +646,15 @@ func (a *App) CopyImageToClipboard(fileID int64) error {
 	return utils.CopyImageToClipboard(path)
 }
 
-// getFilePath returns the vault_path for a given file ID.
+// getFilePath returns the absolute path for a given file ID.
+// The vault_path in DB is relative; this resolves it to an absolute path.
 func (a *App) getFilePath(fileID int64) (string, error) {
-	var path string
-	err := a.db.Conn().QueryRow("SELECT vault_path FROM files WHERE id = ?", fileID).Scan(&path)
+	var relPath string
+	err := a.db.Conn().QueryRow("SELECT vault_path FROM files WHERE id = ?", fileID).Scan(&relPath)
 	if err != nil {
 		return "", fmt.Errorf("file not found: %w", err)
 	}
-	return path, nil
+	return a.resolvePath(relPath), nil
 }
 
 // DeleteFile removes a file from the vault index (DB only, does NOT delete the actual file on disk).
@@ -690,7 +713,7 @@ func (a *App) indexFile(filePath string) error {
 			date_created = excluded.date_created,
 			date_modified = excluded.date_modified,
 			indexed_at = excluded.indexed_at
-	`, filePath, folderPath, fileName,
+	`, a.toRelativePath(filePath), a.toRelativePath(folderPath), fileName,
 		createdAtStr,
 		ft.ModifiedAt.Format(time.RFC3339),
 		now)

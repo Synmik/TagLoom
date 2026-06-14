@@ -4,8 +4,8 @@
 
 CREATE TABLE IF NOT EXISTS files (
     id INTEGER PRIMARY KEY,
-    vault_path TEXT NOT NULL UNIQUE,
-    thumbnail_path TEXT,
+    vault_path TEXT NOT NULL UNIQUE,  -- Relative path from vault root (e.g. "photos/vacation/beach.jpg")
+    thumbnail_path TEXT,              -- Absolute path to thumbnail on disk
     name TEXT,
     notes TEXT,
     link TEXT,
@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS file_tags (
 
 CREATE TABLE IF NOT EXISTS excluded_folders (
     id INTEGER PRIMARY KEY,
-    path TEXT NOT NULL,
+    path TEXT NOT NULL,       -- Relative path from vault root
     created_at TEXT NOT NULL
 );
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 	"time"
 
@@ -27,6 +28,39 @@ type App struct {
 // NewApp creates a new App instance.
 func NewApp() *App {
 	return &App{}
+}
+
+// resolvePath converts a relative path (stored in DB) to an absolute path.
+// If the path is already absolute (legacy data), returns it as-is.
+func (a *App) resolvePath(relPath string) string {
+	if filepath.IsAbs(relPath) {
+		return relPath
+	}
+	return filepath.Join(a.vaultPath, relPath)
+}
+
+// toRelativePath converts an absolute path to a relative path from the vault root.
+// If the path is already relative, returns it as-is.
+func (a *App) toRelativePath(absPath string) string {
+	if !filepath.IsAbs(absPath) {
+		return absPath
+	}
+	rel, err := filepath.Rel(a.vaultPath, absPath)
+	if err != nil {
+		return absPath
+	}
+	return rel
+}
+
+// generateThumbnailAbsolutePath returns the absolute path for a thumbnail
+// given a relative file path. The hash is computed from the relative path
+// so thumbnails remain valid when the vault is moved.
+func (a *App) generateThumbnailAbsolutePath(relFilePath string) string {
+	hash := utils.HashPath(relFilePath)
+	subdir := utils.ThumbnailSubdir(hash)
+	thumbDir := filepath.Join(a.vaultPath, ".tagloom", "thumbnails", subdir)
+	os.MkdirAll(thumbDir, 0755)
+	return filepath.Join(thumbDir, hash+".webp")
 }
 
 // Startup is called when the app starts. The context is saved
