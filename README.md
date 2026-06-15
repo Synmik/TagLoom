@@ -10,9 +10,8 @@
 <p align="center">
 <img align=center src="https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white">
 <img align=center src="https://img.shields.io/badge/MIT-green?style=for-the-badge">
-<img align=center src="https://img.shields.io/badge/Go-00ADD8?style=for-the-badge&logo=go&logoColor=white">
-<img align=center src="https://img.shields.io/badge/Vue%20js-35495E?style=for-the-badge&logo=vuedotjs&logoColor=4FC08D">
-<img align=center src="https://img.shields.io/badge/version-0.2.0-blue?style=for-the-badge">
+<img align=center src="https://img.shields.io/badge/Version-0.3.0-blue?style=for-the-badge
+">
 <img align=center src="https://img.shields.io/badge/size-18MB-green?style=for-the-badge"><br><br>
 </p>
 

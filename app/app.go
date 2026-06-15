@@ -219,7 +219,7 @@ func (a *App) GetAppInfo() map[string]string {
 
 // GetVersion returns the application version.
 // Keep in sync with wails.json → info.productVersion.
-const appVersion = "0.2.0"
+const appVersion = "0.3.0"
 
 func (a *App) GetVersion() string {
 	return appVersion
