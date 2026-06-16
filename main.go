@@ -25,12 +25,15 @@ func main() {
 
 	// Create application with options
 	err := wails.Run(&options.App{
-		Title:       "TagLoom",
-		Width:       1600,
-		Height:      900,
-		MinWidth:    900,
-		MinHeight:   600,
-		Frameless:   true,
+		Title:     "TagLoom",
+		Width:     1600,
+		Height:    900,
+		MinWidth:  900,
+		MinHeight: 600,
+		Frameless: true,
+		DragAndDrop: &options.DragAndDrop{
+			EnableFileDrop: true,
+		},
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 			Middleware: assetserver.Middleware(func(next http.Handler) http.Handler {

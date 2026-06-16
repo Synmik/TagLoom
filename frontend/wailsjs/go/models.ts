@@ -50,6 +50,22 @@ export namespace app {
 	        this.dominant_colors = source["dominant_colors"];
 	    }
 	}
+	export class ImportResult {
+	    imported: number;
+	    skipped: number;
+	    errors: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new ImportResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.imported = source["imported"];
+	        this.skipped = source["skipped"];
+	        this.errors = source["errors"];
+	    }
+	}
 	export class NewVaultSettings {
 	    thumbnail_quality: number;
 	    excluded_folders: string[];

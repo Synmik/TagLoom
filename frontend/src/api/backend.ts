@@ -9,6 +9,9 @@ export { ScanVault, RescanVault } from '../../wailsjs/go/app/App'
 // Files
 export { GetFiles, GetFileByID, UpdateFile, SearchFiles, DeleteFile, OpenOriginalFile, OpenFileFolder, DeleteOriginalFile, CopyImageToClipboard } from '../../wailsjs/go/app/App'
 
+// Import
+export { ImportFile } from '../../wailsjs/go/app/App'
+
 // Folders
 export { GetFolderTree } from '../../wailsjs/go/app/App'
 

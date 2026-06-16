@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -719,4 +720,149 @@ func (a *App) indexFile(filePath string) error {
 		now)
 
 	return err
+}
+
+// ImportResult holds the result of importing a single file.
+type ImportResult struct {
+	Imported int    `json:"imported"`
+	Skipped  int    `json:"skipped"`
+	Errors   []string `json:"errors"`
+}
+
+// ImportFile copies or moves a single file from outside the vault into the vault
+// root, indexes it in the database, and generates a thumbnail.
+// If `move` is true, the source file is deleted after a successful copy.
+// Returns an ImportResult with counts of imported/skipped files and any errors.
+func (a *App) ImportFile(sourcePath string, move bool) *ImportResult {
+	result := &ImportResult{Errors: []string{}}
+
+	if a.db == nil {
+		result.Errors = append(result.Errors, "no vault open")
+		return result
+	}
+	if a.vaultPath == "" {
+		result.Errors = append(result.Errors, "no vault path set")
+		return result
+	}
+
+	// Validate source file exists
+	info, err := os.Stat(sourcePath)
+	if err != nil {
+		result.Errors = append(result.Errors, fmt.Sprintf("source file not found: %s", filepath.Base(sourcePath)))
+		return result
+	}
+	if info.IsDir() {
+		result.Errors = append(result.Errors, fmt.Sprintf("%s is a directory, not a file", filepath.Base(sourcePath)))
+		return result
+	}
+
+	// Check if file type is supported
+	if !utils.IsSupported(sourcePath) {
+		result.Errors = append(result.Errors, fmt.Sprintf("unsupported file type: %s", filepath.Ext(sourcePath)))
+		return result
+	}
+
+	// Resolve destination path (vault root)
+	destPath := filepath.Join(a.vaultPath, info.Name())
+
+	// Handle duplicate filenames — append (N) before extension
+	if _, err := os.Stat(destPath); err == nil {
+		base := strings.TrimSuffix(info.Name(), filepath.Ext(info.Name()))
+		ext := filepath.Ext(info.Name())
+		n := 2
+		for {
+			destPath = filepath.Join(a.vaultPath, fmt.Sprintf("%s (%d)%s", base, n, ext))
+			if _, err := os.Stat(destPath); os.IsNotExist(err) {
+				break
+			}
+			n++
+		}
+	}
+
+	// Copy or move the file
+	if move {
+		err = os.Rename(sourcePath, destPath)
+		// Rename across devices falls back to copy+delete
+		if err != nil {
+			err = copyFile(sourcePath, destPath)
+			if err == nil {
+				os.Remove(sourcePath)
+			}
+		}
+	} else {
+		err = copyFile(sourcePath, destPath)
+	}
+	if err != nil {
+		result.Errors = append(result.Errors, fmt.Sprintf("failed to %s file: %v", map[bool]string{true: "move", false: "copy"}[move], err))
+		return result
+	}
+
+	// Check if already indexed (same absolute path)
+	var existingID int64
+	relPath := a.toRelativePath(destPath)
+	err = a.db.Conn().QueryRow("SELECT id FROM files WHERE vault_path = ?", relPath).Scan(&existingID)
+	if err == nil {
+		// File already indexed — skip
+		result.Skipped = 1
+		return result
+	}
+
+	// Index the file
+	folderPath := filepath.Dir(destPath)
+	fileName := filepath.Base(destPath)
+	now := time.Now().Format(time.RFC3339)
+	ft := utils.GetFileTimes(info)
+
+	createdAtStr := ""
+	if !ft.CreatedAt.IsZero() {
+		createdAtStr = ft.CreatedAt.Format(time.RFC3339)
+	}
+
+	_, err = a.db.Conn().Exec(`
+		INSERT INTO files (vault_path, folder_path, filename, date_created, date_modified, indexed_at)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`, relPath, a.toRelativePath(folderPath), fileName,
+		createdAtStr,
+		ft.ModifiedAt.Format(time.RFC3339),
+		now)
+	if err != nil {
+		result.Errors = append(result.Errors, fmt.Sprintf("failed to index file: %v", err))
+		return result
+	}
+
+	// Get the newly inserted file ID and generate thumbnail in background
+	var newID int64
+	err = a.db.Conn().QueryRow("SELECT id FROM files WHERE vault_path = ?", relPath).Scan(&newID)
+	if err == nil {
+		go func() {
+			if _, err := a.GenerateThumbnail(newID); err != nil {
+				fmt.Printf("thumbnail generation warning for %s: %v\n", fileName, err)
+			}
+		}()
+	}
+
+	result.Imported = 1
+	return result
+}
+
+// copyFile copies a file from src to dst using buffered I/O.
+func copyFile(src, dst string) error {
+	srcFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer srcFile.Close()
+
+	dstFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer dstFile.Close()
+
+	_, err = io.Copy(dstFile, srcFile)
+	if err != nil {
+		os.Remove(dst) // Clean up partial copy
+		return err
+	}
+	return dstFile.Close()
 }

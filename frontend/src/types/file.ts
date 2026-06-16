@@ -1,5 +1,16 @@
 // Aligns with generated Wails types in wailsjs/go/models.ts (db namespace)
 
+/** Supported file extensions — mirrors utils.SupportedExtensions in Go backend */
+export const SUPPORTED_EXTENSIONS = new Set([
+  // Images
+  '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tiff', '.tif', '.svg', '.avif', '.jxl', '.jpegxl',
+  // Videos
+  '.mp4', '.mov', '.avi', '.webm', '.mkv', '.wmv', '.flv', '.m4v', '.3gp', '.3g2',
+  '.vob', '.ogv', '.mpg', '.mpeg', '.m2v', '.ts', '.mts', '.m2ts',
+  '.asf', '.rm', '.amv', '.f4v', '.dv', '.mxf',
+  // Animated (already covered above)
+])
+
 export interface FileTag {
   id: number
   name: string
