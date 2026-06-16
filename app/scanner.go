@@ -733,11 +733,12 @@ type ImportResult struct {
 	Errors   []string `json:"errors"`
 }
 
-// ImportFile copies or moves a single file from outside the vault into the vault
-// root, indexes it in the database, and generates a thumbnail.
+// ImportFile copies or moves a single file from outside the vault into the vault,
+// optionally into a specific subfolder, indexes it in the database, and generates a thumbnail.
 // If `move` is true, the source file is deleted after a successful copy.
+// `targetFolder` is a path relative to the vault root; if empty, files go to vault root.
 // Returns an ImportResult with counts of imported/skipped files and any errors.
-func (a *App) ImportFile(sourcePath string, move bool) *ImportResult {
+func (a *App) ImportFile(sourcePath string, move bool, targetFolder string) *ImportResult {
 	result := &ImportResult{Errors: []string{}}
 
 	if a.db == nil {
@@ -766,8 +767,21 @@ func (a *App) ImportFile(sourcePath string, move bool) *ImportResult {
 		return result
 	}
 
-	// Resolve destination path (vault root)
-	destPath := filepath.Join(a.vaultPath, info.Name())
+	// Resolve destination folder
+	destDir := a.vaultPath
+	if targetFolder != "" {
+		destDir = filepath.Join(a.vaultPath, targetFolder)
+		// Create target folder if it doesn't exist
+		if _, err := os.Stat(destDir); os.IsNotExist(err) {
+			if err = os.MkdirAll(destDir, 0755); err != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("failed to create folder %s: %v", targetFolder, err))
+				return result
+			}
+		}
+	}
+
+	// Resolve destination path
+	destPath := filepath.Join(destDir, info.Name())
 
 	// Handle duplicate filenames — append (N) before extension
 	if _, err := os.Stat(destPath); err == nil {
@@ -775,7 +789,7 @@ func (a *App) ImportFile(sourcePath string, move bool) *ImportResult {
 		ext := filepath.Ext(info.Name())
 		n := 2
 		for {
-			destPath = filepath.Join(a.vaultPath, fmt.Sprintf("%s (%d)%s", base, n, ext))
+			destPath = filepath.Join(destDir, fmt.Sprintf("%s (%d)%s", base, n, ext))
 			if _, err := os.Stat(destPath); os.IsNotExist(err) {
 				break
 			}

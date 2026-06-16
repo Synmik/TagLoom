@@ -68,6 +68,8 @@ import { ArrowDown } from '@lucide/vue'
 
 const previewStore = usePreviewStore()
 const uiStore = useUIStore()
+const foldersStore = useFoldersStore()
+const vaultStore = useVaultStore()
 
 // ── Drag & drop ──────────────────────────────────────────────────
 
@@ -81,6 +83,9 @@ async function handleImport(move: boolean) {
     return
   }
 
+  // Import into currently selected folder (empty = vault root).
+  // Root folder's selectedPath is the full vault path — treat as vault root.
+  const targetFolder = foldersStore.selectedPath === vaultStore.currentVault?.path ? '' : foldersStore.selectedPath
   dragDrop.closeMenu()
 
   let imported = 0
@@ -89,7 +94,7 @@ async function handleImport(move: boolean) {
 
   for (const f of files) {
     try {
-      const result = await ImportFile(f.path, move)
+      const result = await ImportFile(f.path, move, targetFolder)
       if (result?.imported) imported += result.imported
       if (result?.skipped) skipped += result.skipped
       if (result?.errors) errors.push(...result.errors)

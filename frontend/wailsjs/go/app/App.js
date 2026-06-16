@@ -154,8 +154,8 @@ export function GetVersion() {
   return window['go']['app']['App']['GetVersion']();
 }
 
-export function ImportFile(arg1, arg2) {
-  return window['go']['app']['App']['ImportFile'](arg1, arg2);
+export function ImportFile(arg1, arg2, arg3) {
+  return window['go']['app']['App']['ImportFile'](arg1, arg2, arg3);
 }
 
 export function OpenFileFolder(arg1) {

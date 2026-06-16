@@ -4,7 +4,7 @@
       <button class="close-btn" @click="$emit('close')"><X :size="24" /></button>
 
       <!-- Image preview -->
-      <img v-if="isImage" :src="mediaUrl" class="preview-img" alt="Full preview" />
+      <img v-if="isImage" :src="mediaUrl" class="preview-img" alt="Full preview" draggable="false" />
 
       <!-- Video player -->
       <div v-else-if="isVideo" class="video-wrapper">

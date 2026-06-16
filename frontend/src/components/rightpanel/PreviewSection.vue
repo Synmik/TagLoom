@@ -7,6 +7,7 @@
         :src="imageUrl"
         alt="Preview"
         class="preview-media"
+        draggable="false"
       />
       <!-- Video player -->
       <div v-else-if="isVideo" class="video-wrapper" @dblclick.stop>

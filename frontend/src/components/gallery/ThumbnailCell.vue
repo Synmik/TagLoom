@@ -8,7 +8,7 @@
     @contextmenu.prevent="onContextMenu"
   >
     <div class="thumbnail-wrapper">
-      <img :src="thumbnailUrl" :alt="filename" class="thumbnail" loading="lazy" />
+      <img :src="thumbnailUrl" :alt="filename" class="thumbnail" loading="lazy" draggable="false" />
       <span class="format-badge">{{ formatName }}</span>
       <Heart v-if="file.is_favorite === 1" :size="14" class="favorite-badge" fill="currentColor" />
     </div>

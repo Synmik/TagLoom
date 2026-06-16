@@ -1,4 +1,4 @@
-import { ref, watch } from 'vue'
+import { ref } from 'vue'
 import { SUPPORTED_EXTENSIONS } from '../types/file'
 import { OnFileDrop, OnFileDropOff } from '../../wailsjs/runtime/runtime'
 

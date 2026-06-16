@@ -80,7 +80,7 @@ export function GetVaultConfig():Promise<config.VaultConfig>;
 
 export function GetVersion():Promise<string>;
 
-export function ImportFile(arg1:string,arg2:boolean):Promise<app.ImportResult>;
+export function ImportFile(arg1:string,arg2:boolean,arg3:string):Promise<app.ImportResult>;
 
 export function OpenFileFolder(arg1:number):Promise<void>;
 
