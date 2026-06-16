@@ -33,6 +33,7 @@ import { computed } from 'vue'
 import { ChevronDown, ChevronRight, Folder, Ban, FolderOpen, Pencil } from '@lucide/vue'
 import { useFoldersStore } from '../../stores/folders'
 import { useFiltersStore } from '../../stores/filters'
+import { useVaultStore } from '../../stores/vault'
 import { useContextMenu, type ContextMenuItem } from '../../composables/useContextMenu'
 import { ClipboardSetText } from '../../../wailsjs/runtime/runtime'
 import { AddExcludedFolder } from '../../api/backend'
@@ -49,6 +50,7 @@ const props = defineProps<{
 
 const foldersStore = useFoldersStore()
 const filtersStore = useFiltersStore()
+const vaultStore = useVaultStore()
 const filesStore = useFilesStore()
 const uiStore = useUIStore()
 const { success, error: toastError } = useToast()
@@ -56,6 +58,11 @@ const { visible, x, y, items, open, close } = useContextMenu()
 
 const hasChildren = computed(() => props.node.children?.length > 0)
 const isExpanded = computed(() => foldersStore.expandedPaths.includes(props.node.path))
+const absolutePath = computed(() => {
+  // Root node has absolute path; child nodes have relative paths
+  if (props.node.path === vaultStore.currentVault?.path) return props.node.path
+  return vaultStore.currentVault?.path + '\\' + props.node.path
+})
 
 const toggleExpand = () => foldersStore.toggleFolder(props.node.path)
 const selectFolder = () => {
@@ -103,7 +110,7 @@ const onContext = (e: MouseEvent) => {
       label: 'Copy path',
       icon: 'folder-open',
       action: () => {
-        ClipboardSetText(props.node.path).then((ok) => {
+        ClipboardSetText(absolutePath.value).then((ok) => {
           if (ok) success('Path copied')
           else toastError('Failed to copy path')
         })

@@ -591,15 +591,19 @@ func (a *App) DeleteOriginalFile(fileID int64) error {
 		return fmt.Errorf("file not found in vault: %w", err)
 	}
 
+	// Resolve relative path to absolute for file operations
+	absVaultPath := a.resolvePath(vaultPath)
+
 	// Move original file to recycle bin
-	err = utils.DeleteToTrash(vaultPath)
+	err = utils.DeleteToTrash(absVaultPath)
 	if err != nil {
 		return fmt.Errorf("failed to delete original file: %w", err)
 	}
 
 	// Delete thumbnail from disk (if exists)
+	// thumbPath is relative to vault root (e.g. ".tagloom/thumbnails/...")
 	if thumbPath != nil && *thumbPath != "" {
-		thumbFullPath := filepath.Join(a.vaultPath, ".tagloom", *thumbPath)
+		thumbFullPath := a.resolvePath(*thumbPath)
 		_ = os.Remove(thumbFullPath)
 
 		// Clean up empty parent directory

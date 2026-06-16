@@ -63,6 +63,10 @@ const formatName = computed(() => {
 })
 
 const vaultPath = computed(() => vaultStore.currentVault?.path || '')
+const absolutePath = computed(() => {
+  if (!vaultPath.value) return props.file.vault_path
+  return vaultPath.value + '\\' + props.file.vault_path
+})
 const deleteConfirmMessage = computed(() =>
   `Move "${filename.value}" to Recycle Bin?\n\nThe original file will be moved to Recycle Bin and the thumbnail removed.`
 )
@@ -200,7 +204,7 @@ const onContextMenu = (e: MouseEvent) => {
       type: 'item',
       label: 'Copy path',
       icon: 'folder',
-      action: () => copyToClipboard(props.file.vault_path, 'Path'),
+      action: () => copyToClipboard(absolutePath.value, 'Path'),
     },
     { type: 'divider' },
     {

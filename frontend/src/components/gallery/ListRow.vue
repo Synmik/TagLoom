@@ -40,6 +40,7 @@ import { useContextMenu, type ContextMenuItem } from '../../composables/useConte
 import { usePreviewStore } from '../../stores/preview'
 import { useFilesStore } from '../../stores/files'
 import { useUIStore } from '../../stores/ui'
+import { useVaultStore } from '../../stores/vault'
 import { ClipboardSetText } from '../../../wailsjs/runtime/runtime'
 import { useToast } from '../../composables/useToast'
 import ContextMenu from '../common/ContextMenu.vue'
@@ -51,11 +52,18 @@ const { isSelected, toggleSelection } = useSelection()
 const previewStore = usePreviewStore()
 const filesStore = useFilesStore()
 const uiStore = useUIStore()
+const vaultStore = useVaultStore()
 const { success, error: toastError } = useToast()
 const { visible, x, y, items, open, close } = useContextMenu()
 const showDeleteConfirm = ref(false)
 
 const filename = computed(() => props.file.vault_path.split(/[\\/]/).pop() || '')
+const absolutePath = computed(() => {
+  const vp = vaultStore.currentVault?.path
+  if (!vp) return props.file.vault_path
+  // vault_path is relative from vault root; join with vault path
+  return vp + '\\' + props.file.vault_path
+})
 const tagsText = computed(() => '—') // TODO: Load tags for this file
 const deleteConfirmMessage = computed(() =>
   `Move "${filename.value}" to Recycle Bin?\n\nThe original file will be moved to Recycle Bin and the thumbnail removed.`
@@ -169,7 +177,7 @@ const onContextMenu = (e: MouseEvent) => {
       type: 'item',
       label: 'Copy path',
       icon: 'folder',
-      action: () => copyToClipboard(props.file.vault_path, 'Path'),
+      action: () => copyToClipboard(absolutePath.value, 'Path'),
     },
     { type: 'divider' },
     {
