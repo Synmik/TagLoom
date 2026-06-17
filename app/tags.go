@@ -164,11 +164,23 @@ func (a *App) DeleteTag(id int64) error {
 }
 
 // AddTagToFile associates a tag with a file.
+// Category tags (is_category=1) cannot be assigned to files.
 func (a *App) AddTagToFile(fileID, tagID int64) error {
 	if a.db == nil {
 		return fmt.Errorf("no vault open")
 	}
-	_, err := a.db.Conn().Exec(`
+
+	// Prevent assigning category tags to files
+	var isCategory int
+	err := a.db.Conn().QueryRow("SELECT is_category FROM tags WHERE id = ?", tagID).Scan(&isCategory)
+	if err != nil {
+		return fmt.Errorf("tag not found: %w", err)
+	}
+	if isCategory == 1 {
+		return fmt.Errorf("cannot assign category tag to a file")
+	}
+
+	_, err = a.db.Conn().Exec(`
 		INSERT OR IGNORE INTO file_tags (file_id, tag_id) VALUES (?, ?)
 	`, fileID, tagID)
 	return err

@@ -45,6 +45,15 @@
             @keyup.enter="addAlias"
           />
         </div>
+        <div class="form-group checkbox-group">
+          <label class="checkbox-label">
+            <input type="checkbox" v-model="form.isCategory" />
+            <span class="checkbox-text">
+              Is Category
+              <span class="checkbox-hint">Can only be a parent — not assignable to files</span>
+            </span>
+          </label>
+        </div>
         <div class="form-actions">
           <button class="save-btn" @click="saveTag">{{ isEditing ? 'Save' : 'Create' }}</button>
           <button v-if="isEditing" class="delete-btn" @click="deleteTag">Delete</button>
@@ -78,6 +87,7 @@ const form = ref({
   color: '',
   parentId: null as number | null,
   aliasList: [] as string[],
+  isCategory: false,
 })
 
 const newAlias = ref('')
@@ -97,9 +107,10 @@ watch(() => props.tag, async (tag) => {
       color: tag.color || '',
       parentId: tag.parent_id ?? null,
       aliasList: aliases || [],
+      isCategory: tag.is_category === 1,
     }
   } else {
-    form.value = { name: '', color: '', parentId: null, aliasList: [] }
+    form.value = { name: '', color: '', parentId: null, aliasList: [], isCategory: false }
   }
   newAlias.value = ''
 }, { immediate: true })
@@ -153,7 +164,7 @@ const saveTag = async () => {
         name: form.value.name.trim(),
         color: form.value.color,
         parent_id: form.value.parentId ?? undefined,
-        is_category: 0,
+        is_category: form.value.isCategory ? 1 : 0,
         sort_order: 0,
         aliases: aliasesStr,
       })
@@ -163,7 +174,7 @@ const saveTag = async () => {
         name: form.value.name.trim(),
         color: form.value.color,
         parent_id: form.value.parentId ?? undefined,
-        is_category: 0,
+        is_category: form.value.isCategory ? 1 : 0,
         sort_order: 0,
         aliases: aliasesStr,
       })
@@ -259,4 +270,17 @@ const confirmDelete = async () => {
   transition: all 0.15s;
 }
 .delete-btn:hover { background: rgba(239, 68, 68, 0.2); }
+.checkbox-group { margin-top: 2px; }
+.checkbox-label {
+  display: flex; align-items: flex-start; gap: 8px; cursor: pointer;
+  text-transform: none !important; font-size: 13px; color: #ccc;
+}
+.checkbox-label input[type="checkbox"] {
+  accent-color: #22c55e; margin-top: 2px; flex-shrink: 0;
+}
+.checkbox-text { display: flex; flex-direction: column; gap: 2px; }
+.checkbox-text > span { display: flex; flex-direction: column; }
+.checkbox-hint {
+  font-size: 10px; color: #666; font-weight: 400; text-transform: none; letter-spacing: 0;
+}
 </style>

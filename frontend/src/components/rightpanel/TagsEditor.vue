@@ -70,9 +70,11 @@ watch(() => showPicker.value, async (open) => {
 })
 
 const filteredTags = computed(() => {
+  // Exclude category tags — they can only be parents, not assigned to files
+  const allTags = tagsStore.tags.filter(t => t.is_category !== 1)
   const q = searchQuery.value.trim().toLowerCase()
-  if (!q) return tagsStore.tags
-  return tagsStore.tags.filter(t => t.name.toLowerCase().includes(q))
+  if (!q) return allTags
+  return allTags.filter(t => t.name.toLowerCase().includes(q))
 })
 
 const canCreate = computed(() => {

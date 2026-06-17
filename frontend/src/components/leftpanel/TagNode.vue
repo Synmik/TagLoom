@@ -12,7 +12,8 @@
       </span>
       <span v-else class="arrow spacer"></span>
       <span class="color-dot" :style="{ background: tag.color || '#666' }"></span>
-      <span class="tag-name">{{ tag.name }}</span>
+      <span class="tag-name" :class="{ 'category-tag': tag.is_category === 1 }">{{ tag.name }}</span>
+      <span v-if="tag.is_category === 1" class="category-badge">CAT</span>
       <span class="file-count">{{ displayCount }}</span>
     </div>
     <div v-if="hasChildren && isExpanded" class="tag-children">
@@ -96,6 +97,8 @@ const handleContextMenu = () => {
 .arrow.spacer { cursor: default; }
 .color-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .tag-name { flex: 1; color: #ccc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tag-name.category-tag { font-style: italic; color: #999; }
+.category-badge { font-size: 9px; color: #555; background: #1a1a1a; padding: 1px 5px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; flex-shrink: 0; }
 .file-count { font-size: 11px; color: #555; background: #1a1a1a; padding: 1px 6px; border-radius: 10px; }
 
 .tag-children { padding-left: 16px; }
