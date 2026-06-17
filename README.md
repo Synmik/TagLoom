@@ -8,11 +8,10 @@
 </p>
 
 <p align="center">
-<img align=center src="https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white">
-<img align=center src="https://img.shields.io/badge/MIT-green?style=for-the-badge">
-<img align=center src="https://img.shields.io/badge/Version-0.3.0-blue?style=for-the-badge
-">
-<img align=center src="https://img.shields.io/badge/size-18MB-green?style=for-the-badge"><br><br>
+<img align=center src="https://img.shields.io/badge/OS-Windows-blue?style=for-the-badge">
+<img align=center src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge">
+<img align=center src="https://img.shields.io/badge/Version-0.4.0-blue?style=for-the-badge">
+<img align=center src="https://img.shields.io/badge/size-18MB-green?style=for-the-badge"><br>
 </p>
 
 **TagLoom** is a desktop multimedia tagging and library management application for images, videos, and GIFs.
@@ -48,7 +47,6 @@ It indexes existing folders (vaults) without modifying any original files — al
 #### First steps
 
 1. **Create a Vault (+ icon)** - select any folder on disk. TagLoom creates `.tagloom/` folder inside it and starts scanning
-
     - You can select folders to exclude
     - You can select thumbnail image quality
 2. **Browse your files** - use the gallery (grid/list) to navigate your media
