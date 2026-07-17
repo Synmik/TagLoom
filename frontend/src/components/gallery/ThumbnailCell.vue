@@ -8,7 +8,7 @@
     @contextmenu.prevent="onContextMenu"
   >
     <div class="thumbnail-wrapper">
-      <img :src="thumbnailUrl" :alt="filename" class="thumbnail" loading="lazy" draggable="false" />
+      <img :src="thumbnailUrl" :alt="filename" class="thumbnail" draggable="false" />
       <span class="format-badge">{{ formatName }}</span>
       <Heart v-if="file.is_favorite === 1" :size="14" class="favorite-badge" fill="currentColor" />
     </div>
@@ -83,31 +83,34 @@ const confirmDeleteOriginal = async () => {
   }
 }
 
-const thumbnailUrlValue = computed(() => {
-  // Include vault path as cache-busting parameter so switching vaults
-  // forces the browser to fetch fresh thumbnails instead of serving
-  // stale cached images from the previous vault.
+// Stable thumbnail URL — no Date.now() so the browser can cache the
+// response and reuse it across sessions.  The vp= parameter (below)
+// invalidates the cache only when the vault changes.
+const thumbnailSrc = computed(() => {
   const vp = vaultPath.value
   const bust = vp ? `&vp=${encodeURIComponent(vp)}` : ''
-  return `/api/thumbnail/${props.file.id}?nocache=${Date.now()}${bust}`
+  return `/api/thumbnail/${props.file.id}${bust}`
 })
 
 onMounted(async () => {
-  // Use HTTP endpoint if available, fallback to base64
+  // Preload via a hidden Image so we know when the thumbnail is ready.
+  // The preload and the actual <img> use the exact same URL, so the
+  // browser serves the preloaded response from its HTTP cache instead
+  // of making a second request.
   const img = new Image()
   img.onload = () => {
-    thumbnailUrl.value = thumbnailUrlValue.value
+    thumbnailUrl.value = thumbnailSrc.value
     isLoading.value = false
   }
   img.onerror = async () => {
-    // Fallback to base64 data URL
+    // Fallback to base64 data URL when the HTTP endpoint fails
     const dataUrl = await filesStore.getThumbnail(props.file.id)
     if (dataUrl) {
       thumbnailUrl.value = dataUrl
     }
     isLoading.value = false
   }
-  img.src = thumbnailUrlValue.value
+  img.src = thumbnailSrc.value
 })
 
 const handleClick = async (e: MouseEvent) => {
