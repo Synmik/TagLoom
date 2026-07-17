@@ -2,17 +2,53 @@ package app
 
 import (
 	"fmt"
+	"strings"
 )
 
 // AddTagsToFiles adds the given tag IDs to all the given file IDs.
 // Uses a transaction so partial failures don't leave the DB inconsistent.
 // Duplicates are silently ignored (INSERT OR IGNORE).
+// Category tags (is_category=1) are rejected — same rule as AddTagToFile.
 func (a *App) AddTagsToFiles(fileIDs []int64, tagIDs []int64) error {
 	if a.db == nil {
 		return fmt.Errorf("no vault open")
 	}
 	if len(fileIDs) == 0 || len(tagIDs) == 0 {
 		return nil
+	}
+
+	// Prevent assigning category tags to files
+	placeholders := make([]string, len(tagIDs))
+	args := make([]any, len(tagIDs))
+	for i, id := range tagIDs {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+	rows, err := a.db.Conn().Query(
+		"SELECT id, is_category FROM tags WHERE id IN ("+strings.Join(placeholders, ",")+")",
+		args...,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to query tags: %w", err)
+	}
+	defer rows.Close()
+
+	categoryIDs := make(map[int64]struct{})
+	for rows.Next() {
+		var id int64
+		var isCat int
+		if err := rows.Scan(&id, &isCat); err != nil {
+			continue
+		}
+		if isCat == 1 {
+			categoryIDs[id] = struct{}{}
+		}
+	}
+
+	for _, tagID := range tagIDs {
+		if _, ok := categoryIDs[tagID]; ok {
+			return fmt.Errorf("cannot assign category tag (id %d) to files", tagID)
+		}
 	}
 
 	tx, err := a.db.Conn().Begin()

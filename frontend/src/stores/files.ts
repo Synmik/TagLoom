@@ -13,7 +13,7 @@ export const useFilesStore = defineStore('files', {
     folderBulkEditPath: '',
     totalCount: 0,
     page: 0,
-    limit: 200,
+    limit: 500,
     isLoading: false,
     // Cache of fileID → data URL for thumbnails
     thumbnailCache: new Map<number, string>(),

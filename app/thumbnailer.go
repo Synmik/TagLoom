@@ -237,6 +237,25 @@ func (a *App) GenerateThumbnailsPool() error {
 		processed   int
 	)
 
+	// finishFile appends a result and updates progress (thread-safe).
+	finishFile := func(fileID int64, ok bool, thumbPath string) {
+		resultsMu.Lock()
+		results = append(results, thumbResult{fileID: fileID, thumbPath: thumbPath, ok: ok})
+		resultsMu.Unlock()
+
+		processedMu.Lock()
+		processed++
+		cur := processed
+		processedMu.Unlock()
+
+		if cur%10 == 0 || cur == total {
+			wailsruntime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
+				"current": cur,
+				"total":   total,
+			})
+		}
+	}
+
 	// Worker function — does image I/O only, returns results for batched DB update
 	worker := func(workerID int, jobs <-chan pendingFile, wg *sync.WaitGroup) {
 		defer wg.Done()
@@ -267,21 +286,7 @@ func (a *App) GenerateThumbnailsPool() error {
 
 			// Skip if already generated (another worker may have done it)
 			if _, err := os.Stat(thumbPath); err == nil {
-				resultsMu.Lock()
-				results = append(results, thumbResult{fileID: f.id, thumbPath: thumbPath, ok: true})
-				resultsMu.Unlock()
-
-				processedMu.Lock()
-				processed++
-				cur := processed
-				processedMu.Unlock()
-
-				if cur%10 == 0 || cur == total {
-					wailsruntime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
-						"current": cur,
-						"total":   total,
-					})
-				}
+				finishFile(f.id, true, thumbPath)
 				continue
 			}
 
@@ -290,41 +295,13 @@ func (a *App) GenerateThumbnailsPool() error {
 			switch category {
 			case "image", "animated":
 				if !ffmpegAvailable {
-					resultsMu.Lock()
-					results = append(results, thumbResult{fileID: f.id, ok: false})
-					resultsMu.Unlock()
-
-					processedMu.Lock()
-					processed++
-					cur := processed
-					processedMu.Unlock()
-
-					if cur%10 == 0 || cur == total {
-						wailsruntime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
-							"current": cur,
-							"total":   total,
-						})
-					}
+					finishFile(f.id, false, "")
 					continue
 				}
 				// Encode via FFmpeg (or Go-side SVG rasterization)
 				thumbDir := filepath.Dir(thumbPath)
 				if mkErr := os.MkdirAll(thumbDir, 0755); mkErr != nil {
-					resultsMu.Lock()
-					results = append(results, thumbResult{fileID: f.id, ok: false})
-					resultsMu.Unlock()
-
-					processedMu.Lock()
-					processed++
-					cur := processed
-					processedMu.Unlock()
-
-					if cur%10 == 0 || cur == total {
-						wailsruntime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
-							"current": cur,
-							"total":   total,
-						})
-					}
+					finishFile(f.id, false, "")
 					continue
 				}
 				ext := strings.ToLower(filepath.Ext(absPath))
@@ -336,136 +313,36 @@ func (a *App) GenerateThumbnailsPool() error {
 				}
 				if encErr != nil {
 					os.Remove(thumbPath)
-					resultsMu.Lock()
-					results = append(results, thumbResult{fileID: f.id, ok: false})
-					resultsMu.Unlock()
-
-					processedMu.Lock()
-					processed++
-					cur := processed
-					processedMu.Unlock()
-
-					if cur%10 == 0 || cur == total {
-						wailsruntime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
-							"current": cur,
-							"total":   total,
-						})
-					}
+					finishFile(f.id, false, "")
 					continue
 				}
-				// Image thumbnail generated successfully by FFmpeg
-				resultsMu.Lock()
-				results = append(results, thumbResult{fileID: f.id, thumbPath: thumbPath, ok: true})
-				resultsMu.Unlock()
-
-				processedMu.Lock()
-				processed++
-				cur := processed
-				processedMu.Unlock()
-
-				if cur%10 == 0 || cur == total {
-					wailsruntime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
-						"current": cur,
-						"total":   total,
-					})
-				}
+				// Image thumbnail generated successfully
+				finishFile(f.id, true, thumbPath)
 				continue
 			case "video":
 				if !ffmpegAvailable {
-					// FFmpeg not available — skip
-					resultsMu.Lock()
-					results = append(results, thumbResult{fileID: f.id, ok: false})
-					resultsMu.Unlock()
-
-					processedMu.Lock()
-					processed++
-					cur := processed
-					processedMu.Unlock()
-
-					if cur%10 == 0 || cur == total {
-						wailsruntime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
-							"current": cur,
-							"total":   total,
-						})
-					}
+					finishFile(f.id, false, "")
 					continue
 				}
 				// Generate via FFmpeg
 				thumbDir := filepath.Dir(thumbPath)
 				if mkErr := os.MkdirAll(thumbDir, 0755); mkErr != nil {
-					resultsMu.Lock()
-					results = append(results, thumbResult{fileID: f.id, ok: false})
-					resultsMu.Unlock()
-
-					processedMu.Lock()
-					processed++
-					cur := processed
-					processedMu.Unlock()
-
-					if cur%10 == 0 || cur == total {
-						wailsruntime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
-							"current": cur,
-							"total":   total,
-						})
-					}
+					finishFile(f.id, false, "")
 					continue
 				}
 				if ffErr := utils.ExtractVideoFrame(absPath, thumbPath, size, utils.DefaultVideoThumbTimestamp); ffErr != nil {
 					os.Remove(thumbPath)
-					resultsMu.Lock()
-					results = append(results, thumbResult{fileID: f.id, ok: false})
-					resultsMu.Unlock()
-
-					processedMu.Lock()
-					processed++
-					cur := processed
-					processedMu.Unlock()
-
-					if cur%10 == 0 || cur == total {
-						wailsruntime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
-							"current": cur,
-							"total":   total,
-						})
-					}
+					finishFile(f.id, false, "")
 					continue
 				}
-				// Video thumbnail generated successfully by FFmpeg — skip image encode path
-				resultsMu.Lock()
-				results = append(results, thumbResult{fileID: f.id, thumbPath: thumbPath, ok: true})
-				resultsMu.Unlock()
-
-				processedMu.Lock()
-				processed++
-				cur := processed
-				processedMu.Unlock()
-
-				if cur%10 == 0 || cur == total {
-					wailsruntime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
-						"current": cur,
-						"total":   total,
-					})
-				}
+				// Video thumbnail generated successfully
+				finishFile(f.id, true, thumbPath)
 				continue
 			default:
 				// Unsupported
-				resultsMu.Lock()
-				results = append(results, thumbResult{fileID: f.id, ok: false})
-				resultsMu.Unlock()
-
-				processedMu.Lock()
-				processed++
-				cur := processed
-				processedMu.Unlock()
-
-				if cur%10 == 0 || cur == total {
-					wailsruntime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
-						"current": cur,
-						"total":   total,
-					})
-				}
+				finishFile(f.id, false, "")
 				continue
 			}
-
 		}
 	}
 
@@ -526,23 +403,7 @@ func (a *App) GenerateThumbnailsPool() error {
 	return nil
 }
 
-// incrementCounters updates progress counters and emits events (thread-safe).
-func incrementCounters(mu *sync.Mutex, generated, current *int, total int, ctx context.Context) {
-	mu.Lock()
-	defer mu.Unlock()
 
-	*generated++
-	*current++
-
-	// Emit progress every 10 files
-	if *current%10 == 0 || *current == total {
-		wailsruntime.EventsEmit(ctx, "thumb:progress", map[string]int{
-			"current":   *current,
-			"total":     total,
-			"generated": *generated,
-		})
-	}
-}
 
 // CancelThumbnailGeneration cancels an ongoing thumbnail generation pool.
 func (a *App) CancelThumbnailGeneration() {

@@ -114,7 +114,6 @@ func (a *App) GetFiles(filter db.FileFilter, sortOpts db.SortOpts, page, limit i
 	// Build WHERE clause dynamically
 	var conditions []string
 	var args []any
-	argIdx := 1
 
 	if filter.FolderPath != "" {
 		conditions = append(conditions, fmt.Sprintf("f.folder_path = ?"))
@@ -125,7 +124,6 @@ func (a *App) GetFiles(filter db.FileFilter, sortOpts db.SortOpts, page, limit i
 			folderFilter = a.toRelativePath(folderFilter)
 		}
 		args = append(args, folderFilter)
-		argIdx++
 	}
 	if len(filter.TagGroups) > 0 {
 		// Each group = OR (tag + descendants); between groups = AND
@@ -159,7 +157,6 @@ func (a *App) GetFiles(filter db.FileFilter, sortOpts db.SortOpts, page, limit i
 	if filter.MinRating > 0 {
 		conditions = append(conditions, "f.rating >= ?")
 		args = append(args, filter.MinRating)
-		argIdx++
 	}
 	if filter.FavoritesOnly {
 		conditions = append(conditions, "f.is_favorite = 1")

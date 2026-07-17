@@ -223,6 +223,12 @@ const createTag = async () => {
   })
   const newTag = tagsStore.tags.find(t => t.name.toLowerCase() === name.toLowerCase())
   if (newTag) {
+    // Backend may return an existing tag with the same name — reject if it's a category
+    if (newTag.is_category === 1) {
+      toastError(`"${newTag.name}" is a category and cannot be assigned to files`)
+      searchQuery.value = ''
+      return
+    }
     pickTag(newTag)
   }
   searchQuery.value = ''
