@@ -32,6 +32,7 @@ export interface File {
   is_favorite: number
   folder_path: string
   filename: string
+  file_size: number
   date_created: string
   date_modified: string
   indexed_at: string

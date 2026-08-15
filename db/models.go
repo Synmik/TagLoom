@@ -2,7 +2,8 @@ package db
 
 // File represents a media file in the vault.
 // Stores user-editable data, structural references, and lightweight sort fields.
-// Heavy metadata (size, resolution, duration, etc.) is fetched on-demand from the filesystem.
+// Heavy metadata (resolution, duration, etc.) is fetched on-demand from the
+// filesystem; FileSize is stored and populated at scan/import time.
 type File struct {
 	ID            int64   `json:"id"`
 	VaultPath     string  `json:"vault_path"`
@@ -14,6 +15,7 @@ type File struct {
 	IsFavorite    int     `json:"is_favorite"`
 	FolderPath    string  `json:"folder_path"`
 	Filename      string  `json:"filename"`
+	FileSize      int64   `json:"file_size"`
 	DateCreated   string  `json:"date_created"`
 	DateModified  string  `json:"date_modified"`
 	IndexedAt     string  `json:"indexed_at"`

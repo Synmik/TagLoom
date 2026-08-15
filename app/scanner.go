@@ -82,11 +82,12 @@ func (a *App) ScanVault() (int, error) {
 	}
 
 	stmt, err := tx.Prepare(`
-		INSERT INTO files (vault_path, folder_path, filename, date_created, date_modified, indexed_at)
-		VALUES (?, ?, ?, ?, ?, ?)
+		INSERT INTO files (vault_path, folder_path, filename, file_size, date_created, date_modified, indexed_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(vault_path) DO UPDATE SET
 			folder_path = excluded.folder_path,
 			filename = excluded.filename,
+			file_size = excluded.file_size,
 			date_created = excluded.date_created,
 			date_modified = excluded.date_modified,
 			indexed_at = excluded.indexed_at
@@ -110,6 +111,7 @@ func (a *App) ScanVault() (int, error) {
 			v.toRelativePath(e.path),
 			v.toRelativePath(filepath.Dir(e.path)),
 			filepath.Base(e.path),
+			e.info.Size(),
 			createdAtStr,
 			ft.ModifiedAt.Format(time.RFC3339),
 			now,
@@ -271,8 +273,8 @@ func (a *App) RescanVault() (int, error) {
 	// Insert new files — use info collected during walk (no os.Stat needed)
 	if len(added) > 0 {
 		stmt, err := tx.Prepare(`
-			INSERT INTO files (vault_path, folder_path, filename, date_created, date_modified, indexed_at)
-			VALUES (?, ?, ?, ?, ?, ?)
+			INSERT INTO files (vault_path, folder_path, filename, file_size, date_created, date_modified, indexed_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
 		`)
 		if err != nil {
 			tx.Rollback()
@@ -290,6 +292,7 @@ func (a *App) RescanVault() (int, error) {
 				v.toRelativePath(e.path),
 				v.toRelativePath(filepath.Dir(e.path)),
 				filepath.Base(e.path),
+				e.info.Size(),
 				createdAtStr,
 				ft.ModifiedAt.Format(time.RFC3339),
 				now,
@@ -742,15 +745,17 @@ func (a *App) indexFile(filePath string) error {
 	}
 
 	_, err := v.db.Conn().Exec(`
-		INSERT INTO files (vault_path, folder_path, filename, date_created, date_modified, indexed_at)
-		VALUES (?, ?, ?, ?, ?, ?)
+		INSERT INTO files (vault_path, folder_path, filename, file_size, date_created, date_modified, indexed_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(vault_path) DO UPDATE SET
 			folder_path = excluded.folder_path,
 			filename = excluded.filename,
+			file_size = excluded.file_size,
 			date_created = excluded.date_created,
 			date_modified = excluded.date_modified,
 			indexed_at = excluded.indexed_at
 	`, v.toRelativePath(filePath), v.toRelativePath(folderPath), fileName,
+		info.Size(),
 		createdAtStr,
 		ft.ModifiedAt.Format(time.RFC3339),
 		now)
@@ -870,9 +875,10 @@ func (a *App) ImportFile(sourcePath string, move bool, targetFolder string) *Imp
 	}
 
 	_, err = v.db.Conn().Exec(`
-		INSERT INTO files (vault_path, folder_path, filename, date_created, date_modified, indexed_at)
-		VALUES (?, ?, ?, ?, ?, ?)
+		INSERT INTO files (vault_path, folder_path, filename, file_size, date_created, date_modified, indexed_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
 	`, relPath, v.toRelativePath(folderPath), fileName,
+		info.Size(),
 		createdAtStr,
 		ft.ModifiedAt.Format(time.RFC3339),
 		now)

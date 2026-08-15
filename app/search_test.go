@@ -1,8 +1,12 @@
 package app
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"TagLoom/db"
 )
 
 // TestSearchFilesEscaping verifies that special characters in the search
@@ -149,6 +153,66 @@ func TestSearchFilesFTS(t *testing.T) {
 	}
 	if len(files) != 0 {
 		t.Errorf("SearchFiles(alice's) = %d files, want 0", len(files))
+	}
+}
+
+// TestScanVaultStoresFileSize verifies ScanVault persists the file size
+// (bytes) at index time so GetFiles can sort by file_size without
+// filesystem stats.
+func TestScanVaultStoresFileSize(t *testing.T) {
+	a := newTestApp(t)
+
+	content := strings.Repeat("x", 1234)
+	if err := os.WriteFile(filepath.Join(a.vaultPath, "big.jpg"), []byte(content), 0644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	if _, err := a.ScanVault(); err != nil {
+		t.Fatalf("ScanVault: %v", err)
+	}
+
+	var size int64
+	if err := a.db.Conn().QueryRow(
+		"SELECT file_size FROM files WHERE filename = 'big.jpg'").Scan(&size); err != nil {
+		t.Fatalf("query file_size: %v", err)
+	}
+	if size != int64(len(content)) {
+		t.Errorf("file_size = %d, want %d", size, len(content))
+	}
+}
+
+// TestGetFilesSortByFileSize verifies file_size sorting is served from the
+// DB (previously it stat-ed every matching file on every page request).
+func TestGetFilesSortByFileSize(t *testing.T) {
+	a := newTestApp(t)
+
+	writeTestFile(t, a.vaultPath, "small.jpg") // 4 bytes ("test")
+	if err := os.WriteFile(filepath.Join(a.vaultPath, "big.jpg"), []byte(strings.Repeat("y", 100)), 0644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	if _, err := a.ScanVault(); err != nil {
+		t.Fatalf("ScanVault: %v", err)
+	}
+
+	page, err := a.GetFiles(db.FileFilter{}, db.SortOpts{Field: "file_size", Order: "asc"}, 0, 10)
+	if err != nil {
+		t.Fatalf("GetFiles: %v", err)
+	}
+	if len(page.Files) != 2 {
+		t.Fatalf("expected 2 files, got %d", len(page.Files))
+	}
+	if page.Files[0].Filename != "small.jpg" || page.Files[1].Filename != "big.jpg" {
+		t.Errorf("asc order: %s then %s, want small.jpg then big.jpg",
+			page.Files[0].Filename, page.Files[1].Filename)
+	}
+
+	page, err = a.GetFiles(db.FileFilter{}, db.SortOpts{Field: "file_size", Order: "desc"}, 0, 10)
+	if err != nil {
+		t.Fatalf("GetFiles desc: %v", err)
+	}
+	if page.Files[0].Filename != "big.jpg" {
+		t.Errorf("desc order: first file is %s, want big.jpg", page.Files[0].Filename)
 	}
 }
 

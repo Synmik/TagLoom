@@ -1,6 +1,8 @@
 -- TagLoom Database Schema
 -- Stores user-editable data, structural references, and lightweight sort fields.
--- Heavy metadata (size, resolution, duration, etc.) is fetched on-demand from the filesystem.
+-- Heavy metadata (resolution, duration, etc.) is fetched on-demand from the
+-- filesystem; file_size is stored (populated at scan/import time) so sorting
+-- by size does not require stat-ing the whole vault.
 
 CREATE TABLE IF NOT EXISTS files (
     id INTEGER PRIMARY KEY,
@@ -13,6 +15,7 @@ CREATE TABLE IF NOT EXISTS files (
     is_favorite INTEGER DEFAULT 0,
     folder_path TEXT NOT NULL,
     filename TEXT NOT NULL DEFAULT '',
+    file_size INTEGER NOT NULL DEFAULT 0,  -- Bytes; populated at scan/import time
     date_created TEXT NOT NULL DEFAULT '',
     date_modified TEXT NOT NULL DEFAULT '',
     indexed_at TEXT NOT NULL

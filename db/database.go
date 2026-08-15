@@ -70,6 +70,10 @@ func NewDatabase(dbPath string) (*Database, error) {
 		conn.Close()
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
+	if err := db.MigrateAddFileSize(); err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("failed to run migrations: %w", err)
+	}
 
 	return db, nil
 }
@@ -154,6 +158,23 @@ func (d *Database) MigrateAddDateCreated() error {
 	_, err = d.conn.Exec("ALTER TABLE files ADD COLUMN date_created TEXT NOT NULL DEFAULT ''")
 	if err != nil {
 		return fmt.Errorf("failed to add date_created column: %w", err)
+	}
+	return nil
+}
+
+// MigrateAddFileSize adds the file_size column for existing databases.
+// New databases get this from schema.sql.
+// IMPORTANT: does NOT backfill — file_size comes from the real filesystem at
+// scan time; rows without a size (0) get it populated on the next rescan.
+func (d *Database) MigrateAddFileSize() error {
+	var exists int
+	err := d.conn.QueryRow("SELECT COUNT(*) FROM pragma_table_info('files') WHERE name='file_size'").Scan(&exists)
+	if err != nil || exists > 0 {
+		return nil // column already exists or can't check
+	}
+	_, err = d.conn.Exec("ALTER TABLE files ADD COLUMN file_size INTEGER NOT NULL DEFAULT 0")
+	if err != nil {
+		return fmt.Errorf("failed to add file_size column: %w", err)
 	}
 	return nil
 }
