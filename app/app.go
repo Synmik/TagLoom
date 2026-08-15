@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"time"
 
 	"TagLoom/config"
@@ -19,12 +20,21 @@ const maxRecentVaults = 10
 
 // App is the main Wails application struct.
 // It coordinates vault, scanner, thumbnailer, search, tags, and metadata operations.
+//
+// Concurrency: Wails invokes binding methods from arbitrary goroutines, and the
+// HTTP middleware serves thumbnails concurrently. mu guards all mutable state
+// (vault state + app settings). Readers take a snapshot via vault() under the
+// read lock and use it for the whole call; writers (OpenVault, CreateVault,
+// CloseVault, SetVaultConfig) do slow I/O outside the lock and swap state
+// under the write lock. Never call a locking method while holding the lock.
 type App struct {
-	ctx      context.Context
-	db       *db.Database
+	ctx context.Context
+
+	mu        sync.RWMutex
+	db        *db.Database
 	vaultPath string
-	vaultCfg *config.VaultConfig
-	appCfg   *config.AppSettings
+	vaultCfg  *config.VaultConfig
+	appCfg    *config.AppSettings
 }
 
 // NewApp creates a new App instance.
@@ -32,22 +42,67 @@ func NewApp() *App {
 	return &App{}
 }
 
+// vault is an immutable snapshot of the vault state, taken under the read
+// lock. Methods that need vault state take one snapshot at entry and use it
+// throughout, so a concurrent vault switch can never mix two vaults mid-call.
+type vault struct {
+	db   *db.Database
+	path string
+	cfg  *config.VaultConfig
+}
+
+// vault returns the current vault state as a consistent snapshot.
+func (a *App) vault() vault {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return vault{db: a.db, path: a.vaultPath, cfg: a.vaultCfg}
+}
+
+// setVault atomically installs a new vault as the current one.
+// Callers must have completed all slow I/O (open DB, load config) beforehand.
+func (a *App) setVault(d *db.Database, path string, cfg *config.VaultConfig) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.db = d
+	a.vaultPath = path
+	a.vaultCfg = cfg
+	if a.appCfg != nil {
+		a.appCfg.LastVaultPath = path
+	}
+}
+
+// closeCurrentVault closes the current vault (if any) and clears vault state.
+// Used when switching vaults; does NOT run the WAL checkpoint / thumbnail
+// cleanup that user-initiated CloseVault performs.
+func (a *App) closeCurrentVault() error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.db == nil {
+		return nil
+	}
+	err := a.db.Close()
+	a.db = nil
+	a.vaultPath = ""
+	a.vaultCfg = nil
+	return err
+}
+
 // resolvePath converts a relative path (stored in DB) to an absolute path.
 // If the path is already absolute (legacy data), returns it as-is.
-func (a *App) resolvePath(relPath string) string {
+func (v vault) resolvePath(relPath string) string {
 	if filepath.IsAbs(relPath) {
 		return relPath
 	}
-	return filepath.Join(a.vaultPath, relPath)
+	return filepath.Join(v.path, relPath)
 }
 
 // toRelativePath converts an absolute path to a relative path from the vault root.
 // If the path is already relative, returns it as-is.
-func (a *App) toRelativePath(absPath string) string {
+func (v vault) toRelativePath(absPath string) string {
 	if !filepath.IsAbs(absPath) {
 		return absPath
 	}
-	rel, err := filepath.Rel(a.vaultPath, absPath)
+	rel, err := filepath.Rel(v.path, absPath)
 	if err != nil {
 		return absPath
 	}
@@ -57,10 +112,10 @@ func (a *App) toRelativePath(absPath string) string {
 // generateThumbnailAbsolutePath returns the absolute path for a thumbnail
 // given a relative file path. The hash is computed from the relative path
 // so thumbnails remain valid when the vault is moved.
-func (a *App) generateThumbnailAbsolutePath(relFilePath string) string {
+func (v vault) generateThumbnailAbsolutePath(relFilePath string) string {
 	hash := utils.HashPath(relFilePath)
 	subdir := utils.ThumbnailSubdir(hash)
-	thumbDir := filepath.Join(a.vaultPath, ".tagloom", "thumbnails", subdir)
+	thumbDir := filepath.Join(v.path, ".tagloom", "thumbnails", subdir)
 	os.MkdirAll(thumbDir, 0755)
 	return filepath.Join(thumbDir, hash+".webp")
 }
@@ -85,12 +140,17 @@ func (a *App) Startup(ctx context.Context) {
 		// Non-fatal: proceed with empty settings
 		settings = &config.AppSettings{}
 	}
+
+	a.mu.Lock()
 	a.appCfg = settings
+	a.mu.Unlock()
 }
 
 // GetLastVaultPath returns the path of the last opened vault (from global app settings).
 // The frontend calls this on mount to decide whether to auto-open.
 func (a *App) GetLastVaultPath() string {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
 	if a.appCfg == nil {
 		return ""
 	}
@@ -99,27 +159,32 @@ func (a *App) GetLastVaultPath() string {
 
 // GetCurrentVault returns information about the currently open vault.
 func (a *App) GetCurrentVault() *db.VaultInfo {
-	if a.db == nil || a.vaultPath == "" {
+	v := a.vault()
+	if v.db == nil || v.path == "" {
 		return nil
 	}
 
 	var fileCount int
-	_ = a.db.Conn().QueryRow("SELECT COUNT(*) FROM files").Scan(&fileCount)
+	_ = v.db.Conn().QueryRow("SELECT COUNT(*) FROM files").Scan(&fileCount)
+
+	name, createdAt := "", ""
+	if v.cfg != nil {
+		name, createdAt = v.cfg.Name, v.cfg.CreatedAt
+	}
 
 	return &db.VaultInfo{
-		Path:      a.vaultPath,
-		Name:      a.vaultCfg.Name,
-		CreatedAt: a.vaultCfg.CreatedAt,
+		Path:      v.path,
+		Name:      name,
+		CreatedAt: createdAt,
 		FileCount: fileCount,
 	}
 }
 
 // GetRecentVaults returns the list of recently opened vaults.
 func (a *App) GetRecentVaults() []config.RecentVault {
-	if a.appCfg == nil {
-		return nil
-	}
-	if a.appCfg.RecentVaults == nil {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	if a.appCfg == nil || a.appCfg.RecentVaults == nil {
 		return []config.RecentVault{}
 	}
 	return a.appCfg.RecentVaults
@@ -128,7 +193,9 @@ func (a *App) GetRecentVaults() []config.RecentVault {
 // addToRecentVaults adds a vault path to the recent vaults list.
 // Moves existing entries to the back, keeps maxRecentVaults entries.
 func (a *App) addToRecentVaults(path string, name string) {
+	a.mu.Lock()
 	if a.appCfg == nil {
+		a.mu.Unlock()
 		return
 	}
 
@@ -147,6 +214,7 @@ func (a *App) addToRecentVaults(path string, name string) {
 		// But also clean up from existing entries
 		a.appCfg.RecentVaults = filtered
 		_ = config.SaveAppSettings(a.appCfg)
+		a.mu.Unlock()
 		return
 	}
 
@@ -165,11 +233,14 @@ func (a *App) addToRecentVaults(path string, name string) {
 
 	a.appCfg.RecentVaults = result
 	_ = config.SaveAppSettings(a.appCfg)
+	a.mu.Unlock()
 }
 
 // RemoveRecentVault removes a vault path from the recent vaults list.
 func (a *App) RemoveRecentVault(path string) error {
+	a.mu.Lock()
 	if a.appCfg == nil {
+		a.mu.Unlock()
 		return fmt.Errorf("app settings not loaded")
 	}
 
@@ -186,7 +257,9 @@ func (a *App) RemoveRecentVault(path string) error {
 	}
 
 	a.appCfg.RecentVaults = filtered
-	if err := config.SaveAppSettings(a.appCfg); err != nil {
+	err := config.SaveAppSettings(a.appCfg)
+	a.mu.Unlock()
+	if err != nil {
 		return fmt.Errorf("failed to save settings: %w", err)
 	}
 	return nil

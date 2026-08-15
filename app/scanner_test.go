@@ -200,25 +200,25 @@ func TestIsExcluded(t *testing.T) {
 }
 
 func TestResolveAndRelativePath(t *testing.T) {
-	a := &App{vaultPath: t.TempDir()}
+	v := vault{path: t.TempDir()}
 
 	rel := filepath.Join("photos", "vacation", "beach.jpg")
-	sub := filepath.Join(a.vaultPath, "photos", "vacation", "beach.jpg")
+	sub := filepath.Join(v.path, "photos", "vacation", "beach.jpg")
 
-	if got := a.toRelativePath(sub); got != rel {
+	if got := v.toRelativePath(sub); got != rel {
 		t.Errorf("toRelativePath = %q, want %q", got, rel)
 	}
-	if got := a.resolvePath(rel); got != sub {
+	if got := v.resolvePath(rel); got != sub {
 		t.Errorf("resolvePath = %q, want %q", got, sub)
 	}
 
 	// Relative input passes through toRelativePath unchanged
-	if got := a.toRelativePath(rel); got != rel {
+	if got := v.toRelativePath(rel); got != rel {
 		t.Errorf("toRelativePath(relative) = %q, want %q", got, rel)
 	}
 	// Absolute input outside vault passes through resolvePath unchanged (legacy)
 	other := filepath.Join(t.TempDir(), "x.jpg")
-	if got := a.resolvePath(other); got != other {
+	if got := v.resolvePath(other); got != other {
 		t.Errorf("resolvePath(absolute) = %q, want %q", got, other)
 	}
 }

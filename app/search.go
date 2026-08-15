@@ -14,7 +14,8 @@ import (
 
 // SearchFiles performs a full-text search across file names, user-set names, notes, and tags.
 func (a *App) SearchFiles(query string, limit int) ([]db.File, error) {
-	if a.db == nil {
+	v := a.vault()
+	if v.db == nil {
 		return nil, fmt.Errorf("no vault open")
 	}
 
@@ -71,7 +72,7 @@ func (a *App) SearchFiles(query string, limit int) ([]db.File, error) {
 			LIMIT ?
 		`, ftsQuery, "%"+query+"%", tagClause)
 
-		rows, err := a.db.Conn().Query(querySQL, limit)
+		rows, err := v.db.Conn().Query(querySQL, limit)
 		if err != nil {
 			return nil, err
 		}
@@ -90,7 +91,7 @@ func (a *App) SearchFiles(query string, limit int) ([]db.File, error) {
 		LIMIT ?
 	`, ftsQuery, "%"+query+"%")
 
-	rows, err := a.db.Conn().Query(querySQL, limit)
+	rows, err := v.db.Conn().Query(querySQL, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +101,8 @@ func (a *App) SearchFiles(query string, limit int) ([]db.File, error) {
 
 // GetFiles returns a paginated list of files with optional filters and sorting.
 func (a *App) GetFiles(filter db.FileFilter, sortOpts db.SortOpts, page, limit int) (*db.FilePage, error) {
-	if a.db == nil {
+	v := a.vault()
+	if v.db == nil {
 		return nil, fmt.Errorf("no vault open")
 	}
 
@@ -121,7 +123,7 @@ func (a *App) GetFiles(filter db.FileFilter, sortOpts db.SortOpts, page, limit i
 		// Root folder (vault path) → ".", subfolder → relative path.
 		folderFilter := filter.FolderPath
 		if filepath.IsAbs(folderFilter) {
-			folderFilter = a.toRelativePath(folderFilter)
+			folderFilter = v.toRelativePath(folderFilter)
 		}
 		args = append(args, folderFilter)
 	}
@@ -201,7 +203,7 @@ func (a *App) GetFiles(filter db.FileFilter, sortOpts db.SortOpts, page, limit i
 	var totalCount int
 	countArgs := make([]any, len(args))
 	copy(countArgs, args)
-	row := a.db.Conn().QueryRow(countQuery, countArgs...)
+	row := v.db.Conn().QueryRow(countQuery, countArgs...)
 	_ = row.Scan(&totalCount)
 
 	// Filesystem-based sort: fetch all matching IDs+paths, stat files, sort in-memory, then paginate
@@ -212,7 +214,7 @@ func (a *App) GetFiles(filter db.FileFilter, sortOpts db.SortOpts, page, limit i
 		}
 
 		// Fetch all matching file IDs and paths
-		allRows, err := a.db.Conn().Query(fmt.Sprintf("SELECT f.id, f.vault_path FROM files f %s", whereClause), countArgs...)
+		allRows, err := v.db.Conn().Query(fmt.Sprintf("SELECT f.id, f.vault_path FROM files f %s", whereClause), countArgs...)
 		if err != nil {
 			return nil, fmt.Errorf("failed to query files for FS sort: %w", err)
 		}
@@ -235,7 +237,7 @@ func (a *App) GetFiles(filter db.FileFilter, sortOpts db.SortOpts, page, limit i
 		}
 		var stats []idPathStat
 		for _, ip := range allFiles {
-			absPath := a.resolvePath(ip.path)
+			absPath := v.resolvePath(ip.path)
 			info, err := os.Stat(absPath)
 			if err != nil {
 				continue // skip deleted files
@@ -285,7 +287,7 @@ func (a *App) GetFiles(filter db.FileFilter, sortOpts db.SortOpts, page, limit i
 			       f.rating, f.is_favorite, f.folder_path, f.filename, f.date_created, f.date_modified, f.indexed_at
 			FROM files f WHERE f.id IN (%s)
 		`, strings.Join(idPlaceholders, ","))
-		rows, err := a.db.Conn().Query(querySQL, idArgs...)
+		rows, err := v.db.Conn().Query(querySQL, idArgs...)
 		if err != nil {
 			return nil, fmt.Errorf("failed to query files after FS sort: %w", err)
 		}
@@ -295,7 +297,7 @@ func (a *App) GetFiles(filter db.FileFilter, sortOpts db.SortOpts, page, limit i
 		}
 
 		// Attach tags to each file
-		attachTagsForFiles(a.db, files)
+		attachTagsForFiles(v.db, files)
 
 		// Re-order results to match the sorted ID sequence
 		fileMap := make(map[int64]db.File, len(files))
@@ -327,7 +329,7 @@ func (a *App) GetFiles(filter db.FileFilter, sortOpts db.SortOpts, page, limit i
 	`, whereClause, sortColumn, sortOrder)
 
 	queryArgs := append(args, limit, page*limit)
-	rows, err := a.db.Conn().Query(querySQL, queryArgs...)
+	rows, err := v.db.Conn().Query(querySQL, queryArgs...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query files: %w", err)
 	}
@@ -338,7 +340,7 @@ func (a *App) GetFiles(filter db.FileFilter, sortOpts db.SortOpts, page, limit i
 	}
 
 	// Batch-fetch tags for all files in this page
-	attachTagsForFiles(a.db, files)
+	attachTagsForFiles(v.db, files)
 
 	return &db.FilePage{
 		Files:      files,
@@ -423,25 +425,27 @@ func getTagsForFiles(database *db.Database, fileIDs []int64) (map[int64][]db.Tag
 // GetOriginalFilePath returns the absolute path of the original file on disk.
 // The vault_path in DB is relative; this resolves it to an absolute path.
 func (a *App) GetOriginalFilePath(id int64) (string, error) {
-	if a.db == nil {
+	v := a.vault()
+	if v.db == nil {
 		return "", fmt.Errorf("no vault open")
 	}
 
 	var relPath string
-	err := a.db.Conn().QueryRow("SELECT vault_path FROM files WHERE id = ?", id).Scan(&relPath)
+	err := v.db.Conn().QueryRow("SELECT vault_path FROM files WHERE id = ?", id).Scan(&relPath)
 	if err != nil {
 		return "", fmt.Errorf("file not found: %w", err)
 	}
-	return a.resolvePath(relPath), nil
+	return v.resolvePath(relPath), nil
 }
 
 // GetFileByID returns a single file by its ID.
 func (a *App) GetFileByID(id int64) (*db.File, error) {
-	if a.db == nil {
+	v := a.vault()
+	if v.db == nil {
 		return nil, fmt.Errorf("no vault open")
 	}
 
-	row := a.db.Conn().QueryRow(`
+	row := v.db.Conn().QueryRow(`
 		SELECT id, vault_path, thumbnail_path, name, notes, link,
 		       rating, is_favorite, folder_path, filename, date_created, date_modified, indexed_at
 		FROM files WHERE id = ?
@@ -458,11 +462,12 @@ func (a *App) GetFileByID(id int64) (*db.File, error) {
 
 // UpdateFile updates user-editable fields of a file.
 func (a *App) UpdateFile(update *db.FileUpdate) error {
-	if a.db == nil {
+	v := a.vault()
+	if v.db == nil {
 		return fmt.Errorf("no vault open")
 	}
 
-	_, err := a.db.Conn().Exec(`
+	_, err := v.db.Conn().Exec(`
 		UPDATE files SET
 			name = COALESCE(?, name),
 			notes = COALESCE(?, notes),

@@ -10,7 +10,8 @@ import (
 // Duplicates are silently ignored (INSERT OR IGNORE).
 // Category tags (is_category=1) are rejected — same rule as AddTagToFile.
 func (a *App) AddTagsToFiles(fileIDs []int64, tagIDs []int64) error {
-	if a.db == nil {
+	v := a.vault()
+	if v.db == nil {
 		return fmt.Errorf("no vault open")
 	}
 	if len(fileIDs) == 0 || len(tagIDs) == 0 {
@@ -24,7 +25,7 @@ func (a *App) AddTagsToFiles(fileIDs []int64, tagIDs []int64) error {
 		placeholders[i] = "?"
 		args[i] = id
 	}
-	rows, err := a.db.Conn().Query(
+	rows, err := v.db.Conn().Query(
 		"SELECT id, is_category FROM tags WHERE id IN ("+strings.Join(placeholders, ",")+")",
 		args...,
 	)
@@ -51,7 +52,7 @@ func (a *App) AddTagsToFiles(fileIDs []int64, tagIDs []int64) error {
 		}
 	}
 
-	tx, err := a.db.Conn().Begin()
+	tx, err := v.db.Conn().Begin()
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
@@ -74,14 +75,15 @@ func (a *App) AddTagsToFiles(fileIDs []int64, tagIDs []int64) error {
 
 // RemoveTagsFromFiles removes the given tag IDs from all the given file IDs.
 func (a *App) RemoveTagsFromFiles(fileIDs []int64, tagIDs []int64) error {
-	if a.db == nil {
+	v := a.vault()
+	if v.db == nil {
 		return fmt.Errorf("no vault open")
 	}
 	if len(fileIDs) == 0 || len(tagIDs) == 0 {
 		return nil
 	}
 
-	tx, err := a.db.Conn().Begin()
+	tx, err := v.db.Conn().Begin()
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
@@ -105,7 +107,8 @@ func (a *App) RemoveTagsFromFiles(fileIDs []int64, tagIDs []int64) error {
 // SetRatingForFiles sets the given rating (0-5) on all the given file IDs.
 // Rating of 0 means "unrated".
 func (a *App) SetRatingForFiles(fileIDs []int64, rating int) error {
-	if a.db == nil {
+	v := a.vault()
+	if v.db == nil {
 		return fmt.Errorf("no vault open")
 	}
 	if len(fileIDs) == 0 {
@@ -115,7 +118,7 @@ func (a *App) SetRatingForFiles(fileIDs []int64, rating int) error {
 		return fmt.Errorf("rating must be between 0 and 5, got %d", rating)
 	}
 
-	tx, err := a.db.Conn().Begin()
+	tx, err := v.db.Conn().Begin()
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
@@ -136,7 +139,8 @@ func (a *App) SetRatingForFiles(fileIDs []int64, rating int) error {
 
 // SetFavoriteForFiles sets the favorite flag (0 = off, 1 = on) on all the given file IDs.
 func (a *App) SetFavoriteForFiles(fileIDs []int64, isFavorite int) error {
-	if a.db == nil {
+	v := a.vault()
+	if v.db == nil {
 		return fmt.Errorf("no vault open")
 	}
 	if len(fileIDs) == 0 {
@@ -146,7 +150,7 @@ func (a *App) SetFavoriteForFiles(fileIDs []int64, isFavorite int) error {
 		return fmt.Errorf("is_favorite must be 0 or 1, got %d", isFavorite)
 	}
 
-	tx, err := a.db.Conn().Begin()
+	tx, err := v.db.Conn().Begin()
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}

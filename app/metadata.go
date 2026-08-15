@@ -78,7 +78,8 @@ var mimeTypeMap = map[string]string{
 // GetFileMetadata extracts metadata from the original file on disk.
 // This is called when the user opens the metadata panel for a file.
 func (a *App) GetFileMetadata(fileID int64) (*FileMetadata, error) {
-	if a.db == nil {
+	v := a.vault()
+	if v.db == nil {
 		return nil, fmt.Errorf("no vault open")
 	}
 
@@ -89,7 +90,7 @@ func (a *App) GetFileMetadata(fileID int64) (*FileMetadata, error) {
 	}
 
 	// Resolve relative path to absolute for file operations
-	absPath := a.resolvePath(file.VaultPath)
+	absPath := v.resolvePath(file.VaultPath)
 
 	// Check if file still exists
 	info, err := os.Stat(absPath)
@@ -395,7 +396,8 @@ func formatDateCreated(rfc3339 string) string {
 // GetBatchMetadata extracts lightweight metadata for a batch of files.
 // Used for gallery rendering (filename, format badge) and sorting.
 func (a *App) GetBatchMetadata(fileIDs []int64) ([]FileMetadata, error) {
-	if a.db == nil {
+	v := a.vault()
+	if v.db == nil {
 		return nil, fmt.Errorf("no vault open")
 	}
 

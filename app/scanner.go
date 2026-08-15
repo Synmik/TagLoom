@@ -28,10 +28,11 @@ type scanEntry struct {
 // Emits "scan:progress" events with {current, total} payload.
 // Returns the total number of indexed files.
 func (a *App) ScanVault() (int, error) {
-	if a.db == nil {
+	v := a.vault()
+	if v.db == nil {
 		return 0, fmt.Errorf("no vault open")
 	}
-	if a.vaultPath == "" {
+	if v.path == "" {
 		return 0, fmt.Errorf("no vault path set")
 	}
 
@@ -49,12 +50,12 @@ func (a *App) ScanVault() (int, error) {
 	// This avoids a second directory walk and uses entry.Info() instead
 	// of a separate os.Stat() call.
 	var entries []scanEntry
-	err = filepath.WalkDir(a.vaultPath, func(path string, d os.DirEntry, err error) error {
+	err = filepath.WalkDir(v.path, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
 		if d.IsDir() {
-			if isExcluded(path, a.vaultPath, excludedSet) {
+			if isExcluded(path, v.path, excludedSet) {
 				return filepath.SkipDir
 			}
 			return nil
@@ -75,7 +76,7 @@ func (a *App) ScanVault() (int, error) {
 	}
 
 	// Batch-insert collected entries in a single transaction
-	tx, err := a.db.Conn().Begin()
+	tx, err := v.db.Conn().Begin()
 	if err != nil {
 		return 0, fmt.Errorf("failed to begin transaction: %w", err)
 	}
@@ -106,8 +107,8 @@ func (a *App) ScanVault() (int, error) {
 			createdAtStr = ft.CreatedAt.Format(time.RFC3339)
 		}
 		_, execErr := stmt.Exec(
-			a.toRelativePath(e.path),
-			a.toRelativePath(filepath.Dir(e.path)),
+			v.toRelativePath(e.path),
+			v.toRelativePath(filepath.Dir(e.path)),
 			filepath.Base(e.path),
 			createdAtStr,
 			ft.ModifiedAt.Format(time.RFC3339),
@@ -173,10 +174,11 @@ func isExcluded(path string, vaultPath string, excluded map[string]bool) bool {
 // Uses a single directory walk (collecting path + info) to avoid redundant I/O.
 // Returns the number of added files. Removed count is sent via rescan:complete event.
 func (a *App) RescanVault() (int, error) {
-	if a.db == nil {
+	v := a.vault()
+	if v.db == nil {
 		return 0, fmt.Errorf("no vault open")
 	}
-	if a.vaultPath == "" {
+	if v.path == "" {
 		return 0, fmt.Errorf("no vault path set")
 	}
 
@@ -194,12 +196,12 @@ func (a *App) RescanVault() (int, error) {
 	// Store relative paths for comparison with DB (vault_path is relative).
 	var fsEntries []scanEntry
 	fsRelPaths := make(map[string]int) // relative path → index in fsEntries
-	err = filepath.WalkDir(a.vaultPath, func(path string, d os.DirEntry, err error) error {
+	err = filepath.WalkDir(v.path, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
 		if d.IsDir() {
-			if isExcluded(path, a.vaultPath, excludedSet) {
+			if isExcluded(path, v.path, excludedSet) {
 				return filepath.SkipDir
 			}
 			return nil
@@ -214,7 +216,7 @@ func (a *App) RescanVault() (int, error) {
 		}
 		idx := len(fsEntries)
 		fsEntries = append(fsEntries, scanEntry{path: path, info: info})
-		fsRelPaths[a.toRelativePath(path)] = idx
+		fsRelPaths[v.toRelativePath(path)] = idx
 		return nil
 	})
 	if err != nil {
@@ -222,7 +224,7 @@ func (a *App) RescanVault() (int, error) {
 	}
 
 	// Step 2: Collect all files from the DB
-	rows, err := a.db.Conn().Query("SELECT vault_path FROM files")
+	rows, err := v.db.Conn().Query("SELECT vault_path FROM files")
 	if err != nil {
 		return 0, fmt.Errorf("failed to query DB files: %w", err)
 	}
@@ -240,7 +242,7 @@ func (a *App) RescanVault() (int, error) {
 	// Step 3: Compute diff — compare relative paths on both sides.
 	var added []scanEntry
 	for _, e := range fsEntries {
-		relPath := a.toRelativePath(e.path)
+		relPath := v.toRelativePath(e.path)
 		if !dbFiles[relPath] {
 			added = append(added, e)
 		}
@@ -261,7 +263,7 @@ func (a *App) RescanVault() (int, error) {
 	})
 
 	// Step 4: Insert new files and delete removed in a transaction
-	tx, err := a.db.Conn().Begin()
+	tx, err := v.db.Conn().Begin()
 	if err != nil {
 		return 0, fmt.Errorf("failed to begin transaction: %w", err)
 	}
@@ -285,8 +287,8 @@ func (a *App) RescanVault() (int, error) {
 				createdAtStr = ft.CreatedAt.Format(time.RFC3339)
 			}
 			_, err := stmt.Exec(
-				a.toRelativePath(e.path),
-				a.toRelativePath(filepath.Dir(e.path)),
+				v.toRelativePath(e.path),
+				v.toRelativePath(filepath.Dir(e.path)),
 				filepath.Base(e.path),
 				createdAtStr,
 				ft.ModifiedAt.Format(time.RFC3339),
@@ -372,7 +374,8 @@ func (a *App) RescanVault() (int, error) {
 
 // GetFolderTree returns the recursive folder tree for the vault.
 func (a *App) GetFolderTree(path string) *db.FolderNode {
-	if a.db == nil {
+	v := a.vault()
+	if v.db == nil {
 		return &db.FolderNode{
 			Path:     path,
 			Name:     filepath.Base(path),
@@ -382,7 +385,7 @@ func (a *App) GetFolderTree(path string) *db.FolderNode {
 	}
 
 	// Query all unique folder paths with file counts
-	rows, err := a.db.Conn().Query(`
+	rows, err := v.db.Conn().Query(`
 		SELECT folder_path, COUNT(*) as cnt
 		FROM files
 		GROUP BY folder_path
@@ -502,10 +505,11 @@ func resolveParent(fPath string, vaultPath string) string {
 
 // AddExcludedFolder adds a folder to the exclusion list.
 func (a *App) AddExcludedFolder(path string) error {
-	if a.db == nil {
+	v := a.vault()
+	if v.db == nil {
 		return fmt.Errorf("no vault open")
 	}
-	_, err := a.db.Conn().Exec(
+	_, err := v.db.Conn().Exec(
 		"INSERT INTO excluded_folders (path, created_at) VALUES (?, datetime('now'))",
 		path,
 	)
@@ -514,10 +518,11 @@ func (a *App) AddExcludedFolder(path string) error {
 
 // RemoveExcludedFolder removes a folder from the exclusion list.
 func (a *App) RemoveExcludedFolder(path string) error {
-	if a.db == nil {
+	v := a.vault()
+	if v.db == nil {
 		return fmt.Errorf("no vault open")
 	}
-	_, err := a.db.Conn().Exec(
+	_, err := v.db.Conn().Exec(
 		"DELETE FROM excluded_folders WHERE path = ?",
 		path,
 	)
@@ -526,10 +531,11 @@ func (a *App) RemoveExcludedFolder(path string) error {
 
 // GetExcludedFolders returns the list of excluded folder paths.
 func (a *App) GetExcludedFolders() ([]string, error) {
-	if a.db == nil {
+	v := a.vault()
+	if v.db == nil {
 		return nil, fmt.Errorf("no vault open")
 	}
-	rows, err := a.db.Conn().Query("SELECT path FROM excluded_folders")
+	rows, err := v.db.Conn().Query("SELECT path FROM excluded_folders")
 	if err != nil {
 		return nil, err
 	}
@@ -548,7 +554,8 @@ func (a *App) GetExcludedFolders() ([]string, error) {
 
 // OpenOriginalFile opens the original file with the default OS application.
 func (a *App) OpenOriginalFile(fileID int64) error {
-	if a.db == nil {
+	v := a.vault()
+	if v.db == nil {
 		return fmt.Errorf("no vault open")
 	}
 
@@ -567,7 +574,8 @@ func (a *App) OpenOriginalFile(fileID int64) error {
 
 // OpenFileFolder opens the parent folder of the file in the system file explorer.
 func (a *App) OpenFileFolder(fileID int64) error {
-	if a.db == nil {
+	v := a.vault()
+	if v.db == nil {
 		return fmt.Errorf("no vault open")
 	}
 
@@ -588,12 +596,13 @@ func (a *App) OpenFileFolder(fileID int64) error {
 // DeleteOriginalFile moves the original file to the recycle bin,
 // removes its thumbnail, and removes the record from the vault index.
 func (a *App) DeleteOriginalFile(fileID int64) error {
-	if a.db == nil {
+	v := a.vault()
+	if v.db == nil {
 		return fmt.Errorf("no vault open")
 	}
 
 	// Get file info first
-	row := a.db.Conn().QueryRow(`
+	row := v.db.Conn().QueryRow(`
 		SELECT vault_path, thumbnail_path FROM files WHERE id = ?
 	`, fileID)
 
@@ -605,7 +614,7 @@ func (a *App) DeleteOriginalFile(fileID int64) error {
 	}
 
 	// Resolve relative path to absolute for file operations
-	absVaultPath := a.resolvePath(vaultPath)
+	absVaultPath := v.resolvePath(vaultPath)
 
 	// Move original file to recycle bin
 	err = utils.DeleteToTrash(absVaultPath)
@@ -616,7 +625,7 @@ func (a *App) DeleteOriginalFile(fileID int64) error {
 	// Delete thumbnail from disk (if exists)
 	// thumbPath is relative to vault root (e.g. ".tagloom/thumbnails/...")
 	if thumbPath != nil && *thumbPath != "" {
-		thumbFullPath := a.resolvePath(*thumbPath)
+		thumbFullPath := v.resolvePath(*thumbPath)
 		_ = os.Remove(thumbFullPath)
 
 		// Clean up empty parent directory
@@ -624,7 +633,7 @@ func (a *App) DeleteOriginalFile(fileID int64) error {
 	}
 
 	// Remove from database (same as DeleteFile)
-	tx, err := a.db.Conn().Begin()
+	tx, err := v.db.Conn().Begin()
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
@@ -647,7 +656,8 @@ func (a *App) DeleteOriginalFile(fileID int64) error {
 // system clipboard as a CF_DIB bitmap. Returns an error for non-image files
 // or if the clipboard operation fails.
 func (a *App) CopyImageToClipboard(fileID int64) error {
-	if a.db == nil {
+	v := a.vault()
+	if v.db == nil {
 		return fmt.Errorf("no vault open")
 	}
 
@@ -667,21 +677,26 @@ func (a *App) CopyImageToClipboard(fileID int64) error {
 // getFilePath returns the absolute path for a given file ID.
 // The vault_path in DB is relative; this resolves it to an absolute path.
 func (a *App) getFilePath(fileID int64) (string, error) {
+	v := a.vault()
+	if v.db == nil {
+		return "", fmt.Errorf("no vault open")
+	}
 	var relPath string
-	err := a.db.Conn().QueryRow("SELECT vault_path FROM files WHERE id = ?", fileID).Scan(&relPath)
+	err := v.db.Conn().QueryRow("SELECT vault_path FROM files WHERE id = ?", fileID).Scan(&relPath)
 	if err != nil {
 		return "", fmt.Errorf("file not found: %w", err)
 	}
-	return a.resolvePath(relPath), nil
+	return v.resolvePath(relPath), nil
 }
 
 // DeleteFile removes a file from the vault index (DB only, does NOT delete the actual file on disk).
 func (a *App) DeleteFile(fileID int64) error {
-	if a.db == nil {
+	v := a.vault()
+	if v.db == nil {
 		return fmt.Errorf("no vault open")
 	}
 
-	tx, err := a.db.Conn().Begin()
+	tx, err := v.db.Conn().Begin()
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
@@ -707,6 +722,10 @@ func (a *App) indexFile(filePath string) error {
 	if !utils.IsSupported(filePath) {
 		return nil // Skip unsupported files
 	}
+	v := a.vault()
+	if v.db == nil {
+		return fmt.Errorf("no vault open")
+	}
 
 	folderPath := filepath.Dir(filePath)
 	fileName := filepath.Base(filePath)
@@ -722,7 +741,7 @@ func (a *App) indexFile(filePath string) error {
 		createdAtStr = ft.CreatedAt.Format(time.RFC3339)
 	}
 
-	_, err := a.db.Conn().Exec(`
+	_, err := v.db.Conn().Exec(`
 		INSERT INTO files (vault_path, folder_path, filename, date_created, date_modified, indexed_at)
 		VALUES (?, ?, ?, ?, ?, ?)
 		ON CONFLICT(vault_path) DO UPDATE SET
@@ -731,7 +750,7 @@ func (a *App) indexFile(filePath string) error {
 			date_created = excluded.date_created,
 			date_modified = excluded.date_modified,
 			indexed_at = excluded.indexed_at
-	`, a.toRelativePath(filePath), a.toRelativePath(folderPath), fileName,
+	`, v.toRelativePath(filePath), v.toRelativePath(folderPath), fileName,
 		createdAtStr,
 		ft.ModifiedAt.Format(time.RFC3339),
 		now)
@@ -754,11 +773,12 @@ type ImportResult struct {
 func (a *App) ImportFile(sourcePath string, move bool, targetFolder string) *ImportResult {
 	result := &ImportResult{Errors: []string{}}
 
-	if a.db == nil {
+	v := a.vault()
+	if v.db == nil {
 		result.Errors = append(result.Errors, "no vault open")
 		return result
 	}
-	if a.vaultPath == "" {
+	if v.path == "" {
 		result.Errors = append(result.Errors, "no vault path set")
 		return result
 	}
@@ -781,9 +801,9 @@ func (a *App) ImportFile(sourcePath string, move bool, targetFolder string) *Imp
 	}
 
 	// Resolve destination folder
-	destDir := a.vaultPath
+	destDir := v.path
 	if targetFolder != "" {
-		destDir = filepath.Join(a.vaultPath, targetFolder)
+		destDir = filepath.Join(v.path, targetFolder)
 		// Create target folder if it doesn't exist
 		if _, err := os.Stat(destDir); os.IsNotExist(err) {
 			if err = os.MkdirAll(destDir, 0755); err != nil {
@@ -830,8 +850,8 @@ func (a *App) ImportFile(sourcePath string, move bool, targetFolder string) *Imp
 
 	// Check if already indexed (same absolute path)
 	var existingID int64
-	relPath := a.toRelativePath(destPath)
-	err = a.db.Conn().QueryRow("SELECT id FROM files WHERE vault_path = ?", relPath).Scan(&existingID)
+	relPath := v.toRelativePath(destPath)
+	err = v.db.Conn().QueryRow("SELECT id FROM files WHERE vault_path = ?", relPath).Scan(&existingID)
 	if err == nil {
 		// File already indexed — skip
 		result.Skipped = 1
@@ -849,10 +869,10 @@ func (a *App) ImportFile(sourcePath string, move bool, targetFolder string) *Imp
 		createdAtStr = ft.CreatedAt.Format(time.RFC3339)
 	}
 
-	_, err = a.db.Conn().Exec(`
+	_, err = v.db.Conn().Exec(`
 		INSERT INTO files (vault_path, folder_path, filename, date_created, date_modified, indexed_at)
 		VALUES (?, ?, ?, ?, ?, ?)
-	`, relPath, a.toRelativePath(folderPath), fileName,
+	`, relPath, v.toRelativePath(folderPath), fileName,
 		createdAtStr,
 		ft.ModifiedAt.Format(time.RFC3339),
 		now)
@@ -863,7 +883,7 @@ func (a *App) ImportFile(sourcePath string, move bool, targetFolder string) *Imp
 
 	// Get the newly inserted file ID and generate thumbnail in background
 	var newID int64
-	err = a.db.Conn().QueryRow("SELECT id FROM files WHERE vault_path = ?", relPath).Scan(&newID)
+	err = v.db.Conn().QueryRow("SELECT id FROM files WHERE vault_path = ?", relPath).Scan(&newID)
 	if err == nil {
 		go func() {
 			if _, err := a.GenerateThumbnail(newID); err != nil {

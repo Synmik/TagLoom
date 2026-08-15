@@ -46,15 +46,16 @@ func thumbnailWorkerCount() int {
 // GenerateThumbnail creates a thumbnail for the given file ID.
 // Thumbnails are stored in .tagloom/thumbnails/{2char_hash}/{hash}.webp
 func (a *App) GenerateThumbnail(fileID int64) (string, error) {
-	if a.db == nil {
+	v := a.vault()
+	if v.db == nil {
 		return "", fmt.Errorf("no vault open")
 	}
-	if a.vaultPath == "" {
+	if v.path == "" {
 		return "", fmt.Errorf("no vault path set")
 	}
 
 	// Fetch file info from DB (vault_path is relative)
-	row := a.db.Conn().QueryRow(`
+	row := v.db.Conn().QueryRow(`
 		SELECT id, vault_path, thumbnail_path
 		FROM files WHERE id = ?
 	`, fileID)
@@ -67,7 +68,7 @@ func (a *App) GenerateThumbnail(fileID int64) (string, error) {
 	}
 
 	// Resolve relative path to absolute for file operations
-	absPath := a.resolvePath(relVaultPath)
+	absPath := v.resolvePath(relVaultPath)
 
 	// Dereference nullable thumbnail path (stored as relative to vault root)
 	thumbStr := ""
@@ -82,11 +83,11 @@ func (a *App) GenerateThumbnail(fileID int64) (string, error) {
 
 	// Determine target thumbnail path
 	// Hash is based on relative path (portable across vault moves)
-	thumbPath := a.generateThumbnailAbsolutePath(relVaultPath)
+	thumbPath := v.generateThumbnailAbsolutePath(relVaultPath)
 
 	// If thumbnail already exists, check if source is newer
 	// thumbStr is relative (from DB), resolve it for comparison
-	if a.resolvePath(thumbStr) == thumbPath {
+	if v.resolvePath(thumbStr) == thumbPath {
 		thumbStat, err1 := os.Stat(thumbPath)
 		srcStat, err2 := os.Stat(absPath)
 		if err1 == nil && err2 == nil && !srcStat.ModTime().After(thumbStat.ModTime()) {
@@ -101,12 +102,12 @@ func (a *App) GenerateThumbnail(fileID int64) (string, error) {
 	// Get config for thumbnail size/quality (needed before switch for video case)
 	size := defaultThumbnailSize
 	quality := defaultThumbnailQuality
-	if a.vaultCfg != nil {
-		if a.vaultCfg.Settings.ThumbnailSize > 0 {
-			size = a.vaultCfg.Settings.ThumbnailSize
+	if v.cfg != nil {
+		if v.cfg.Settings.ThumbnailSize > 0 {
+			size = v.cfg.Settings.ThumbnailSize
 		}
-		if a.vaultCfg.Settings.ThumbnailQuality > 0 {
-			quality = a.vaultCfg.Settings.ThumbnailQuality
+		if v.cfg.Settings.ThumbnailQuality > 0 {
+			quality = v.cfg.Settings.ThumbnailQuality
 		}
 	}
 
@@ -131,8 +132,8 @@ func (a *App) GenerateThumbnail(fileID int64) (string, error) {
 			return "", fmt.Errorf("failed to encode image to WebP: %w", encErr)
 		}
 		// Update DB with thumbnail path (store relative to vault root)
-		relThumbPath := a.toRelativePath(thumbPath)
-		_, execErr := a.db.Conn().Exec("UPDATE files SET thumbnail_path = ? WHERE id = ?", relThumbPath, fileID)
+		relThumbPath := v.toRelativePath(thumbPath)
+		_, execErr := v.db.Conn().Exec("UPDATE files SET thumbnail_path = ? WHERE id = ?", relThumbPath, fileID)
 		if execErr != nil {
 			return "", fmt.Errorf("failed to update thumbnail_path: %w", execErr)
 		}
@@ -152,8 +153,8 @@ func (a *App) GenerateThumbnail(fileID int64) (string, error) {
 		}
 		// For video, skip the image resize/encode path — FFmpeg already produced the WebP
 		// Update DB with thumbnail path (store relative to vault root)
-		relThumbPath := a.toRelativePath(thumbPath)
-		_, execErr := a.db.Conn().Exec("UPDATE files SET thumbnail_path = ? WHERE id = ?", relThumbPath, fileID)
+		relThumbPath := v.toRelativePath(thumbPath)
+		_, execErr := v.db.Conn().Exec("UPDATE files SET thumbnail_path = ? WHERE id = ?", relThumbPath, fileID)
 		if execErr != nil {
 			return "", fmt.Errorf("failed to update thumbnail_path: %w", execErr)
 		}
@@ -177,16 +178,17 @@ type thumbResult struct {
 // concurrent writers — SQLite (even in WAL mode) only supports one writer
 // at a time.
 func (a *App) GenerateThumbnailsPool() error {
-	if a.db == nil {
+	v := a.vault()
+	if v.db == nil {
 		return fmt.Errorf("no vault open")
 	}
-	if a.vaultPath == "" {
+	if v.path == "" {
 		return fmt.Errorf("no vault path set")
 	}
 
 	// Collect all file IDs that need thumbnails.
 	// No pre-flight os.Stat — workers handle missing files gracefully.
-	rows, err := a.db.Conn().Query(`
+	rows, err := v.db.Conn().Query(`
 		SELECT id, vault_path, thumbnail_path
 		FROM files
 		WHERE thumbnail_path = ''
@@ -262,12 +264,12 @@ func (a *App) GenerateThumbnailsPool() error {
 
 		size := defaultThumbnailSize
 		quality := defaultThumbnailQuality
-		if a.vaultCfg != nil {
-			if a.vaultCfg.Settings.ThumbnailSize > 0 {
-				size = a.vaultCfg.Settings.ThumbnailSize
+		if v.cfg != nil {
+			if v.cfg.Settings.ThumbnailSize > 0 {
+				size = v.cfg.Settings.ThumbnailSize
 			}
-			if a.vaultCfg.Settings.ThumbnailQuality > 0 {
-				quality = a.vaultCfg.Settings.ThumbnailQuality
+			if v.cfg.Settings.ThumbnailQuality > 0 {
+				quality = v.cfg.Settings.ThumbnailQuality
 			}
 		}
 
@@ -280,9 +282,9 @@ func (a *App) GenerateThumbnailsPool() error {
 			}
 
 			// f.vaultPath is relative — resolve for file operations
-			absPath := a.resolvePath(f.vaultPath)
+			absPath := v.resolvePath(f.vaultPath)
 			// Hash based on relative path (portable across vault moves)
-			thumbPath := a.generateThumbnailAbsolutePath(f.vaultPath)
+			thumbPath := v.generateThumbnailAbsolutePath(f.vaultPath)
 
 			// Skip if already generated (another worker may have done it)
 			if _, err := os.Stat(thumbPath); err == nil {
@@ -365,13 +367,13 @@ func (a *App) GenerateThumbnailsPool() error {
 
 	// Batch DB update — sequential writes avoid SQLITE_BUSY entirely
 	// Store thumbnail_path as relative to vault root
-	tx, err := a.db.Conn().Begin()
+	tx, err := v.db.Conn().Begin()
 	if err == nil {
 		stmt, prepErr := tx.Prepare("UPDATE files SET thumbnail_path = ? WHERE id = ?")
 		if prepErr == nil {
 			for _, r := range results {
 				if r.ok {
-					relThumbPath := a.toRelativePath(r.thumbPath)
+					relThumbPath := v.toRelativePath(r.thumbPath)
 					_, _ = stmt.Exec(relThumbPath, r.fileID)
 				}
 			}
@@ -430,14 +432,15 @@ func (a *App) GenerateThumbnailsForFiles(fileIDs []int64) int {
 // in the database. It walks .tagloom/thumbnails/ and deletes any .webp not referenced
 // by files.thumbnail_path. Returns the number of orphan files removed.
 func (a *App) CleanupOrphanThumbnails() (int, error) {
-	if a.db == nil {
+	v := a.vault()
+	if v.db == nil {
 		return 0, fmt.Errorf("no vault open")
 	}
-	if a.vaultPath == "" {
+	if v.path == "" {
 		return 0, fmt.Errorf("no vault path set")
 	}
 
-	thumbRoot := filepath.Join(a.vaultPath, ".tagloom", "thumbnails")
+	thumbRoot := filepath.Join(v.path, ".tagloom", "thumbnails")
 	if _, err := os.Stat(thumbRoot); os.IsNotExist(err) {
 		return 0, nil // No thumbnails directory yet
 	}
@@ -446,7 +449,7 @@ func (a *App) CleanupOrphanThumbnails() (int, error) {
 	// thumbnail_path is stored as relative to vault root; resolve to absolute
 	// for comparison with absolute paths from filepath.WalkDir
 	validThumbs := make(map[string]struct{})
-	rows, err := a.db.Conn().Query("SELECT thumbnail_path FROM files WHERE thumbnail_path IS NOT NULL AND thumbnail_path != ''")
+	rows, err := v.db.Conn().Query("SELECT thumbnail_path FROM files WHERE thumbnail_path IS NOT NULL AND thumbnail_path != ''")
 	if err != nil {
 		return 0, fmt.Errorf("failed to query thumbnail paths: %w", err)
 	}
@@ -455,7 +458,7 @@ func (a *App) CleanupOrphanThumbnails() (int, error) {
 	for rows.Next() {
 		var tp string
 		if err := rows.Scan(&tp); err == nil && tp != "" {
-			absThumb := a.resolvePath(tp)
+			absThumb := v.resolvePath(tp)
 			validThumbs[absThumb] = struct{}{}
 		}
 	}
@@ -504,11 +507,12 @@ func (a *App) CleanupOrphanThumbnails() (int, error) {
 // Used by the HTTP handler to serve thumbnails.
 // The thumbnail_path in DB is relative; this resolves it to an absolute path.
 func (a *App) GetThumbnailPath(fileID int64) (string, error) {
-	if a.db == nil {
+	v := a.vault()
+	if v.db == nil {
 		return "", fmt.Errorf("no vault open")
 	}
 
-	row := a.db.Conn().QueryRow("SELECT thumbnail_path FROM files WHERE id = ?", fileID)
+	row := v.db.Conn().QueryRow("SELECT thumbnail_path FROM files WHERE id = ?", fileID)
 	var thumbPath *string // nullable in DB
 	if err := row.Scan(&thumbPath); err != nil {
 		return "", fmt.Errorf("no thumbnail for file %d: %w", fileID, err)
@@ -518,7 +522,7 @@ func (a *App) GetThumbnailPath(fileID int64) (string, error) {
 	}
 
 	// Resolve relative path to absolute
-	absThumb := a.resolvePath(*thumbPath)
+	absThumb := v.resolvePath(*thumbPath)
 
 	// Verify file exists
 	if _, err := os.Stat(absThumb); err != nil {
@@ -538,11 +542,12 @@ type ThumbnailInfo struct {
 
 // GetThumbnailInfo returns metadata about a thumbnail.
 func (a *App) GetThumbnailInfo(fileID int64) (*ThumbnailInfo, error) {
-	if a.db == nil {
+	v := a.vault()
+	if v.db == nil {
 		return nil, fmt.Errorf("no vault open")
 	}
 
-	row := a.db.Conn().QueryRow("SELECT thumbnail_path FROM files WHERE id = ?", fileID)
+	row := v.db.Conn().QueryRow("SELECT thumbnail_path FROM files WHERE id = ?", fileID)
 	var thumbPath *string // nullable in DB
 	if err := row.Scan(&thumbPath); err != nil {
 		return nil, fmt.Errorf("no thumbnail for file %d: %w", fileID, err)
@@ -553,7 +558,7 @@ func (a *App) GetThumbnailInfo(fileID int64) (*ThumbnailInfo, error) {
 	}
 
 	if thumbPath != nil && *thumbPath != "" {
-		absThumb := a.resolvePath(*thumbPath)
+		absThumb := v.resolvePath(*thumbPath)
 		info.ThumbnailPath = absThumb
 		stat, err := os.Stat(absThumb)
 		if err == nil {
@@ -568,12 +573,13 @@ func (a *App) GetThumbnailInfo(fileID int64) (*ThumbnailInfo, error) {
 // GetThumbnailData reads a thumbnail file and returns it as a base64 data URL.
 // The frontend uses this to display thumbnails in <img> tags.
 func (a *App) GetThumbnailData(fileID int64) (string, error) {
-	if a.db == nil {
+	v := a.vault()
+	if v.db == nil {
 		return "", fmt.Errorf("no vault open")
 	}
 
 	// Fetch thumbnail_path from DB
-	row := a.db.Conn().QueryRow("SELECT thumbnail_path FROM files WHERE id = ?", fileID)
+	row := v.db.Conn().QueryRow("SELECT thumbnail_path FROM files WHERE id = ?", fileID)
 	var thumbPath *string // nullable in DB
 	if err := row.Scan(&thumbPath); err != nil {
 		return "", fmt.Errorf("no thumbnail for file %d: %w", fileID, err)
@@ -583,7 +589,7 @@ func (a *App) GetThumbnailData(fileID int64) (string, error) {
 	}
 
 	// Resolve relative path to absolute
-	absThumb := a.resolvePath(*thumbPath)
+	absThumb := v.resolvePath(*thumbPath)
 	data, err := os.ReadFile(absThumb)
 	if err != nil {
 		return "", fmt.Errorf("failed to read thumbnail: %w", err)

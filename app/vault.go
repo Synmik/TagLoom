@@ -45,59 +45,54 @@ func (a *App) OpenVault(path string) (*db.VaultInfo, error) {
 	}
 
 	// Close existing vault if open
-	if a.db != nil {
-		if err := a.db.Close(); err != nil {
-			return nil, fmt.Errorf("failed to close previous vault: %w", err)
-		}
+	if err := a.closeCurrentVault(); err != nil {
+		return nil, fmt.Errorf("failed to close previous vault: %w", err)
 	}
 
-	// Open existing SQLite database
+	// Open existing SQLite database. All slow I/O happens here, outside
+	// the state lock; state is swapped in atomically at the end.
 	dbPath := filepath.Join(tagloomDir, "tagloom.db")
-	var err error
-	a.db, err = db.NewDatabase(dbPath)
+	d, err := db.NewDatabase(dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
 	// Seed default tags if new vault
-	if err := a.db.SeedDefaultTags(); err != nil {
+	if err := d.SeedDefaultTags(); err != nil {
+		d.Close()
 		return nil, fmt.Errorf("failed to seed default tags: %w", err)
 	}
 
 	// Migrate absolute paths to relative paths for existing vaults.
 	// This ensures the vault can be moved to a different location.
-	if err := a.migrateToRelativePaths(); err != nil {
+	if err := a.migrateToRelativePaths(d, path); err != nil {
 		fmt.Printf("path migration warning: %v\n", err)
 	}
 
 	// Load or create config
 	cfg, err := config.LoadConfig(path)
 	if err != nil {
+		d.Close()
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 	if cfg.CreatedAt == "" {
 		cfg.Name = filepath.Base(path)
 		cfg.CreatedAt = time.Now().Format(time.RFC3339)
 		if err := config.SaveConfig(path, cfg); err != nil {
+			d.Close()
 			return nil, fmt.Errorf("failed to save config: %w", err)
 		}
 	}
 
-	// Store vault state in app
-	a.vaultPath = path
-	a.vaultCfg = cfg
+	// Count indexed files before installing the vault
+	fileCount := 0
+	_ = d.Conn().QueryRow("SELECT COUNT(*) FROM files").Scan(&fileCount)
 
-	// Save as last opened vault in global app settings
-	if a.appCfg != nil {
-		a.appCfg.LastVaultPath = path
-	}
+	// Atomically install as current vault (also saves last-vault path)
+	a.setVault(d, path, cfg)
 
 	// Add to recent vaults list
 	a.addToRecentVaults(path, cfg.Name)
-
-	// Count indexed files
-	fileCount := 0
-	_ = a.db.Conn().QueryRow("SELECT COUNT(*) FROM files").Scan(&fileCount)
 
 	// Auto-scan if vault has no indexed files
 	if fileCount == 0 {
@@ -133,18 +128,26 @@ func (a *App) OpenVault(path string) (*db.VaultInfo, error) {
 // CloseVault closes the current vault and releases resources.
 // Performs WAL checkpoint + orphan thumbnail cleanup before closing.
 func (a *App) CloseVault() error {
-	if a.db == nil {
+	v := a.vault()
+	if v.db == nil {
 		return nil
+	}
+
+	// Clean up orphan thumbnails before closing. Runs on the snapshot with
+	// no lock held — CleanupOrphanThumbnails takes its own read lock.
+	if _, err := a.CleanupOrphanThumbnails(); err != nil {
+		fmt.Printf("orphan thumbnail cleanup warning: %v\n", err)
+	}
+
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.db != v.db {
+		return nil // vault switched concurrently — leave the new one alone
 	}
 
 	// WAL checkpoint: flush pending changes to main DB and truncate WAL file.
 	// This keeps the DB compact across sessions and prevents WAL file growth.
 	_, _ = a.db.Conn().Exec("PRAGMA wal_checkpoint(TRUNCATE)")
-
-	// Clean up orphan thumbnails before closing
-	if _, err := a.CleanupOrphanThumbnails(); err != nil {
-		fmt.Printf("orphan thumbnail cleanup warning: %v\n", err)
-	}
 
 	if err := a.db.Close(); err != nil {
 		return fmt.Errorf("failed to close vault: %w", err)
@@ -157,10 +160,11 @@ func (a *App) CloseVault() error {
 
 // GetVaultConfig returns the current vault configuration.
 func (a *App) GetVaultConfig() (*config.VaultConfig, error) {
-	if a.vaultCfg == nil {
+	v := a.vault()
+	if v.cfg == nil {
 		return nil, fmt.Errorf("no vault open")
 	}
-	return a.vaultCfg, nil
+	return v.cfg, nil
 }
 
 // NewVaultSettings holds the initial settings for creating a new vault.
@@ -185,10 +189,8 @@ func (a *App) CreateVault(path string, settings NewVaultSettings) (*db.VaultInfo
 	}
 
 	// Close existing vault if open
-	if a.db != nil {
-		if err := a.db.Close(); err != nil {
-			return nil, fmt.Errorf("failed to close previous vault: %w", err)
-		}
+	if err := a.closeCurrentVault(); err != nil {
+		return nil, fmt.Errorf("failed to close previous vault: %w", err)
 	}
 
 	// Create .tagloom directory
@@ -198,14 +200,14 @@ func (a *App) CreateVault(path string, settings NewVaultSettings) (*db.VaultInfo
 
 	// Create SQLite database
 	dbPath := filepath.Join(tagloomDir, "tagloom.db")
-	var err error
-	a.db, err = db.NewDatabase(dbPath)
+	d, err := db.NewDatabase(dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create database: %w", err)
 	}
 
 	// Seed default tags
-	if err := a.db.SeedDefaultTags(); err != nil {
+	if err := d.SeedDefaultTags(); err != nil {
+		d.Close()
 		return nil, fmt.Errorf("failed to seed default tags: %w", err)
 	}
 
@@ -218,25 +220,20 @@ func (a *App) CreateVault(path string, settings NewVaultSettings) (*db.VaultInfo
 	cfg.Settings.ExcludedFolders = settings.ExcludedFolders
 
 	if err := config.SaveConfig(path, cfg); err != nil {
+		d.Close()
 		return nil, fmt.Errorf("failed to save config: %w", err)
 	}
 
 	// Insert excluded folders into DB
 	for _, ef := range settings.ExcludedFolders {
-		_, _ = a.db.Conn().Exec(
+		_, _ = d.Conn().Exec(
 			"INSERT OR IGNORE INTO excluded_folders (path) VALUES (?)",
 			ef,
 		)
 	}
 
-	// Store vault state
-	a.vaultPath = path
-	a.vaultCfg = cfg
-
-	// Save as last opened vault
-	if a.appCfg != nil {
-		a.appCfg.LastVaultPath = path
-	}
+	// Atomically install as current vault (also saves last-vault path)
+	a.setVault(d, path, cfg)
 
 	// Add to recent vaults list
 	a.addToRecentVaults(path, cfg.Name)
@@ -269,25 +266,33 @@ func (a *App) CreateVault(path string, settings NewVaultSettings) (*db.VaultInfo
 }
 
 // SetVaultConfig updates the vault configuration.
+// Holds the write lock for the whole body (no other locking calls inside).
 func (a *App) SetVaultConfig(cfg *config.VaultConfig) error {
+	a.mu.Lock()
 	if a.vaultPath == "" {
+		a.mu.Unlock()
 		return fmt.Errorf("no vault open")
 	}
-	if err := config.SaveConfig(a.vaultPath, cfg); err != nil {
+	path := a.vaultPath
+	nameChanged := a.vaultCfg != nil && cfg.Name != a.vaultCfg.Name && cfg.Name != ""
+	a.mu.Unlock()
+
+	if err := config.SaveConfig(path, cfg); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
 	// If the vault name changed, update recent vaults entry too
-	if a.vaultCfg != nil && cfg.Name != a.vaultCfg.Name && cfg.Name != "" {
-		if a.appCfg != nil {
-			for i := range a.appCfg.RecentVaults {
-				if a.appCfg.RecentVaults[i].Path == a.vaultPath {
-					a.appCfg.RecentVaults[i].Name = cfg.Name
-					break
-				}
+	if nameChanged && a.appCfg != nil {
+		for i := range a.appCfg.RecentVaults {
+			if a.appCfg.RecentVaults[i].Path == path {
+				a.appCfg.RecentVaults[i].Name = cfg.Name
+				break
 			}
-			_ = config.SaveAppSettings(a.appCfg)
 		}
+		_ = config.SaveAppSettings(a.appCfg)
 	}
 
 	a.vaultCfg = cfg
@@ -299,14 +304,14 @@ func (a *App) SetVaultConfig(cfg *config.VaultConfig) error {
 // to a different location without breaking file references.
 // Also migrates excluded_folders paths to relative.
 // No-op for new vaults (all paths already relative).
-func (a *App) migrateToRelativePaths() error {
-	if a.db == nil || a.vaultPath == "" {
+func (a *App) migrateToRelativePaths(d *db.Database, vaultPath string) error {
+	if d == nil || vaultPath == "" {
 		return nil
 	}
 
 	// Check if any files have absolute paths
 	var count int
-	err := a.db.Conn().QueryRow(`
+	err := d.Conn().QueryRow(`
 		SELECT COUNT(*) FROM files WHERE vault_path LIKE '/%' OR vault_path LIKE '%:%'
 	`).Scan(&count)
 	if err != nil || count == 0 {
@@ -318,10 +323,10 @@ func (a *App) migrateToRelativePaths() error {
 	// Use a single UPDATE with SQLite string functions
 	// vault_path: strip the vault prefix to get relative path
 	// folder_path: strip the vault prefix to get relative path
-	vaultPrefix := a.vaultPath + string(filepath.Separator)
+	vaultPrefix := vaultPath + string(filepath.Separator)
 	vaultPrefixLen := len(vaultPrefix)
 
-	_, err = a.db.Conn().Exec(`
+	_, err = d.Conn().Exec(`
 		UPDATE files SET
 			vault_path = SUBSTR(vault_path, ?),
 			folder_path = CASE
@@ -335,7 +340,7 @@ func (a *App) migrateToRelativePaths() error {
 	}
 
 	// Also migrate excluded_folders if they have absolute paths
-	_, _ = a.db.Conn().Exec(`
+	_, _ = d.Conn().Exec(`
 		UPDATE excluded_folders SET path = SUBSTR(path, ?)
 		WHERE path LIKE ?
 	`, vaultPrefixLen+1, vaultPrefix+"%")
