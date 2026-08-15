@@ -31,67 +31,58 @@ func (a *App) SearchFiles(query string, limit int) ([]db.File, error) {
 	}
 	ftsQuery := strings.Join(ftsWords, " ")
 	if ftsQuery == "" {
-		ftsQuery = "*"
+		// Empty phrase — matches no rows, but keeps the query valid.
+		// (A bare `*` match-all is not supported by all FTS5 builds.)
+		ftsQuery = `""`
 	}
+
+	// Filename search via LIKE — wildcards in the input are escaped so the
+	// pattern matches its input literally.
+	pathPattern := "%" + escapeLike(query) + "%"
 
 	// Tag search: split query into words and match each against tag names and aliases.
 	// "red sunset" → find files tagged with "red" OR "sunset" (or any partial match).
 	tagWords := strings.Fields(query)
 	var tagConditions []string
+	var tagArgs []any
 	for _, w := range tagWords {
 		if len(w) < 2 {
 			continue
 		}
-		// Escape LIKE special characters in the word
-		escaped := strings.ReplaceAll(w, "%", "\\%")
-		escaped = strings.ReplaceAll(escaped, "_", "\\_")
-		pattern := "%" + escaped + "%"
-		tagConditions = append(tagConditions,
-			fmt.Sprintf("(LOWER(t.name) LIKE %q OR LOWER(a.alias) LIKE %q)", pattern, pattern),
-		)
+		pattern := "%" + escapeLike(w) + "%"
+		tagConditions = append(tagConditions, "(LOWER(t.name) LIKE ? ESCAPE '\\' OR LOWER(a.alias) LIKE ? ESCAPE '\\')")
+		tagArgs = append(tagArgs, pattern, pattern)
 	}
 	// Cap tag conditions to avoid excessively large queries
 	if len(tagConditions) > 10 {
 		tagConditions = tagConditions[:10]
+		tagArgs = tagArgs[:20]
 	}
 
-	// Build the full query with all match conditions
+	// Build the full query with all match conditions. All user input goes through
+	// bound parameters — ftsQuery is a safe FTS5 phrase (sanitizeFTSQuery) and the
+	// LIKE patterns are wildcard-escaped (escapeLike).
+	whereParts := []string{
+		"f.id IN (SELECT rowid FROM files_fts WHERE files_fts MATCH ?)",
+		"f.vault_path LIKE ? ESCAPE '\\'",
+	}
+	args := []any{ftsQuery, pathPattern}
+
 	if len(tagConditions) > 0 {
-		tagClause := "f.id IN (SELECT ft.file_id FROM file_tags ft JOIN tags t ON ft.tag_id = t.id LEFT JOIN tag_aliases a ON a.tag_id = t.id WHERE " +
-			strings.Join(tagConditions, " OR ") + ")"
-
-		querySQL := fmt.Sprintf(`
-			SELECT f.id, f.vault_path, f.thumbnail_path, f.name, f.notes, f.link,
-			       f.rating, f.is_favorite, f.folder_path, f.filename, f.date_created, f.date_modified, f.indexed_at
-			FROM files f
-			WHERE f.id IN (
-				SELECT rowid FROM files_fts WHERE files_fts MATCH %q
-			)
-			OR f.vault_path LIKE %q
-			OR %s
-			LIMIT ?
-		`, ftsQuery, "%"+query+"%", tagClause)
-
-		rows, err := v.db.Conn().Query(querySQL, limit)
-		if err != nil {
-			return nil, err
-		}
-		return scanFiles(rows)
+		whereParts = append(whereParts, "f.id IN (SELECT ft.file_id FROM file_tags ft JOIN tags t ON ft.tag_id = t.id LEFT JOIN tag_aliases a ON a.tag_id = t.id WHERE " +
+			strings.Join(tagConditions, " OR ") + ")")
+		args = append(args, tagArgs...)
 	}
+	args = append(args, limit)
 
-	// No valid tag words — fall back to FTS + filename only
-	querySQL := fmt.Sprintf(`
-		SELECT f.id, f.vault_path, f.thumbnail_path, f.name, f.notes, f.link,
-		       f.rating, f.is_favorite, f.folder_path, f.filename, f.date_created, f.date_modified, f.indexed_at
-		FROM files f
-		WHERE f.id IN (
-			SELECT rowid FROM files_fts WHERE files_fts MATCH %q
-		)
-		OR f.vault_path LIKE %q
-		LIMIT ?
-	`, ftsQuery, "%"+query+"%")
+	querySQL := "\n"
+	querySQL += `SELECT f.id, f.vault_path, f.thumbnail_path, f.name, f.notes, f.link,
+	       f.rating, f.is_favorite, f.folder_path, f.filename, f.date_created, f.date_modified, f.indexed_at
+	FROM files f
+	WHERE ` + strings.Join(whereParts, " OR ") + `
+	LIMIT ?`
 
-	rows, err := v.db.Conn().Query(querySQL, limit)
+	rows, err := v.db.Conn().Query(querySQL, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -479,14 +470,22 @@ func (a *App) UpdateFile(update *db.FileUpdate) error {
 	return err
 }
 
-// sanitizeFTSQuery escapes special FTS5 characters.
-func sanitizeFTSQuery(query string) string {
-	// Escape: * ? " [ ] ( ) { } ~ : \ & | -
-	result := strings.ReplaceAll(query, "\\", "\\\\")
-	result = strings.ReplaceAll(result, "\"", "\\\"")
-	result = strings.ReplaceAll(result, "*", "\\*")
-	result = strings.ReplaceAll(result, "?", "\\?")
-	return result
+// sanitizeFTSQuery turns a raw search word into a safe FTS5 phrase: the word is
+// wrapped in double quotes, which makes every character literal text — only an
+// embedded double quote needs escaping, per FTS5 query syntax, as "". The result
+// is always safe to bind as a parameter to a MATCH expression.
+func sanitizeFTSQuery(word string) string {
+	return `"` + strings.ReplaceAll(word, `"`, `""`) + `"`
+}
+
+// escapeLike escapes the LIKE wildcards (%, _) and the escape character itself
+// so the pattern matches its input literally. Always use the result together
+// with the SQL clause `ESCAPE '\'`.
+func escapeLike(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, "%", `\%`)
+	s = strings.ReplaceAll(s, "_", `\_`)
+	return s
 }
 
 // scanFiles scans database rows into a slice of File structs.
