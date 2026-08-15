@@ -11,6 +11,8 @@ import (
 	"TagLoom/config"
 	"TagLoom/db"
 	"TagLoom/utils"
+
+	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 const maxRecentVaults = 10
@@ -61,6 +63,15 @@ func (a *App) generateThumbnailAbsolutePath(relFilePath string) string {
 	thumbDir := filepath.Join(a.vaultPath, ".tagloom", "thumbnails", subdir)
 	os.MkdirAll(thumbDir, 0755)
 	return filepath.Join(thumbDir, hash+".webp")
+}
+
+// emitEvent emits a Wails runtime event to the frontend.
+// It is a no-op when no app context is set (e.g. in unit tests).
+func (a *App) emitEvent(name string, data interface{}) {
+	if a.ctx == nil {
+		return
+	}
+	wailsruntime.EventsEmit(a.ctx, name, data)
 }
 
 // Startup is called when the app starts. The context is saved

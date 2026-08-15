@@ -11,8 +11,6 @@ import (
 
 	"TagLoom/db"
 	"TagLoom/utils"
-
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // scanEntry holds a file path and its os.FileInfo collected during a single
@@ -122,7 +120,7 @@ func (a *App) ScanVault() (int, error) {
 
 		// Emit progress every 100 files
 		if (i+1)%100 == 0 || i+1 == totalCount {
-			runtime.EventsEmit(a.ctx, "scan:progress", map[string]int{
+			a.emitEvent("scan:progress", map[string]int{
 				"current": i + 1,
 				"total":   totalCount,
 			})
@@ -134,11 +132,11 @@ func (a *App) ScanVault() (int, error) {
 	}
 
 	// Emit completion
-	runtime.EventsEmit(a.ctx, "scan:progress", map[string]int{
+	a.emitEvent("scan:progress", map[string]int{
 		"current": totalCount,
 		"total":   totalCount,
 	})
-	runtime.EventsEmit(a.ctx, "scan:complete", totalCount)
+	a.emitEvent("scan:complete", totalCount)
 
 	return totalCount, nil
 }
@@ -149,10 +147,13 @@ func (a *App) ScanVault() (int, error) {
 // for comparison with the absolute paths from filepath.WalkDir.
 func isExcluded(path string, vaultPath string, excluded map[string]bool) bool {
 	clean := strings.ToLower(filepath.Clean(path))
-	// Always exclude .tagloom — it contains thumbnails, DB, and config
-	base := filepath.Base(clean)
-	if base == ".tagloom" {
-		return true
+	// Always exclude .tagloom (and anything inside it) — it contains
+	// thumbnails, DB, and config. Match on any path component so paths
+	// nested under .tagloom are excluded too.
+	for _, part := range strings.Split(clean, string(filepath.Separator)) {
+		if part == ".tagloom" {
+			return true
+		}
 	}
 	for excl := range excluded {
 		// Resolve relative excluded path to absolute for comparison
@@ -253,7 +254,7 @@ func (a *App) RescanVault() (int, error) {
 	}
 
 	// Emit diff summary
-	runtime.EventsEmit(a.ctx, "rescan:diff", map[string]int{
+	a.emitEvent("rescan:diff", map[string]int{
 		"added":   len(added),
 		"removed": len(removed),
 		"total":   len(fsEntries),
@@ -299,7 +300,7 @@ func (a *App) RescanVault() (int, error) {
 
 			step := (i + 1) * 100 / len(added)
 			if step%25 == 0 || i+1 == len(added) {
-				runtime.EventsEmit(a.ctx, "rescan:progress", map[string]interface{}{
+				a.emitEvent("rescan:progress", map[string]interface{}{
 					"phase":   "adding",
 					"current": i + 1,
 					"total":   len(added),
@@ -309,38 +310,50 @@ func (a *App) RescanVault() (int, error) {
 		stmt.Close()
 	}
 
-	// Delete removed files (and their tags)
+	// Delete removed files (and their tag associations).
+	// SQLite FK cascade is not enabled, so file_tags rows must be removed
+	// explicitly. `removed` holds vault paths (not file IDs), so match
+	// file_tags via a subquery on vault_path.
 	if len(removed) > 0 {
-		delStmt, err := tx.Prepare("DELETE FROM file_tags WHERE file_id = ?")
-		if err == nil {
-			for _, p := range removed {
-				delStmt.Exec(p) // ignore errors — cascade will handle it
-			}
-			delStmt.Close()
+		delTagStmt, err := tx.Prepare(`
+			DELETE FROM file_tags
+			WHERE file_id IN (SELECT id FROM files WHERE vault_path = ?)
+		`)
+		if err != nil {
+			tx.Rollback()
+			return 0, fmt.Errorf("failed to prepare file_tags delete: %w", err)
 		}
 
 		delFileStmt, err := tx.Prepare("DELETE FROM files WHERE vault_path = ?")
 		if err != nil {
+			delTagStmt.Close()
 			tx.Rollback()
 			return 0, fmt.Errorf("failed to prepare delete: %w", err)
 		}
 
 		for i, p := range removed {
-			_, err := delFileStmt.Exec(p)
-			if err != nil {
+			if _, err := delTagStmt.Exec(p); err != nil {
+				delTagStmt.Close()
+				delFileStmt.Close()
+				tx.Rollback()
+				return 0, fmt.Errorf("failed to delete file_tags for %s: %w", p, err)
+			}
+			if _, err := delFileStmt.Exec(p); err != nil {
+				delTagStmt.Close()
 				delFileStmt.Close()
 				tx.Rollback()
 				return 0, fmt.Errorf("failed to delete %s: %w", p, err)
 			}
 			step := (i + 1) * 100 / len(removed)
 			if step%25 == 0 || i+1 == len(removed) {
-				runtime.EventsEmit(a.ctx, "rescan:progress", map[string]interface{}{
+				a.emitEvent("rescan:progress", map[string]interface{}{
 					"phase":   "removing",
 					"current": i + 1,
 					"total":   len(removed),
 				})
 			}
 		}
+		delTagStmt.Close()
 		delFileStmt.Close()
 	}
 
@@ -349,7 +362,7 @@ func (a *App) RescanVault() (int, error) {
 	}
 
 	// Emit completion
-	runtime.EventsEmit(a.ctx, "rescan:complete", map[string]int{
+	a.emitEvent("rescan:complete", map[string]int{
 		"added":   len(added),
 		"removed": len(removed),
 	})
