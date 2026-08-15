@@ -34,12 +34,10 @@ export const useFilesStore = defineStore('files', {
         const activeFilter = filtersStore.asBackendFilter
         const mergedFilter = { ...activeFilter, ...filter }
 
-        const result: FilePage = await Promise.race([
-          GetFiles(mergedFilter, sort, this.page, this.limit),
-          new Promise<FilePage>((_, reject) =>
-            setTimeout(() => reject(new Error('GetFiles timeout (2s)')), 2000)
-          ),
-        ])
+        // No frontend timeout: on slow drives / large vaults the backend's
+        // 30s busy_timeout is the right bound, and a race timeout would
+        // surface an empty gallery while the query is still running.
+        const result: FilePage = await GetFiles(mergedFilter, sort, this.page, this.limit)
         // Go returns nil slice → null in JS; result itself can also be null
         const fileArray: File[] = result && Array.isArray(result.files) ? result.files : []
         if (append) {
@@ -82,12 +80,7 @@ export const useFilesStore = defineStore('files', {
         const sortOpts = { field: uiStore.sortBy, order: uiStore.sortOrder }
 
         // Load first page with same page size as reloadFiles
-        const result: FilePage = await Promise.race([
-          GetFiles(activeFilter, sortOpts, 0, this.limit),
-          new Promise<FilePage>((_, reject) =>
-            setTimeout(() => reject(new Error('GetFiles timeout (5s)')), 5000)
-          ),
-        ])
+        const result: FilePage = await GetFiles(activeFilter, sortOpts, 0, this.limit)
         const fileArray: File[] = result && Array.isArray(result.files) ? result.files : []
         this.files = fileArray
         this.totalCount = result?.total_count ?? 0
@@ -120,12 +113,7 @@ export const useFilesStore = defineStore('files', {
         // Calculate next page: files.length items are loaded across pages 0..page.
         // Since we just loaded page 'this.page', the next page is this.page + 1.
         const nextPage = this.page + 1
-        const result: FilePage = await Promise.race([
-          GetFiles(activeFilter, sortOpts, nextPage, this.limit),
-          new Promise<FilePage>((_, reject) =>
-            setTimeout(() => reject(new Error('GetFiles timeout (5s)')), 5000)
-          ),
-        ])
+        const result: FilePage = await GetFiles(activeFilter, sortOpts, nextPage, this.limit)
         const fileArray: File[] = result && Array.isArray(result.files) ? result.files : []
         this.files = [...this.files, ...fileArray]
         this.page = nextPage
@@ -170,22 +158,16 @@ export const useFilesStore = defineStore('files', {
         let totalCount = 0
 
         // First get total count
-        const firstResult: FilePage = await Promise.race([
-          GetFiles({ ...activeFilter, folder_path: this.folderBulkEditPath }, { field: 'indexed_at', order: 'desc' }, 0, 1),
-          new Promise<FilePage>((_, reject) =>
-            setTimeout(() => reject(new Error('GetFiles timeout (5s)')), 5000)
-          ),
-        ])
+        const firstResult: FilePage = await GetFiles(
+          { ...activeFilter, folder_path: this.folderBulkEditPath }, { field: 'indexed_at', order: 'desc' }, 0, 1
+        )
         totalCount = firstResult?.total_count ?? 0
 
         // Fetch all pages of IDs
         for (let p = 0; p * limit < totalCount; p++) {
-          const result: FilePage = await Promise.race([
-            GetFiles({ ...activeFilter, folder_path: this.folderBulkEditPath }, { field: 'indexed_at', order: 'desc' }, p, limit),
-            new Promise<FilePage>((_, reject) =>
-              setTimeout(() => reject(new Error('GetFiles timeout (5s)')), 5000)
-            ),
-          ])
+          const result: FilePage = await GetFiles(
+            { ...activeFilter, folder_path: this.folderBulkEditPath }, { field: 'indexed_at', order: 'desc' }, p, limit
+          )
           const fileArray: File[] = result && Array.isArray(result.files) ? result.files : []
           for (const f of fileArray) {
             allIds.push(f.id)
@@ -201,12 +183,9 @@ export const useFilesStore = defineStore('files', {
         const filtersStore = useFiltersStore()
         const activeFilter = filtersStore.asBackendFilter
         try {
-          const result: FilePage = await Promise.race([
-            GetFiles({ ...activeFilter, folder_path: this.folderBulkEditPath }, { field: 'indexed_at', order: 'desc' }, 0, 1),
-            new Promise<FilePage>((_, reject) =>
-              setTimeout(() => reject(new Error('GetFiles timeout (2s)')), 2000)
-            ),
-          ])
+          const result: FilePage = await GetFiles(
+            { ...activeFilter, folder_path: this.folderBulkEditPath }, { field: 'indexed_at', order: 'desc' }, 0, 1
+          )
           return result?.total_count ?? 0
         } catch {
           return 0
