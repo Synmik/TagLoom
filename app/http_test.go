@@ -8,13 +8,17 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"testing/fstest"
+
+	wailsassetserver "github.com/wailsapp/wails/v2/pkg/assetserver"
+	wailsoptions "github.com/wailsapp/wails/v2/pkg/options/assetserver"
 )
 
 // passthrough returns a middleware chain whose fallback records that the
 // next handler was reached.
 func middlewareChain(t *testing.T, a *App, hit *bool) http.Handler {
 	t.Helper()
-	return a.AssetMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return AssetMiddleware(a, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		*hit = true
 		w.WriteHeader(http.StatusTeapot)
 	}))
@@ -136,6 +140,52 @@ func TestAssetMiddlewareOriginalMissingOnDisk(t *testing.T) {
 	rec := doRequest(t, h, "GET", fmt.Sprintf("/api/original/%d", id), "")
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404", rec.Code)
+	}
+}
+
+func TestAssetMiddlewareThroughWailsAssetServer(t *testing.T) {
+	// Replicates the exact handler chain Wails v2 builds:
+	// assetserver.NewAssetHandler applies Options.Middleware around the
+	// static file handler, then AssetServer.ServeHTTP dispatches to it.
+	a := newTestApp(t)
+
+	// A real thumbnail on disk + a DB row pointing at it.
+	webp := []byte("RIFF\x01\x02\x03\x04")
+	relThumb := ".tagloom/thumbnails/ab/abcd.webp"
+	thumbPath := filepath.Join(a.vaultPath, relThumb)
+	if err := os.MkdirAll(filepath.Dir(thumbPath), 0755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(thumbPath, webp, 0644); err != nil {
+		t.Fatalf("write webp: %v", err)
+	}
+	id := seedFile(t, a, "img.jpg")
+	if _, err := a.db.Conn().Exec(
+		"UPDATE files SET thumbnail_path = ? WHERE id = ?", relThumb, id); err != nil {
+		t.Fatalf("set thumbnail_path: %v", err)
+	}
+
+	// Minimal embedded-assets stand-in: in-memory FS with an index.html.
+	handler, err := wailsassetserver.NewAssetHandler(wailsoptions.Options{
+		Assets: &fstest.MapFS{"index.html": &fstest.MapFile{Data: []byte("<html></html>")}},
+		Middleware: func(next http.Handler) http.Handler {
+			return AssetMiddleware(a, next)
+		},
+	}, nil)
+	if err != nil {
+		t.Fatalf("NewAssetHandler: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest("GET", fmt.Sprintf("/api/thumbnail/%d?vp=C%%3A%%5Cvault", id), nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body: %q)", rec.Code, rec.Body.String())
+	}
+	if ct := rec.Header().Get("Content-Type"); ct != "image/webp" {
+		t.Fatalf("Content-Type = %q, want image/webp", ct)
+	}
+	if rec.Body.String() != string(webp) {
+		t.Fatalf("body mismatch: %q", rec.Body.String())
 	}
 }
 

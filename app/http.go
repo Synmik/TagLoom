@@ -16,7 +16,12 @@ import (
 // through to the next handler (the Wails asset server).
 //
 // Registered in main.go via assetserver.Middleware.
-func (a *App) AssetMiddleware(next http.Handler) http.Handler {
+//
+// Deliberately a package-level function, NOT a method on *App: Wails v2
+// auto-binds every exported method of bound structs, and http.Handler is
+// not a bindable type (it would generate a dangling `http` model import in
+// the frontend bindings on every regenerate).
+func AssetMiddleware(a *App, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case strings.HasPrefix(r.URL.Path, "/api/thumbnail/"):
