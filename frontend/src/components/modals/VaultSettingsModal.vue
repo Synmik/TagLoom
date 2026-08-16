@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { X, FolderOpen, Plus, Pencil, Wrench } from '@lucide/vue'
+import { X, FolderOpen, Plus, Pencil, Wrench, Trash2 } from '@lucide/vue'
 import { useVaultStore } from '../../stores/vault'
 import { useFilesStore } from '../../stores/files'
 import { useToast } from '../../composables/useToast'
@@ -12,6 +12,7 @@ import {
   RemoveExcludedFolder,
   SelectFolder,
   RepairAllThumbnails,
+  CleanupOrphanThumbnails,
 } from '../../api/backend'
 
 const vaultStore = useVaultStore()
@@ -131,6 +132,27 @@ const confirmRepairAll = async () => {
   }
 }
 
+// ── Clean up orphaned thumbnails ───────────────────────────────────
+const isCleaning = ref(false)
+const showCleanupConfirm = ref(false)
+
+const confirmCleanupOrphans = async () => {
+  showCleanupConfirm.value = false
+  isCleaning.value = true
+  try {
+    const removed = await CleanupOrphanThumbnails()
+    if (removed > 0) {
+      success(`Removed ${removed} orphan thumbnail${removed === 1 ? '' : 's'}`)
+    } else {
+      success('No orphaned thumbnails found')
+    }
+  } catch (e: any) {
+    toastError('Thumbnail cleanup failed: ' + (e.message || String(e)))
+  } finally {
+    isCleaning.value = false
+  }
+}
+
 // ── Save config (quality + auto-tag) ───────────────────────────────
 const isSaving = ref(false)
 
@@ -194,6 +216,13 @@ onMounted(async () => {
 </script>
 
 <template>
+  <ConfirmDialog
+    v-if="showCleanupConfirm"
+    message="Remove orphaned thumbnails? WebP files whose source file is no longer in the vault will be deleted from disk."
+    confirm-text="Clean up"
+    @confirm="confirmCleanupOrphans"
+    @cancel="showCleanupConfirm = false"
+  />
   <ConfirmDialog
     v-if="showRepairConfirm"
     message="Repair all thumbnails? This re-checks every file in the vault and regenerates missing or stale thumbnails. Large vaults may take a while."
@@ -261,18 +290,28 @@ onMounted(async () => {
             />
             <span class="slider-value">{{ thumbnailQuality }}%</span>
           </div>
-          <button
-            class="repair-btn"
-            :disabled="isRepairing || isRescanning"
-            @click="showRepairConfirm = true"
-          >
-            <Wrench :size="13" />
-            {{ isRepairing ? 'Repairing…' : 'Repair all thumbnails' }}
-          </button>
+          <div class="thumb-actions">
+            <button
+              class="repair-btn"
+              :disabled="isRepairing || isRescanning"
+              @click="showRepairConfirm = true"
+            >
+              <Wrench :size="13" />
+              {{ isRepairing ? 'Repairing…' : 'Repair all thumbnails' }}
+            </button>
+            <button
+              class="repair-btn"
+              :disabled="isCleaning || isRepairing || isRescanning"
+              @click="showCleanupConfirm = true"
+            >
+              <Trash2 :size="13" />
+              {{ isCleaning ? 'Cleaning up…' : 'Clean up orphaned thumbnails' }}
+            </button>
+          </div>
           <p v-if="repairProgress" class="repair-progress">
             {{ repairProgress.current }} / {{ repairProgress.total }}
           </p>
-          <p class="hint">Fixes missing or stale thumbnails — including old vaults where the stored thumbnail path is out of date.</p>
+          <p class="hint">Repair fixes missing or stale thumbnails (old vaults with out-of-date paths). Clean up removes WebP files whose source file is gone.</p>
         </section>
 
         <!-- Excluded folders -->
@@ -544,7 +583,13 @@ onMounted(async () => {
   font-size: 12px;
 }
 
-/* ── Repair thumbnails ──────────────────────────────────────────── */
+/* ── Repair / cleanup thumbnails ────────────────────────────────── */
+.thumb-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .repair-btn {
   align-self: flex-start;
   display: flex;

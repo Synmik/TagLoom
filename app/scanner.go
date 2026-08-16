@@ -340,7 +340,15 @@ func (a *App) RescanVault() (int, error) {
 			return 0, fmt.Errorf("failed to prepare delete: %w", err)
 		}
 
+		// Collect thumbnail paths before the rows are gone so the WebPs
+		// can be removed from disk after commit (no orphan thumbnails).
+		var removedThumbs []string
+
 		for i, p := range removed {
+			var thumbRel *string
+			if err := tx.QueryRow("SELECT thumbnail_path FROM files WHERE vault_path = ?", p).Scan(&thumbRel); err == nil && thumbRel != nil && *thumbRel != "" {
+				removedThumbs = append(removedThumbs, v.resolvePath(*thumbRel))
+			}
 			if _, err := delTagStmt.Exec(p); err != nil {
 				delTagStmt.Close()
 				delFileStmt.Close()
@@ -364,6 +372,11 @@ func (a *App) RescanVault() (int, error) {
 		}
 		delTagStmt.Close()
 		delFileStmt.Close()
+
+		// Remove thumbnails of the files that are gone from disk.
+		for _, thumbAbs := range removedThumbs {
+			deleteThumbnailFile(thumbAbs)
+		}
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -387,10 +400,10 @@ func (a *App) GetFolderTree(path string) *db.FolderNode {
 	v := a.vault()
 	if v.db == nil {
 		return &db.FolderNode{
-			Path:     path,
-			Name:     filepath.Base(path),
+			Path:      path,
+			Name:      filepath.Base(path),
 			FileCount: 0,
-			Children: []db.FolderNode{},
+			Children:  []db.FolderNode{},
 		}
 	}
 
@@ -404,10 +417,10 @@ func (a *App) GetFolderTree(path string) *db.FolderNode {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to query folder tree: %v\n", err)
 		return &db.FolderNode{
-			Path:     path,
-			Name:     filepath.Base(path),
+			Path:      path,
+			Name:      filepath.Base(path),
 			FileCount: 0,
-			Children: []db.FolderNode{},
+			Children:  []db.FolderNode{},
 		}
 	}
 	defer rows.Close()
@@ -632,14 +645,9 @@ func (a *App) DeleteOriginalFile(fileID int64) error {
 		return fmt.Errorf("failed to delete original file: %w", err)
 	}
 
-	// Delete thumbnail from disk (if exists)
-	// thumbPath is relative to vault root (e.g. ".tagloom/thumbnails/...")
+	// Delete thumbnail from disk (if exists) — best-effort
 	if thumbPath != nil && *thumbPath != "" {
-		thumbFullPath := v.resolvePath(*thumbPath)
-		_ = os.Remove(thumbFullPath)
-
-		// Clean up empty parent directory
-		_ = os.Remove(filepath.Dir(thumbFullPath))
+		deleteThumbnailFile(v.resolvePath(*thumbPath))
 	}
 
 	// Remove from database (same as DeleteFile)
@@ -713,6 +721,11 @@ func (a *App) DeleteFile(fileID int64) error {
 		return fmt.Errorf("no vault open")
 	}
 
+	// Remember the thumbnail location before the row is deleted so the
+	// WebP can be removed from disk afterwards.
+	var thumbRel *string
+	_ = v.db.Conn().QueryRow("SELECT thumbnail_path FROM files WHERE id = ?", fileID).Scan(&thumbRel)
+
 	tx, err := v.db.Conn().Begin()
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
@@ -737,6 +750,11 @@ func (a *App) DeleteFile(fileID int64) error {
 
 	if n, _ := res.RowsAffected(); n > 0 {
 		a.adjustFileCount(-1)
+		// No row left → no thumbnail should be left either (the orphan
+		// sweep in CleanupOrphanThumbnails would remove it anyway).
+		if thumbRel != nil && *thumbRel != "" {
+			deleteThumbnailFile(v.resolvePath(*thumbRel))
+		}
 	}
 	return nil
 }
@@ -802,8 +820,8 @@ func (a *App) indexFile(filePath string) error {
 
 // ImportResult holds the result of importing a single file.
 type ImportResult struct {
-	Imported int    `json:"imported"`
-	Skipped  int    `json:"skipped"`
+	Imported int      `json:"imported"`
+	Skipped  int      `json:"skipped"`
 	Errors   []string `json:"errors"`
 }
 

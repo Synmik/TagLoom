@@ -226,9 +226,9 @@ func (a *App) runThumbnailPool(repairAll bool) error {
 	defer rows.Close()
 
 	type pendingFile struct {
-		id         int64
-		vaultPath  string
-		thumbRel   string // existing relative thumbnail_path ("" if empty/NULL)
+		id        int64
+		vaultPath string
+		thumbRel  string // existing relative thumbnail_path ("" if empty/NULL)
 	}
 
 	var pending []pendingFile
@@ -452,8 +452,6 @@ func (a *App) runThumbnailPool(repairAll bool) error {
 	return nil
 }
 
-
-
 // CancelThumbnailGeneration cancels an ongoing thumbnail generation pool.
 func (a *App) CancelThumbnailGeneration() {
 	// This will be wired to a cancel context in the future
@@ -550,6 +548,22 @@ func (a *App) CleanupOrphanThumbnails() (int, error) {
 	return removed, nil
 }
 
+// deleteThumbnailFile best-effort removes a thumbnail WebP from disk (abs
+// path) and the empty hash directory it leaves behind. Used by the delete
+// paths so deleted files don't leave orphan thumbnails consuming disk.
+func deleteThumbnailFile(thumbAbs string) {
+	if thumbAbs == "" {
+		return
+	}
+	if err := os.Remove(thumbAbs); err != nil && !os.IsNotExist(err) {
+		fmt.Printf("thumbnail delete warning: %v\n", err)
+	}
+	// Remove the parent ({2char_hash} dir) if it is now empty.
+	if entries, err := os.ReadDir(filepath.Dir(thumbAbs)); err == nil && len(entries) == 0 {
+		os.Remove(filepath.Dir(thumbAbs))
+	}
+}
+
 // GetThumbnailPath returns the absolute thumbnail path for a file ID.
 // Used by the HTTP handler to serve thumbnails.
 // The thumbnail_path in DB is relative; this resolves it to an absolute path.
@@ -616,6 +630,3 @@ func (a *App) GetThumbnailInfo(fileID int64) (*ThumbnailInfo, error) {
 
 	return info, nil
 }
-
-
-
