@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 16-08-2026
+
+### New Features
+
+- Thumbnail repair tools: vault-wide "Repair all thumbnails" and orphan cleanup, both from the settings modal
+- Thumbnails now self-heal on demand when missing or stale
+- DB migrations are now versioned (schema_migrations)
+
+### Fixes
+
+- Debounced Name/Notes/Link edits could save to the wrong file when switching selection quickly; pending edits now flush to the correct file on switch
+- Fixed a data race on vault state
+- Search queries parameterized; FTS/LIKE escaping fixed
+- Fixed malformed thumbnail URL (busted `&` vs `?`)
+- CancelThumbnailGeneration now actually cancels the worker pool
+- Removed fake client-side timeouts on file loading calls
+- Rescan no longer leaves orphaned file_tags rows
+- Category tags can no longer be applied via batch operations
+- HTTP middleware no longer leaked as a Wails binding
+
+### Performance
+
+- Thumbnails served via HTTP endpoint only (removed base64 over JSON-RPC)
+- File size stored in DB and sorted in-DB instead of stat-ing the vault
+- Cached file count per vault call
+- Batch ops use a bare-ID query instead of full file rows
+
+### Changed
+
+- Removed dead code; refactored thumbnail pipeline and HTTP middleware
+- Frontend cleanup: typed getters, shared logger (FE + Go), modal extraction
+- App version derived from wails.json at build time
+
+### CI & Tooling
+
+- GitHub Actions workflow: Go build/vet/test + frontend build
+- Added linting: golangci-lint (Go) and ESLint/Prettier (frontend), wired into CI
+- Added tests for scanner, file utils, and import
+
 ## [0.4.0] - 17-06-2026
 
 ### New Features
