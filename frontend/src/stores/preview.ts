@@ -14,6 +14,10 @@ export const usePreviewStore = defineStore("preview", {
     isLoading: false,
     previewModalOpen: false,
     _loadSeq: 0, // monotonic counter to discard stale loadFileDetails responses
+    // In-flight edits per file ID — merged into later full-row payloads so
+    // rapid consecutive saves (e.g. name edit + favorite toggle) don't
+    // clobber each other with stale values.
+    _pendingEdits: {} as Record<number, Record<string, any>>,
   }),
   actions: {
     async setFile(file: File | null) {
@@ -68,21 +72,42 @@ export const usePreviewStore = defineStore("preview", {
     // Helper: build a full FileUpdate with defaults, then override the field
     _updateField(field: string, value: any) {
       if (!this.currentFile) return Promise.resolve();
-      const f = this.currentFile;
+      return this.updateFieldFor(this.currentFile, field, value);
+    },
+
+    /**
+     * Save one field value against a specific file (not necessarily the
+     * current one). Used to flush pending edits when the selection changes.
+     */
+    updateFieldFor(target: File, field: string, value: any) {
+      // Track this edit so concurrent saves on the same file include it
+      const pending = this._pendingEdits[target.id] ?? {};
+      pending[field] = value;
+      this._pendingEdits[target.id] = pending;
+
       // Coerce nullable string fields (name, notes, link) to empty string
       // so Go backend receives a valid string instead of undefined
       return UpdateFile({
-        id: f.id,
-        name: field === "name" ? value : (f.name ?? ""),
-        notes: field === "notes" ? value : (f.notes ?? ""),
-        link: field === "link" ? value : (f.link ?? ""),
-        rating: field === "rating" ? value : f.rating,
-        is_favorite: field === "is_favorite" ? value : f.is_favorite,
-      }).then(() => {
-        if (this.currentFile) {
-          (this.currentFile as any)[field] = value;
-        }
-      });
+        id: target.id,
+        name: field === "name" ? value : (pending.name ?? target.name ?? ""),
+        notes: field === "notes" ? value : (pending.notes ?? target.notes ?? ""),
+        link: field === "link" ? value : (pending.link ?? target.link ?? ""),
+        rating: pending.rating ?? target.rating,
+        is_favorite: pending.is_favorite ?? target.is_favorite,
+      })
+        .then(() => {
+          // Patch in-memory state by ID — a late response must only touch
+          // the file it targeted, never whichever file is selected now.
+          const patch = (f: File | null | undefined) => {
+            if (f && f.id === target.id) (f as any)[field] = value;
+          };
+          patch(this.currentFile);
+          const filesStore = useFilesStore();
+          patch(filesStore.files.find((x) => x.id === target.id));
+        })
+        .finally(() => {
+          delete this._pendingEdits[target.id];
+        });
     },
     async updateName(value: string) {
       return this._updateField("name", value);

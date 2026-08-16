@@ -15,7 +15,7 @@
     "companyName": "Synmik",
     "copyright": "© 2026 Synmik. All rights reserved.",
     "productName": "TagLoom",
-    "productVersion": "0.4.0"
+    "productVersion": "0.5.0"
   },
   "nsis": {
     "installer": "build/windows/installer/project.nsi"

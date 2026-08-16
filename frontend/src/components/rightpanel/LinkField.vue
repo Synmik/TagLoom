@@ -35,7 +35,22 @@ const localLink = shallowRef("");
 
 watch(
   () => previewStore.currentFile,
-  (file) => {
+  (file, prevFile) => {
+    // Flush a pending (debounced) edit to the previous file before switching.
+    // Invalid URLs are dropped, matching the debounce behavior.
+    if (prevFile && localLink.value !== (prevFile.link || "")) {
+      const trimmed = localLink.value.trim();
+      if (!trimmed) {
+        previewStore.updateFieldFor(prevFile, "link", "");
+      } else {
+        try {
+          new URL(trimmed);
+          previewStore.updateFieldFor(prevFile, "link", trimmed);
+        } catch {
+          // invalid URL — leave the previous value untouched
+        }
+      }
+    }
     editingFileId.value = file?.id ?? null;
     localLink.value = file?.link || "";
   },

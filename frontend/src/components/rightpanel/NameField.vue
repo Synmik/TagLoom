@@ -18,7 +18,11 @@ const localName = shallowRef("");
 // Watch for file changes — reset local state and mark editing file
 watch(
   () => previewStore.currentFile,
-  (file) => {
+  (file, prevFile) => {
+    // Flush a pending (debounced) edit to the previous file before switching
+    if (prevFile && localName.value !== (prevFile.name || "")) {
+      previewStore.updateFieldFor(prevFile, "name", localName.value);
+    }
     editingFileId.value = file?.id ?? null;
     localName.value = file?.name || "";
   },

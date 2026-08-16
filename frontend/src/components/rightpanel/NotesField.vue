@@ -22,7 +22,11 @@ const localNotes = shallowRef("");
 
 watch(
   () => previewStore.currentFile,
-  (file) => {
+  (file, prevFile) => {
+    // Flush a pending (debounced) edit to the previous file before switching
+    if (prevFile && localNotes.value !== (prevFile.notes || "")) {
+      previewStore.updateFieldFor(prevFile, "notes", localNotes.value);
+    }
     editingFileId.value = file?.id ?? null;
     localNotes.value = file?.notes || "";
   },
