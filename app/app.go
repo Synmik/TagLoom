@@ -45,11 +45,17 @@ type App struct {
 	// which pool registered it (Go functions are not comparable).
 	thumbCancel    context.CancelFunc
 	thumbCancelGen int
+	// version is the application version, derived from wails.json
+	// (info.productVersion) at startup — that file is the single source of
+	// truth.
+	version string
 }
 
-// NewApp creates a new App instance.
-func NewApp() *App {
-	return &App{}
+// NewApp creates a new App instance. version comes from wails.json
+// (info.productVersion), which is the single source of truth for the
+// application version.
+func NewApp(version string) *App {
+	return &App{version: version}
 }
 
 // vault is an immutable snapshot of the vault state, taken under the read
@@ -345,10 +351,11 @@ func (a *App) GetAppInfo() map[string]string {
 	}
 }
 
-// GetVersion returns the application version.
-// Keep in sync with wails.json → info.productVersion.
-const appVersion = "0.4.0"
-
+// GetVersion returns the application version. Set from wails.json at
+// startup; "dev" covers directly-constructed App instances (tests).
 func (a *App) GetVersion() string {
-	return appVersion
+	if a.version == "" {
+		return "dev"
+	}
+	return a.version
 }

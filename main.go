@@ -2,6 +2,8 @@ package main
 
 import (
 	"embed"
+	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"TagLoom/app"
@@ -13,12 +15,39 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
+//go:embed wails.json
+var wailsJSON []byte
+
+// productVersionFromWailsJSON extracts info.productVersion from a
+// wails.json document. wails.json is the single source of truth for the
+// application version — no Go constant is kept in sync by hand.
+func productVersionFromWailsJSON(data []byte) (string, error) {
+	var cfg struct {
+		Info struct {
+			ProductVersion string `json:"productVersion"`
+		} `json:"info"`
+	}
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return "", fmt.Errorf("parse wails.json: %w", err)
+	}
+	if cfg.Info.ProductVersion == "" {
+		return "", fmt.Errorf("wails.json has no info.productVersion")
+	}
+	return cfg.Info.ProductVersion, nil
+}
+
 func main() {
+	version, err := productVersionFromWailsJSON(wailsJSON)
+	if err != nil {
+		println("Error:", err.Error())
+		return
+	}
+
 	// Create an instance of the app structure
-	appInstance := app.NewApp()
+	appInstance := app.NewApp(version)
 
 	// Create application with options
-	err := wails.Run(&options.App{
+	err = wails.Run(&options.App{
 		Title:     "TagLoom",
 		Width:     1600,
 		Height:    900,
