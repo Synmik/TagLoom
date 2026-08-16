@@ -1,17 +1,21 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { X, FolderOpen, Plus, Pencil } from '@lucide/vue'
+import { X, FolderOpen, Plus, Pencil, Wrench } from '@lucide/vue'
 import { useVaultStore } from '../../stores/vault'
+import { useFilesStore } from '../../stores/files'
 import { useToast } from '../../composables/useToast'
 import ConfirmDialog from '../common/ConfirmDialog.vue'
+import { EventsOn, EventsOff } from '../../../wailsjs/runtime/runtime'
 import {
   GetExcludedFolders,
   AddExcludedFolder,
   RemoveExcludedFolder,
   SelectFolder,
+  RepairAllThumbnails,
 } from '../../api/backend'
 
 const vaultStore = useVaultStore()
+const filesStore = useFilesStore()
 const { success, error: toastError } = useToast()
 defineEmits<{ close: [] }>()
 
@@ -91,6 +95,42 @@ const confirmRescan = async () => {
   }
 }
 
+// ── Repair all thumbnails ──────────────────────────────────────────
+const isRepairing = ref(false)
+const repairProgress = ref<{ current: number; total: number } | null>(null)
+const showRepairConfirm = ref(false)
+
+const confirmRepairAll = async () => {
+  showRepairConfirm.value = false
+  isRepairing.value = true
+  repairProgress.value = null
+  try {
+    const progressUnsub = EventsOn('thumb:progress', (data: { current: number; total: number }) => {
+      repairProgress.value = data
+    })
+    const completeUnsub = EventsOn('thumb:complete', (data: { generated: number; failed: number; total: number }) => {
+      if (data.failed > 0) {
+        toastError(`Thumbnail repair: ${data.generated} fixed, ${data.failed} failed out of ${data.total}`)
+      } else {
+        success(`Thumbnail repair complete — ${data.generated}/${data.total} checked`)
+      }
+    })
+    try {
+      await RepairAllThumbnails()
+    } finally {
+      progressUnsub()
+      completeUnsub()
+    }
+    // Re-render the gallery so freshly fixed thumbnails load
+    await filesStore.reloadFiles()
+  } catch (e: any) {
+    toastError('Thumbnail repair failed: ' + (e.message || String(e)))
+  } finally {
+    isRepairing.value = false
+    repairProgress.value = null
+  }
+}
+
 // ── Save config (quality + auto-tag) ───────────────────────────────
 const isSaving = ref(false)
 
@@ -155,6 +195,13 @@ onMounted(async () => {
 
 <template>
   <ConfirmDialog
+    v-if="showRepairConfirm"
+    message="Repair all thumbnails? This re-checks every file in the vault and regenerates missing or stale thumbnails. Large vaults may take a while."
+    confirm-text="Repair"
+    @confirm="confirmRepairAll"
+    @cancel="showRepairConfirm = false"
+  />
+  <ConfirmDialog
     v-if="showRescanConfirm"
     message="Re-scan the vault? This will detect added/removed files."
     confirm-text="Re-scan"
@@ -200,7 +247,7 @@ onMounted(async () => {
           </div>
         </section>
 
-        <!-- Thumbnail quality -->
+        <!-- Thumbnails -->
         <section class="section">
           <h4>Thumbnails</h4>
           <div class="slider-row">
@@ -214,6 +261,18 @@ onMounted(async () => {
             />
             <span class="slider-value">{{ thumbnailQuality }}%</span>
           </div>
+          <button
+            class="repair-btn"
+            :disabled="isRepairing || isRescanning"
+            @click="showRepairConfirm = true"
+          >
+            <Wrench :size="13" />
+            {{ isRepairing ? 'Repairing…' : 'Repair all thumbnails' }}
+          </button>
+          <p v-if="repairProgress" class="repair-progress">
+            {{ repairProgress.current }} / {{ repairProgress.total }}
+          </p>
+          <p class="hint">Fixes missing or stale thumbnails — including old vaults where the stored thumbnail path is out of date.</p>
         </section>
 
         <!-- Excluded folders -->
@@ -483,6 +542,41 @@ onMounted(async () => {
   color: #22c55e;
   font-weight: 600;
   font-size: 12px;
+}
+
+/* ── Repair thumbnails ──────────────────────────────────────────── */
+.repair-btn {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  color: #999;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.repair-btn:hover:not(:disabled) {
+  background: #222;
+  border-color: #333;
+  color: #e8e8e8;
+}
+
+.repair-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.repair-progress {
+  margin: 0;
+  color: #22c55e;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 /* ── Checkbox ───────────────────────────────────────────────────── */

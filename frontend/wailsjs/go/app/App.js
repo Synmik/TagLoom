@@ -94,16 +94,16 @@ export function GetFileByID(arg1) {
   return window['go']['app']['App']['GetFileByID'](arg1);
 }
 
+export function GetFileIDs(arg1) {
+  return window['go']['app']['App']['GetFileIDs'](arg1);
+}
+
 export function GetFileMetadata(arg1) {
   return window['go']['app']['App']['GetFileMetadata'](arg1);
 }
 
 export function GetFileTags(arg1) {
   return window['go']['app']['App']['GetFileTags'](arg1);
-}
-
-export function GetFileIDs(arg1) {
-  return window['go']['app']['App']['GetFileIDs'](arg1);
 }
 
 export function GetFiles(arg1, arg2, arg3, arg4) {
@@ -184,6 +184,10 @@ export function RemoveTagFromFile(arg1, arg2) {
 
 export function RemoveTagsFromFiles(arg1, arg2) {
   return window['go']['app']['App']['RemoveTagsFromFiles'](arg1, arg2);
+}
+
+export function RepairAllThumbnails() {
+  return window['go']['app']['App']['RepairAllThumbnails']();
 }
 
 export function RescanVault() {

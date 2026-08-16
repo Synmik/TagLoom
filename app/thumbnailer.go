@@ -10,8 +10,6 @@ import (
 	"sync"
 
 	"TagLoom/utils"
-
-	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 var ffmpegAvailable = false
@@ -187,6 +185,23 @@ type thumbResult struct {
 // concurrent writers — SQLite (even in WAL mode) only supports one writer
 // at a time.
 func (a *App) GenerateThumbnailsPool() error {
+	return a.runThumbnailPool(false)
+}
+
+// RepairAllThumbnails regenerates thumbnails for ALL files in the vault —
+// not just rows with an empty thumbnail_path. This fixes old vaults where
+// the DB points at a stale/different WebP path or where the WebP file was
+// deleted on disk. Rows whose thumbnail is already current are skipped
+// without regenerating (the worker still re-points the DB row to the
+// canonical hashed path, so stale paths get healed too).
+func (a *App) RepairAllThumbnails() error {
+	return a.runThumbnailPool(true)
+}
+
+// runThumbnailPool is the shared worker-pool implementation. repairAll
+// controls the row selection: false → only rows with empty/NULL
+// thumbnail_path; true → every file row.
+func (a *App) runThumbnailPool(repairAll bool) error {
 	v := a.vault()
 	if v.db == nil {
 		return fmt.Errorf("no vault open")
@@ -195,22 +210,25 @@ func (a *App) GenerateThumbnailsPool() error {
 		return fmt.Errorf("no vault path set")
 	}
 
-	// Collect all file IDs that need thumbnails.
+	// Collect file rows to process.
 	// No pre-flight os.Stat — workers handle missing files gracefully.
-	rows, err := v.db.Conn().Query(`
-		SELECT id, vault_path, thumbnail_path
-		FROM files
+	query := `SELECT id, vault_path, thumbnail_path FROM files`
+	if !repairAll {
+		// Plain concatenation of a fixed clause — no user input involved.
+		query += `
 		WHERE thumbnail_path = ''
-		   OR thumbnail_path IS NULL
-	`)
+		   OR thumbnail_path IS NULL`
+	}
+	rows, err := v.db.Conn().Query(query)
 	if err != nil {
 		return fmt.Errorf("failed to query files: %w", err)
 	}
 	defer rows.Close()
 
 	type pendingFile struct {
-		id        int64
-		vaultPath string
+		id         int64
+		vaultPath  string
+		thumbRel   string // existing relative thumbnail_path ("" if empty/NULL)
 	}
 
 	var pending []pendingFile
@@ -220,12 +238,15 @@ func (a *App) GenerateThumbnailsPool() error {
 		if err := rows.Scan(&f.id, &f.vaultPath, &existingThumb); err != nil {
 			return fmt.Errorf("failed to scan row: %w", err)
 		}
+		if existingThumb != nil {
+			f.thumbRel = *existingThumb
+		}
 		pending = append(pending, f)
 	}
 
 	total := len(pending)
 	if total == 0 {
-		wailsruntime.EventsEmit(a.ctx, "thumb:complete", map[string]int{
+		a.emitEvent("thumb:complete", map[string]int{
 			"generated": 0,
 			"failed":    0,
 			"total":     0,
@@ -234,7 +255,11 @@ func (a *App) GenerateThumbnailsPool() error {
 	}
 
 	// Create context for cancellation
-	ctx, cancel := context.WithCancel(a.ctx)
+	parent := a.ctx
+	if parent == nil {
+		parent = context.Background() // unit tests run without a Wails context
+	}
+	ctx, cancel := context.WithCancel(parent)
 	defer cancel()
 
 	// Channel for distributing work
@@ -260,7 +285,7 @@ func (a *App) GenerateThumbnailsPool() error {
 		processedMu.Unlock()
 
 		if cur%10 == 0 || cur == total {
-			wailsruntime.EventsEmit(a.ctx, "thumb:progress", map[string]int{
+			a.emitEvent("thumb:progress", map[string]int{
 				"current": cur,
 				"total":   total,
 			})
@@ -383,11 +408,21 @@ func (a *App) GenerateThumbnailsPool() error {
 	if err == nil {
 		stmt, prepErr := tx.Prepare("UPDATE files SET thumbnail_path = ? WHERE id = ?")
 		if prepErr == nil {
+			// Skip no-op writes: in repair mode most rows already point at
+			// the canonical path and just needed the up-to-date check.
+			byID := make(map[int64]string, len(pending))
+			for _, f := range pending {
+				byID[f.id] = f.thumbRel
+			}
 			for _, r := range results {
-				if r.ok {
-					relThumbPath := v.toRelativePath(r.thumbPath)
-					_, _ = stmt.Exec(relThumbPath, r.fileID)
+				if !r.ok {
+					continue
 				}
+				relThumbPath := v.toRelativePath(r.thumbPath)
+				if relThumbPath == byID[r.fileID] {
+					continue
+				}
+				_, _ = stmt.Exec(relThumbPath, r.fileID)
 			}
 			stmt.Close()
 		}
@@ -408,7 +443,7 @@ func (a *App) GenerateThumbnailsPool() error {
 	}
 
 	// Emit completion event
-	wailsruntime.EventsEmit(a.ctx, "thumb:complete", map[string]int{
+	a.emitEvent("thumb:complete", map[string]int{
 		"generated": generated,
 		"failed":    failed,
 		"total":     total,
@@ -422,7 +457,7 @@ func (a *App) GenerateThumbnailsPool() error {
 // CancelThumbnailGeneration cancels an ongoing thumbnail generation pool.
 func (a *App) CancelThumbnailGeneration() {
 	// This will be wired to a cancel context in the future
-	wailsruntime.EventsEmit(a.ctx, "thumb:cancelled", true)
+	a.emitEvent("thumb:cancelled", true)
 }
 
 // decodeImage opens and decodes an image file, supporting multiple formats.

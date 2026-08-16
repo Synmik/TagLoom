@@ -40,6 +40,7 @@ export interface AppBindings {
 
   // Thumbnails
   GenerateThumbnail(fileID: number): Promise<string>
+  RepairAllThumbnails(): Promise<void>
 }
 
 import type { VaultInfo, VaultConfig, FolderNode } from './vault'
