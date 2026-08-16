@@ -91,7 +91,7 @@ const confirmDeleteOriginal = async () => {
 // invalidates the cache only when the vault changes.
 const thumbnailSrc = computed(() => {
   const vp = vaultPath.value
-  const bust = vp ? `&vp=${encodeURIComponent(vp)}` : ''
+  const bust = vp ? `?vp=${encodeURIComponent(vp)}` : ''
   return `/api/thumbnail/${props.file.id}${bust}`
 })
 
@@ -103,7 +103,7 @@ const loadThumbnail = (retry: boolean) => {
   // On retry add a one-off parameter to bypass any cached 404 / stale
   // response; the endpoint ignores unknown query params.
   const url = retry
-    ? `${thumbnailSrc.value}&retry=${Date.now()}`
+    ? `${thumbnailSrc.value}${thumbnailSrc.value.includes('?') ? '&' : '?'}retry=${Date.now()}`
     : thumbnailSrc.value
 
   const img = new Image()
