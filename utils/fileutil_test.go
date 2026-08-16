@@ -34,3 +34,46 @@ func TestMIMEType(t *testing.T) {
 		t.Errorf("MIMEType(nested) = %q, want video/mp4", got)
 	}
 }
+
+func TestIsSupported(t *testing.T) {
+	tests := []struct {
+		path string
+		want bool
+	}{
+		// Images
+		{"photo.jpg", true},
+		{"photo.jpeg", true},
+		{"photo.png", true},
+		{"photo.gif", true},
+		{"photo.webp", true},
+		{"photo.svg", true},
+		{"photo.avif", true},
+		{"photo.jxl", true},
+		{"photo.jpegxl", true},
+		{"photo.tiff", true},
+		// Videos
+		{"clip.mp4", true},
+		{"clip.mkv", true},
+		{"clip.m2ts", true},
+		{"clip.mov", true},
+		// Animated (in both image and animated categories)
+		{"anim.gif", true},
+		{"anim.webm", true},
+		// Case-insensitive, nested paths
+		{"PHOTO.JPG", true},
+		{"/a/b/clip.MP4", true},
+		// Unsupported
+		{"notes.txt", false},
+		{"archive.zip", false},
+		{"noext", false},
+		{"photo.jpg.bak", false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.path, func(t *testing.T) {
+			if got := IsSupported(tc.path); got != tc.want {
+				t.Errorf("IsSupported(%q) = %v, want %v", tc.path, got, tc.want)
+			}
+		})
+	}
+}

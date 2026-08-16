@@ -199,6 +199,202 @@ func TestIsExcluded(t *testing.T) {
 	}
 }
 
+func TestResolveParent(t *testing.T) {
+	vault := t.TempDir()
+
+	tests := []struct {
+		name  string
+		fPath string
+		want  string
+	}{
+		{"direct child of vault root", "photo.jpg", vault},
+		{"dot path", ".", vault},
+		{"one level deep", filepath.Join("photos", "vacation"), "photos"},
+		{"multiple levels deep", filepath.Join("a", "b", "c"), filepath.Join("a", "b")},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := resolveParent(tc.fPath, vault); got != tc.want {
+				t.Errorf("resolveParent(%q) = %q, want %q", tc.fPath, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestBuildFolderTree(t *testing.T) {
+	root := t.TempDir()
+
+	// Root has 2 files directly; "b" and "a" are subfolders (listed out of
+	// order to verify alphabetical sorting); "a/inner" is an intermediate
+	// folder with no direct files.
+	counts := map[string]int{
+		root:                        2,
+		"a":                         1,
+		filepath.Join("a", "inner"): 0,
+		"b":                         3,
+	}
+	childrenOf := map[string][]string{
+		root: {"b", "a"},
+		"a":  {filepath.Join("a", "inner")},
+	}
+
+	node := buildFolderTree(counts, childrenOf, root, make(map[string]bool))
+
+	if node.Path != root {
+		t.Fatalf("root path = %q, want %q", node.Path, root)
+	}
+	if node.FileCount != 2 {
+		t.Errorf("root file count = %d, want 2", node.FileCount)
+	}
+	if len(node.Children) != 2 {
+		t.Fatalf("root children = %d, want 2", len(node.Children))
+	}
+	// Alphabetical order: "a" before "b"
+	if node.Children[0].Name != "a" || node.Children[1].Name != "b" {
+		t.Errorf("root children order = [%q, %q], want [a, b]",
+			node.Children[0].Name, node.Children[1].Name)
+	}
+	if node.Children[0].FileCount != 1 {
+		t.Errorf("a file count = %d, want 1", node.Children[0].FileCount)
+	}
+	if node.Children[1].FileCount != 3 {
+		t.Errorf("b file count = %d, want 3", node.Children[1].FileCount)
+	}
+	// "a" contains the intermediate folder "inner" with count 0
+	if len(node.Children[0].Children) != 1 {
+		t.Fatalf("a children = %d, want 1", len(node.Children[0].Children))
+	}
+	if node.Children[0].Children[0].Name != "inner" ||
+		node.Children[0].Children[0].FileCount != 0 {
+		t.Errorf("inner child = %q (count %d), want inner (count 0)",
+			node.Children[0].Children[0].Name, node.Children[0].Children[0].FileCount)
+	}
+}
+
+// TestBuildFolderTreeSkipsCycles verifies the seen-map guard terminates and
+// drops a folder that is listed as its own ancestor.
+func TestBuildFolderTreeSkipsCycles(t *testing.T) {
+	root := t.TempDir()
+
+	counts := map[string]int{root: 0, "a": 1}
+	childrenOf := map[string][]string{
+		root: {"a"},
+		"a":  {"a"}, // self-cycle
+	}
+
+	node := buildFolderTree(counts, childrenOf, root, make(map[string]bool))
+	if len(node.Children) != 1 {
+		t.Fatalf("root children = %d, want 1", len(node.Children))
+	}
+	if len(node.Children[0].Children) != 0 {
+		t.Errorf("a children = %d, want 0 (cycle must be skipped)", len(node.Children[0].Children))
+	}
+}
+
+// assertImported verifies an ImportResult reports exactly one successful import.
+func assertImported(t *testing.T, r *ImportResult) {
+	t.Helper()
+	if r.Imported != 1 {
+		t.Errorf("expected imported=1, got %+v", r)
+	}
+	if len(r.Errors) != 0 {
+		t.Errorf("unexpected errors: %v", r.Errors)
+	}
+}
+
+func TestImportFile(t *testing.T) {
+	a := newTestApp(t)
+	src := t.TempDir()
+	photo := writeTestFile(t, src, "photo.jpg")
+
+	// Copy import into vault root
+	r := a.ImportFile(photo, false, "")
+	assertImported(t, r)
+	if _, err := os.Stat(filepath.Join(a.vaultPath, "photo.jpg")); err != nil {
+		t.Errorf("imported file missing: %v", err)
+	}
+	if _, err := os.Stat(photo); err != nil {
+		t.Errorf("source removed after copy import: %v", err)
+	}
+
+	// Duplicate name → "photo (2).jpg"
+	r = a.ImportFile(photo, false, "")
+	assertImported(t, r)
+	if _, err := os.Stat(filepath.Join(a.vaultPath, "photo (2).jpg")); err != nil {
+		t.Errorf("duplicate import did not create \"photo (2).jpg\": %v", err)
+	}
+
+	// Third import → "photo (3).jpg"
+	r = a.ImportFile(photo, false, "")
+	assertImported(t, r)
+	if _, err := os.Stat(filepath.Join(a.vaultPath, "photo (3).jpg")); err != nil {
+		t.Errorf("third import did not create \"photo (3).jpg\": %v", err)
+	}
+
+	// Move import into a nested target folder (created on the fly),
+	// also hitting the duplicate branch in that folder
+	clip := writeTestFile(t, src, "clip.mp4")
+	r = a.ImportFile(clip, true, filepath.Join("sub", "dir"))
+	assertImported(t, r)
+	if _, err := os.Stat(filepath.Join(a.vaultPath, "sub", "dir", "clip.mp4")); err != nil {
+		t.Errorf("moved file missing: %v", err)
+	}
+	if _, err := os.Stat(clip); !os.IsNotExist(err) {
+		t.Errorf("source not removed after move import")
+	}
+
+	if got := countRows(t, a, "files"); got != 4 {
+		t.Errorf("files table rows = %d, want 4", got)
+	}
+}
+
+func TestImportFileSkipsAlreadyIndexed(t *testing.T) {
+	a := newTestApp(t)
+	src := t.TempDir()
+	photo := writeTestFile(t, src, "photo.jpg")
+
+	// Indexed in the DB but not on disk (e.g. deleted manually).
+	// Importing a file with the same name hits the already-indexed branch.
+	seedFile(t, a, "photo.jpg")
+
+	r := a.ImportFile(photo, false, "")
+	if r.Skipped != 1 {
+		t.Errorf("expected skipped=1, got %+v", r)
+	}
+	if r.Imported != 0 {
+		t.Errorf("expected imported=0, got %+v", r)
+	}
+	if got := countRows(t, a, "files"); got != 1 {
+		t.Errorf("files table rows = %d, want 1", got)
+	}
+}
+
+func TestImportFileErrors(t *testing.T) {
+	a := newTestApp(t)
+	src := t.TempDir()
+
+	r := a.ImportFile(filepath.Join(src, "nope.jpg"), false, "")
+	if r.Imported != 0 || len(r.Errors) == 0 {
+		t.Errorf("missing source: expected error, got %+v", r)
+	}
+
+	r = a.ImportFile(src, false, "")
+	if r.Imported != 0 || len(r.Errors) == 0 {
+		t.Errorf("directory source: expected error, got %+v", r)
+	}
+
+	txt := writeTestFile(t, src, "notes.txt")
+	r = a.ImportFile(txt, false, "")
+	if r.Imported != 0 || len(r.Errors) == 0 {
+		t.Errorf("unsupported type: expected error, got %+v", r)
+	}
+
+	if got := countRows(t, a, "files"); got != 0 {
+		t.Errorf("files table rows = %d, want 0", got)
+	}
+}
+
 func TestResolveAndRelativePath(t *testing.T) {
 	v := vault{path: t.TempDir()}
 
