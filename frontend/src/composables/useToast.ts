@@ -1,18 +1,18 @@
-import { ref } from 'vue'
+import { ref } from "vue";
 
-export type ToastType = 'success' | 'error' | 'info'
+export type ToastType = "success" | "error" | "info";
 
 export interface ToastMessage {
-  id: number
-  type: ToastType
-  message: string
+  id: number;
+  type: ToastType;
+  message: string;
 }
 
 // Shared state — single source of truth across the app
-const toasts = ref<ToastMessage[]>([])
-let nextId = 0
+const toasts = ref<ToastMessage[]>([]);
+let nextId = 0;
 
-const defaultDuration = 3500
+const defaultDuration = 3500;
 
 /**
  * Composable that provides a simple toast notification API.
@@ -20,36 +20,36 @@ const defaultDuration = 3500
  */
 export function useToast() {
   /** Show a toast and auto-dismiss after `duration` ms. */
-  const show = (message: string, type: ToastType = 'info', duration = defaultDuration) => {
-    const id = ++nextId
-    toasts.value.push({ id, type, message })
+  const show = (message: string, type: ToastType = "info", duration = defaultDuration) => {
+    const id = ++nextId;
+    toasts.value.push({ id, type, message });
 
     if (duration > 0) {
-      setTimeout(() => dismiss(id), duration)
+      setTimeout(() => dismiss(id), duration);
     }
-  }
+  };
 
   /** Dismiss a specific toast by id. */
   const dismiss = (id: number) => {
-    const index = toasts.value.findIndex(t => t.id === id)
+    const index = toasts.value.findIndex((t) => t.id === id);
     if (index !== -1) {
-      toasts.value.splice(index, 1)
+      toasts.value.splice(index, 1);
     }
-  }
+  };
 
   /** Show a success toast. */
-  const success = (message: string, duration?: number) => show(message, 'success', duration)
+  const success = (message: string, duration?: number) => show(message, "success", duration);
 
   /** Show an error toast. */
-  const error = (message: string, duration?: number) => show(message, 'error', duration)
+  const error = (message: string, duration?: number) => show(message, "error", duration);
 
   /** Show an info toast. */
-  const info = (message: string, duration?: number) => show(message, 'info', duration)
+  const info = (message: string, duration?: number) => show(message, "info", duration);
 
   /** Clear all toasts. */
   const clear = () => {
-    toasts.value = []
-  }
+    toasts.value = [];
+  };
 
   return {
     toasts,
@@ -59,5 +59,5 @@ export function useToast() {
     error,
     info,
     clear,
-  }
+  };
 }

@@ -31,15 +31,10 @@ func TestVaultStateConcurrency(t *testing.T) {
 				_ = a.GetCurrentVault()
 				_ = a.GetLastVaultPath()
 				_ = a.GetRecentVaults()
-				if _, err := a.GetVaultConfig(); err != nil {
-					// "no vault open" is expected during swaps
-				}
-				if _, err := a.GetExcludedFolders(); err != nil {
-					// "no vault open" is expected during swaps
-				}
-				if _, err := a.GetTags(""); err != nil {
-					// "no vault open" is expected during swaps
-				}
+				// "no vault open" is expected during swaps — errors are fine
+				_, _ = a.GetVaultConfig()
+				_, _ = a.GetExcludedFolders()
+				_, _ = a.GetTags("")
 				// Direct snapshot access
 				_ = a.vault()
 			}

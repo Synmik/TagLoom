@@ -1,3 +1,5 @@
+// Package db provides the SQLite database layer for TagLoom vaults:
+// connection setup, schema, and migrations.
 package db
 
 import (
@@ -7,6 +9,7 @@ import (
 	"os"
 	"strings"
 
+	// Register the pure-Go SQLite driver (no CGO required).
 	_ "modernc.org/sqlite"
 )
 
@@ -37,13 +40,13 @@ func NewDatabase(dbPath string) (*Database, error) {
 
 	// Test connection
 	if err := conn.Ping(); err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
 	schema, err := schemaFS.ReadFile("schema.sql")
 	if err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return nil, fmt.Errorf("failed to read schema: %w", err)
 	}
 
@@ -51,14 +54,14 @@ func NewDatabase(dbPath string) (*Database, error) {
 	// missing tables/indexes/FTS; existing files rows keep their old
 	// columns until the migrations below add them.
 	if _, err := conn.Exec(string(schema)); err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return nil, fmt.Errorf("failed to execute schema: %w", err)
 	}
 
 	db := &Database{conn: conn}
 
 	if err := db.runMigrations(); err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
 
@@ -133,14 +136,14 @@ func (d *Database) runMigration(m migration) error {
 		return err
 	}
 	if err := m.up(tx); err != nil {
-		tx.Rollback()
+		_ = tx.Rollback() // transaction is already failed; nothing to do with the rollback error
 		return err
 	}
 	if _, err := tx.Exec(
 		"INSERT INTO schema_migrations (version, applied_at) VALUES (?, datetime('now'))",
 		m.version,
 	); err != nil {
-		tx.Rollback()
+		_ = tx.Rollback() // insert failed; nothing to do with the rollback error
 		return err
 	}
 	return tx.Commit()
@@ -229,7 +232,6 @@ func backfillFilenames(tx *sql.Tx) error {
 	if _, err := tx.Exec("DROP TRIGGER IF EXISTS files_au"); err != nil {
 		return fmt.Errorf("drop files_au: %w", err)
 	}
-	defer tx.Exec(ftsUpdateTriggerDDL)
 
 	rows, err := tx.Query("SELECT id, vault_path FROM files WHERE filename = ''")
 	if err != nil {
@@ -253,7 +255,15 @@ func backfillFilenames(tx *sql.Tx) error {
 			return fmt.Errorf("exec: %w", err)
 		}
 	}
-	return rows.Err()
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("rows: %w", err)
+	}
+	// Recreate the FTS update trigger dropped above — the backfill ran while
+	// it was absent. A failure here must abort the migration.
+	if _, err := tx.Exec(ftsUpdateTriggerDDL); err != nil {
+		return fmt.Errorf("recreate files_au: %w", err)
+	}
+	return nil
 }
 
 // baseName returns the last path segment, handling both / and \\\n// separators regardless of host OS (vault paths are stored with the

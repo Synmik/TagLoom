@@ -59,7 +59,7 @@ func (a *App) OpenVault(path string) (*db.VaultInfo, error) {
 
 	// Seed default tags if new vault
 	if err := d.SeedDefaultTags(); err != nil {
-		d.Close()
+		_ = d.Close()
 		return nil, fmt.Errorf("failed to seed default tags: %w", err)
 	}
 
@@ -72,14 +72,14 @@ func (a *App) OpenVault(path string) (*db.VaultInfo, error) {
 	// Load or create config
 	cfg, err := config.LoadConfig(path)
 	if err != nil {
-		d.Close()
+		_ = d.Close()
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 	if cfg.CreatedAt == "" {
 		cfg.Name = filepath.Base(path)
 		cfg.CreatedAt = time.Now().Format(time.RFC3339)
 		if err := config.SaveConfig(path, cfg); err != nil {
-			d.Close()
+			_ = d.Close()
 			return nil, fmt.Errorf("failed to save config: %w", err)
 		}
 	}
@@ -211,7 +211,7 @@ func (a *App) CreateVault(path string, settings NewVaultSettings) (*db.VaultInfo
 
 	// Seed default tags
 	if err := d.SeedDefaultTags(); err != nil {
-		d.Close()
+		_ = d.Close()
 		return nil, fmt.Errorf("failed to seed default tags: %w", err)
 	}
 
@@ -224,7 +224,7 @@ func (a *App) CreateVault(path string, settings NewVaultSettings) (*db.VaultInfo
 	cfg.Settings.ExcludedFolders = settings.ExcludedFolders
 
 	if err := config.SaveConfig(path, cfg); err != nil {
-		d.Close()
+		_ = d.Close()
 		return nil, fmt.Errorf("failed to save config: %w", err)
 	}
 

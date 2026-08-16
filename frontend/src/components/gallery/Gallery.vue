@@ -1,7 +1,10 @@
 <template>
-  <main class="gallery" ref="galleryRef" tabindex="-1">
+  <main ref="galleryRef" class="gallery" tabindex="-1">
     <!-- Loading state -->
-    <div v-if="filesStore.isLoading && (!filesStore.files || filesStore.files.length === 0)" class="loading">
+    <div
+      v-if="filesStore.isLoading && (!filesStore.files || filesStore.files.length === 0)"
+      class="loading"
+    >
       <div class="spinner"></div>
       <span>Loading files…</span>
     </div>
@@ -21,11 +24,7 @@
     <div v-if="filesStore.files && filesStore.files.length > 0" class="file-count-bar">
       <span>{{ filesStore.files.length }} / {{ filesStore.totalCount }} files</span>
       <div class="count-bar-right">
-        <button
-          v-if="filesStore.hasSelection"
-          class="batch-edit-btn"
-          @click="onBatchEdit"
-        >
+        <button v-if="filesStore.hasSelection" class="batch-edit-btn" @click="onBatchEdit">
           Batch Edit ({{ filesStore.selectionCount }})
         </button>
         <span v-if="loadingMore" class="loading-more">Loading more…</span>
@@ -45,131 +44,133 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch, type Component } from 'vue'
-import { FolderOpen, Search, FolderSearch } from '@lucide/vue'
-import ThumbnailGrid from './ThumbnailGrid.vue'
-import ListView from './ListView.vue'
-import EmptyState from '../common/EmptyState.vue'
-import { useUIStore } from '../../stores/ui'
-import { useFilesStore } from '../../stores/files'
-import { useVaultStore } from '../../stores/vault'
-import { useFiltersStore } from '../../stores/filters'
-import { useTagsStore } from '../../stores/tags'
-import { usePagination } from '../../composables/usePagination'
-import { useKeyboardShortcuts } from '../../composables/useKeyboardShortcuts'
+import { computed, onMounted, onUnmounted, ref, watch, type Component } from "vue";
+import { FolderOpen, Search, FolderSearch } from "@lucide/vue";
+import ThumbnailGrid from "./ThumbnailGrid.vue";
+import ListView from "./ListView.vue";
+import EmptyState from "../common/EmptyState.vue";
+import { useUIStore } from "../../stores/ui";
+import { useFilesStore } from "../../stores/files";
+import { useVaultStore } from "../../stores/vault";
+import { useFiltersStore } from "../../stores/filters";
+import { useTagsStore } from "../../stores/tags";
+import { usePagination } from "../../composables/usePagination";
+import { useKeyboardShortcuts } from "../../composables/useKeyboardShortcuts";
 
-const uiStore = useUIStore()
-const filesStore = useFilesStore()
-const vaultStore = useVaultStore()
-const filtersStore = useFiltersStore()
-const tagsStore = useTagsStore()
-const { loadingMore, loadMore, resetPage } = usePagination()
+const uiStore = useUIStore();
+const filesStore = useFilesStore();
+const vaultStore = useVaultStore();
+const filtersStore = useFiltersStore();
+const tagsStore = useTagsStore();
+const { loadingMore, resetPage } = usePagination();
 
-const galleryRef = ref<HTMLElement | null>(null)
-const gridRef = ref<InstanceType<typeof ThumbnailGrid> | null>(null)
-const listRef = ref<InstanceType<typeof ListView> | null>(null)
+const galleryRef = ref<HTMLElement | null>(null);
+const gridRef = ref<InstanceType<typeof ThumbnailGrid> | null>(null);
+const listRef = ref<InstanceType<typeof ListView> | null>(null);
 
 /** Scroll the active gallery view to the top */
 function scrollGalleryToTop() {
-  const activeView = uiStore.viewMode === 'grid' ? gridRef.value : listRef.value
-  activeView?.scrollToTop()
+  const activeView = uiStore.viewMode === "grid" ? gridRef.value : listRef.value;
+  activeView?.scrollToTop();
 }
 
 // ── Keyboard shortcuts ────────────────────────────────────────────
-const shortcuts = useKeyboardShortcuts()
+const shortcuts = useKeyboardShortcuts();
 
-shortcuts.on('navigate:scroll', () => {
-  const selectedId = filesStore.selectedFiles[0]?.id
-  if (!selectedId || !galleryRef.value) return
-  const cell = galleryRef.value.querySelector(`[data-file-id="${selectedId}"]`) as HTMLElement | null
-  cell?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
-})
+shortcuts.on("navigate:scroll", () => {
+  const selectedId = filesStore.selectedFiles[0]?.id;
+  if (!selectedId || !galleryRef.value) return;
+  const cell = galleryRef.value.querySelector(
+    `[data-file-id="${selectedId}"]`,
+  ) as HTMLElement | null;
+  cell?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+});
 
 const handleFocusGallery = () => {
-  galleryRef.value?.focus()
-}
+  galleryRef.value?.focus();
+};
 
 onMounted(() => {
-  window.addEventListener('tagloom:focus-gallery', handleFocusGallery)
-})
+  window.addEventListener("tagloom:focus-gallery", handleFocusGallery);
+});
 
 onUnmounted(() => {
-  window.removeEventListener('tagloom:focus-gallery', handleFocusGallery)
-})
+  window.removeEventListener("tagloom:focus-gallery", handleFocusGallery);
+});
 
 function onBatchEdit() {
-  tagsStore.loadTags()
-  uiStore.openBatchEdit()
+  tagsStore.loadTags();
+  uiStore.openBatchEdit();
 }
 
 interface EmptyStateConfig {
-  icon: Component | null
-  title: string
-  description: string
-  actionText?: string
-  actionVariant?: 'primary' | 'secondary'
+  icon: Component | null;
+  title: string;
+  description: string;
+  actionText?: string;
+  actionVariant?: "primary" | "secondary";
 }
 
 const emptyState = computed<EmptyStateConfig>(() => {
   if (!vaultStore.currentVault) {
     return {
       icon: FolderOpen,
-      title: 'No vault open',
-      description: 'Open or create a vault to get started',
-      actionText: 'Open Vault',
-      actionVariant: 'primary',
-    }
+      title: "No vault open",
+      description: "Open or create a vault to get started",
+      actionText: "Open Vault",
+      actionVariant: "primary",
+    };
   }
 
   if (filtersStore.hasActiveSearch) {
     return {
       icon: Search,
-      title: 'No results found',
-      description: 'No files match your search query',
-      actionText: 'Clear search',
-      actionVariant: 'secondary',
-    }
+      title: "No results found",
+      description: "No files match your search query",
+      actionText: "Clear search",
+      actionVariant: "secondary",
+    };
   }
 
   if (filtersStore.hasActiveFilters) {
     return {
       icon: Search,
-      title: 'No matching files',
-      description: 'No files match your current filters',
-      actionText: 'Clear filters',
-      actionVariant: 'secondary',
-    }
+      title: "No matching files",
+      description: "No files match your current filters",
+      actionText: "Clear filters",
+      actionVariant: "secondary",
+    };
   }
 
   return {
     icon: FolderSearch,
-    title: 'No files in this vault',
-    description: 'The vault appears empty — rescan to index files',
-    actionText: 'Rescan vault',
-    actionVariant: 'secondary',
-  }
-})
+    title: "No files in this vault",
+    description: "The vault appears empty — rescan to index files",
+    actionText: "Rescan vault",
+    actionVariant: "secondary",
+  };
+});
 
 function handleEmptyStateAction() {
-  const state = emptyState.value
+  const state = emptyState.value;
 
-  if (state.actionText === 'Open Vault') {
-    vaultStore.pickAndOpenVault()
-  } else if (state.actionText === 'Clear filters') {
-    filtersStore.clearFilters()
-    resetPage()
-    loadGallery()
-  } else if (state.actionText === 'Clear search') {
-    filtersStore.activeFilters.searchQuery = ''
-    filesStore.loadFiles()
-  } else if (state.actionText === 'Rescan vault') {
-    vaultStore.rescanVault()
+  if (state.actionText === "Open Vault") {
+    vaultStore.pickAndOpenVault();
+  } else if (state.actionText === "Clear filters") {
+    filtersStore.clearFilters();
+    resetPage();
+    loadGallery();
+  } else if (state.actionText === "Clear search") {
+    filtersStore.activeFilters.searchQuery = "";
+    filesStore.loadFiles();
+  } else if (state.actionText === "Rescan vault") {
+    vaultStore.rescanVault();
   }
 }
 
 onMounted(async () => {
-  await loadGallery()
-})
+  await loadGallery();
+});
 
 // Load more pages as user scrolls — triggered by ThumbnailGrid's IntersectionObserver
 // (no eager loading of all files anymore)
@@ -178,73 +179,73 @@ onMounted(async () => {
 watch(
   () => ({
     folderPath: filtersStore.activeFilters.folderPath,
-    tagGroups: filtersStore.activeFilters.tagGroups.map(g => [...g]),
+    tagGroups: filtersStore.activeFilters.tagGroups.map((g) => [...g]),
     fileFormats: [...filtersStore.activeFilters.fileFormats],
     minRating: filtersStore.activeFilters.minRating,
     favoritesOnly: filtersStore.activeFilters.favoritesOnly,
     untaggedOnly: filtersStore.activeFilters.untaggedOnly,
   }),
   async () => {
-    resetPage()
-    await loadGallery()
-    scrollGalleryToTop()
+    resetPage();
+    await loadGallery();
+    scrollGalleryToTop();
   },
-  { deep: true }
-)
+  { deep: true },
+);
 
 // Reload when thumbnail size changes — forces a clean re-render of all
 // grid cells with the new size, avoiding stale-position collapse.
 watch(
   () => uiStore.gridSize,
   async () => {
-    resetPage()
-    await loadGallery()
-    scrollGalleryToTop()
-  }
-)
+    resetPage();
+    await loadGallery();
+    scrollGalleryToTop();
+  },
+);
 
 // Scroll to top whenever page resets (sort / vault open etc. via reloadFiles)
 watch(
   () => filesStore.page,
   (page) => {
-    if (page === 0) scrollGalleryToTop()
-  }
-)
+    if (page === 0) scrollGalleryToTop();
+  },
+);
 
 // Reload after scan completes
 watch(
   () => vaultStore.isScanning,
   async (wasScanning, isScanning) => {
     if (wasScanning && !isScanning) {
-      resetPage()
-      await loadGallery()
-      scrollGalleryToTop()
+      resetPage();
+      await loadGallery();
+      scrollGalleryToTop();
     }
-  }
-)
+  },
+);
 
 // Clear gallery when vault is closed; reload when vault is opened
 watch(
   () => vaultStore.currentVault,
   async (vault) => {
     if (!vault) {
-      filesStore.files = []
-      filesStore.selectedFiles = []
-      filesStore.totalCount = 0
-      filesStore.page = 0
-      filtersStore.clearFilters()
+      filesStore.files = [];
+      filesStore.selectedFiles = [];
+      filesStore.totalCount = 0;
+      filesStore.page = 0;
+      filtersStore.clearFilters();
     } else {
-      resetPage()
-      await loadGallery()
-      scrollGalleryToTop()
+      resetPage();
+      await loadGallery();
+      scrollGalleryToTop();
     }
-  }
-)
+  },
+);
 
 async function loadGallery() {
   // Load first page for quick initial render.
   // Remaining pages are loaded incrementally as user scrolls.
-  await filesStore.reloadFiles()
+  await filesStore.reloadFiles();
 }
 </script>
 
@@ -280,7 +281,9 @@ async function loadGallery() {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .file-count-bar {
@@ -307,7 +310,7 @@ async function loadGallery() {
   padding: 5px 12px;
   font-size: 12px;
   font-weight: 500;
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
   cursor: pointer;
   transition: background 0.15s;
 }
@@ -321,7 +324,12 @@ async function loadGallery() {
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 </style>

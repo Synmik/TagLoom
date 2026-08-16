@@ -93,7 +93,7 @@ func (a *App) ScanVault() (int, error) {
 			indexed_at = excluded.indexed_at
 	`)
 	if err != nil {
-		tx.Rollback()
+		_ = tx.Rollback()
 		return 0, fmt.Errorf("failed to prepare statement: %w", err)
 	}
 	defer stmt.Close()
@@ -117,7 +117,7 @@ func (a *App) ScanVault() (int, error) {
 			now,
 		)
 		if execErr != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return 0, fmt.Errorf("failed to insert %s: %w", e.path, execErr)
 		}
 
@@ -281,7 +281,7 @@ func (a *App) RescanVault() (int, error) {
 			VALUES (?, ?, ?, ?, ?, ?, ?)
 		`)
 		if err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return 0, fmt.Errorf("failed to prepare insert: %w", err)
 		}
 
@@ -302,8 +302,8 @@ func (a *App) RescanVault() (int, error) {
 				now,
 			)
 			if err != nil {
-				stmt.Close()
-				tx.Rollback()
+				_ = stmt.Close()
+				_ = tx.Rollback()
 				return 0, fmt.Errorf("failed to insert %s: %w", e.path, err)
 			}
 
@@ -316,7 +316,7 @@ func (a *App) RescanVault() (int, error) {
 				})
 			}
 		}
-		stmt.Close()
+		_ = stmt.Close()
 	}
 
 	// Delete removed files (and their tag associations).
@@ -329,14 +329,14 @@ func (a *App) RescanVault() (int, error) {
 			WHERE file_id IN (SELECT id FROM files WHERE vault_path = ?)
 		`)
 		if err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return 0, fmt.Errorf("failed to prepare file_tags delete: %w", err)
 		}
 
 		delFileStmt, err := tx.Prepare("DELETE FROM files WHERE vault_path = ?")
 		if err != nil {
-			delTagStmt.Close()
-			tx.Rollback()
+			_ = delTagStmt.Close()
+			_ = tx.Rollback()
 			return 0, fmt.Errorf("failed to prepare delete: %w", err)
 		}
 
@@ -350,15 +350,15 @@ func (a *App) RescanVault() (int, error) {
 				removedThumbs = append(removedThumbs, v.resolvePath(*thumbRel))
 			}
 			if _, err := delTagStmt.Exec(p); err != nil {
-				delTagStmt.Close()
-				delFileStmt.Close()
-				tx.Rollback()
+				_ = delTagStmt.Close()
+				_ = delFileStmt.Close()
+				_ = tx.Rollback()
 				return 0, fmt.Errorf("failed to delete file_tags for %s: %w", p, err)
 			}
 			if _, err := delFileStmt.Exec(p); err != nil {
-				delTagStmt.Close()
-				delFileStmt.Close()
-				tx.Rollback()
+				_ = delTagStmt.Close()
+				_ = delFileStmt.Close()
+				_ = tx.Rollback()
 				return 0, fmt.Errorf("failed to delete %s: %w", p, err)
 			}
 			step := (i + 1) * 100 / len(removed)
@@ -370,8 +370,8 @@ func (a *App) RescanVault() (int, error) {
 				})
 			}
 		}
-		delTagStmt.Close()
-		delFileStmt.Close()
+		_ = delTagStmt.Close()
+		_ = delFileStmt.Close()
 
 		// Remove thumbnails of the files that are gone from disk.
 		for _, thumbAbs := range removedThumbs {
@@ -897,7 +897,8 @@ func (a *App) ImportFile(sourcePath string, move bool, targetFolder string) *Imp
 		if err != nil {
 			err = copyFile(sourcePath, destPath)
 			if err == nil {
-				os.Remove(sourcePath)
+				// Best-effort — the copy already succeeded.
+				_ = os.Remove(sourcePath)
 			}
 		}
 	} else {
@@ -976,7 +977,8 @@ func copyFile(src, dst string) error {
 
 	_, err = io.Copy(dstFile, srcFile)
 	if err != nil {
-		os.Remove(dst) // Clean up partial copy
+		// Clean up partial copy — best-effort.
+		_ = os.Remove(dst)
 		return err
 	}
 	return dstFile.Close()

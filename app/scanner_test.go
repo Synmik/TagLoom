@@ -22,7 +22,7 @@ func newTestApp(t *testing.T) *App {
 	if err != nil {
 		t.Fatalf("open test db: %v", err)
 	}
-	t.Cleanup(func() { d.Close() })
+	t.Cleanup(func() { _ = d.Close() })
 	return &App{db: d, vaultPath: vault}
 }
 
@@ -33,7 +33,7 @@ func writeTestFile(t *testing.T, dir, name string) string {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		t.Fatalf("mkdir %s: %v", dir, err)
 	}
-	if err := os.WriteFile(p, []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(p, []byte("test"), 0600); err != nil {
 		t.Fatalf("write %s: %v", name, err)
 	}
 	return p

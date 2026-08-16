@@ -9,7 +9,7 @@ import (
 )
 
 // GetTags returns all tags, optionally filtered by category.
-func (a *App) GetTags(category string) ([]db.Tag, error) {
+func (a *App) GetTags(_ string) ([]db.Tag, error) { // parameter reserved for category filtering (TODO)
 	v := a.vault()
 	if v.db == nil {
 		return nil, fmt.Errorf("no vault open")
@@ -19,9 +19,7 @@ func (a *App) GetTags(category string) ([]db.Tag, error) {
 		SELECT id, name, color, parent_id, is_category, sort_order, created_at
 		FROM tags
 	`
-	if category != "" {
-		// TODO: Implement category filtering
-	}
+	// TODO: Implement category filtering
 	query += ` ORDER BY sort_order ASC, name ASC`
 
 	rows, err := v.db.Conn().Query(query)
@@ -78,7 +76,9 @@ func (a *App) CreateTag(tag *db.TagCreate) (*db.Tag, error) {
 		for _, alias := range strings.Split(tag.Aliases, ",") {
 			alias = strings.TrimSpace(alias)
 			if alias != "" {
-				v.db.Conn().Exec(`
+				// Alias insert is best-effort (INSERT OR IGNORE) — a failure
+				// here must not fail tag creation.
+				_, _ = v.db.Conn().Exec(`
 					INSERT OR IGNORE INTO tag_aliases (tag_id, alias) VALUES (?, ?)
 				`, id, alias)
 			}
@@ -126,13 +126,13 @@ func (a *App) UpdateTag(tag *db.TagUpdate) error {
 		return err
 	}
 
-	// Update aliases: remove old, insert new
-	v.db.Conn().Exec("DELETE FROM tag_aliases WHERE tag_id = ?", tag.ID)
+	// Update aliases: remove old, insert new (best-effort, see CreateTag)
+	_, _ = v.db.Conn().Exec("DELETE FROM tag_aliases WHERE tag_id = ?", tag.ID)
 	if tag.Aliases != "" {
 		for _, alias := range strings.Split(tag.Aliases, ",") {
 			alias = strings.TrimSpace(alias)
 			if alias != "" {
-				v.db.Conn().Exec(`
+				_, _ = v.db.Conn().Exec(`
 					INSERT OR IGNORE INTO tag_aliases (tag_id, alias) VALUES (?, ?)
 				`, tag.ID, alias)
 			}

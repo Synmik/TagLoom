@@ -15,7 +15,10 @@
           <span v-if="!vaultStore.scanProgressUnknown" class="percent">{{ progressPercent }}%</span>
         </div>
         <div v-if="thumbProgress > 0" class="thumb-stats">
-          <span><ImageIcon :size="14" class="inline-icon" /> Thumbnails: {{ thumbProgress }} generated</span>
+          <span
+            ><ImageIcon :size="14" class="inline-icon" /> Thumbnails:
+            {{ thumbProgress }} generated</span
+          >
         </div>
       </div>
     </div>
@@ -23,51 +26,54 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { RefreshCw, X, ImagePlus as ImageIcon } from '@lucide/vue'
-import { useVaultStore } from '../../stores/vault'
+import { ref, computed, onMounted, onUnmounted } from "vue";
+import { RefreshCw, X, ImagePlus as ImageIcon } from "@lucide/vue";
+import { useVaultStore } from "../../stores/vault";
 
-const vaultStore = useVaultStore()
-const thumbProgress = ref(0)
-let thumbUnsub: (() => void) | undefined
+const vaultStore = useVaultStore();
+const thumbProgress = ref(0);
+let thumbUnsub: (() => void) | undefined;
 
 const scanTitle = computed(() => {
-  if (vaultStore.scanProgress >= 100) return 'Scan complete!'
-  if (vaultStore.scanProgressUnknown) return 'Scanning files...'
-  return 'Indexing files...'
-})
+  if (vaultStore.scanProgress >= 100) return "Scan complete!";
+  if (vaultStore.scanProgressUnknown) return "Scanning files...";
+  return "Indexing files...";
+});
 
 const progressPercent = computed(() => {
-  return Math.min(vaultStore.scanProgress, 100)
-})
+  return Math.min(vaultStore.scanProgress, 100);
+});
 
 const statsText = computed(() => {
   if (vaultStore.scanProgressUnknown) {
-    return `${vaultStore.scanCurrent} files found…`
+    return `${vaultStore.scanCurrent} files found…`;
   }
-  return `${vaultStore.scanCurrent} / ${vaultStore.scanTotal}`
-})
+  return `${vaultStore.scanCurrent} / ${vaultStore.scanTotal}`;
+});
 
 const dismiss = () => {
   // Hide the overlay — scanning continues in the background
-  vaultStore.isScanning = false
-}
+  vaultStore.isScanning = false;
+};
 
 onMounted(() => {
   thumbUnsub = () => {
     // Listen for thumbnail progress events
-  }
-})
+  };
+});
 
 onUnmounted(() => {
-  thumbUnsub?.()
-})
+  thumbUnsub?.();
+});
 </script>
 
 <style scoped>
 .scan-progress-overlay {
   position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background: rgba(0, 0, 0, 0.6);
   display: flex;
   align-items: center;
@@ -92,7 +98,9 @@ onUnmounted(() => {
   margin-bottom: 16px;
 }
 
-.scan-icon { color: #22c55e; }
+.scan-icon {
+  color: #22c55e;
+}
 
 .scan-title {
   font-size: 16px;
@@ -111,7 +119,9 @@ onUnmounted(() => {
   line-height: 1;
 }
 
-.scan-close:hover { color: #e8e8e8; }
+.scan-close:hover {
+  color: #e8e8e8;
+}
 
 .progress-track {
   height: 6px;

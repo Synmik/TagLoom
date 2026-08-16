@@ -2,13 +2,14 @@
 interface WailsRuntime {
   go: {
     app: {
-      App: Record<string, (...args: any[]) => any>
-    }
-  }
+      App: Record<string, (...args: any[]) => any>;
+    };
+  };
 }
 
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   interface Window extends WailsRuntime {}
 }
 
-export {}
+export {};

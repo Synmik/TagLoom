@@ -14,7 +14,8 @@ import (
 )
 
 const (
-	// Default timestamp to extract video thumbnail (1 second in)
+	// DefaultVideoThumbTimestamp is the seek position (seconds) used when
+	// extracting a video thumbnail — 1 second into the clip.
 	DefaultVideoThumbTimestamp = "1"
 )
 
@@ -243,10 +244,10 @@ func EncodeSVGToWebP(svgPath, outputWebp string, size, quality int) error {
 	defer os.Remove(tmpPath)
 
 	if err := png.Encode(tmpFile, img); err != nil {
-		tmpFile.Close()
+		_ = tmpFile.Close()
 		return &FFmpegError{Msg: "failed to encode temp PNG", Err: err}
 	}
-	tmpFile.Close()
+	_ = tmpFile.Close()
 
 	// Convert PNG → WebP via FFmpeg
 	return EncodeImageToWebP(tmpPath, outputWebp, size, quality)

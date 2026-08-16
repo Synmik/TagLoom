@@ -1,31 +1,31 @@
-import { useFilesStore } from '../stores/files'
-import type { File } from '../types/file'
+import { useFilesStore } from "../stores/files";
+import type { File } from "../types/file";
 
 export function useSelection() {
-  const filesStore = useFilesStore()
+  const filesStore = useFilesStore();
 
   const select = (file: File, multi: boolean = false) => {
-    filesStore.selectFile(file, multi)
-  }
+    filesStore.selectFile(file, multi);
+  };
 
   const clear = () => {
-    filesStore.clearSelection()
-  }
+    filesStore.clearSelection();
+  };
 
   const isSelected = (file: File): boolean => {
-    return filesStore.selectedFiles.some(f => f.id === file.id)
-  }
+    return filesStore.selectedFiles.some((f) => f.id === file.id);
+  };
 
   const toggleSelection = (file: File, ctrlKey: boolean = false, shiftKey: boolean = false) => {
     if (shiftKey) {
       // Range select - TODO: implement range selection
-      select(file, true)
+      select(file, true);
     } else if (ctrlKey) {
-      select(file, true)
+      select(file, true);
     } else {
-      select(file, false)
+      select(file, false);
     }
-  }
+  };
 
-  return { select, clear, isSelected, toggleSelection, filesStore }
+  return { select, clear, isSelected, toggleSelection, filesStore };
 }

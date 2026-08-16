@@ -1,0 +1,43 @@
+version: "2"
+
+linters:
+  exclusions:
+    paths:
+      # frontend/node_modules contains a vendored Go package (flatted)
+      - node_modules/
+  # standard preset (errcheck, govet, ineffassign, staticcheck, unused)
+  # plus:
+  enable:
+    - bodyclose # HTTP response body not closed
+    - gosec # security issues
+    - revive # style + correctness
+
+  settings:
+    errcheck:
+      exclude-functions:
+        # Method syntax: (*package.Receiver).MethodName
+        #
+        # Deferred / error-path cleanup (rows, stmt, file, conn) — the
+        # error can't be returned from a defer and there is nothing to
+        # do with it.
+        - "(*database/sql.Rows).Close"
+        - "(*database/sql.Stmt).Close"
+        - "(*database/sql.DB).Close"
+        - "(*os.File).Close"
+        - "(*TagLoom/db.Database).Close"
+        # Deferred rollback after a successful commit is a no-op.
+        - "(*database/sql.Tx).Rollback"
+        # Best-effort cleanup of partial files (failed thumbnails, etc.).
+        - "os.Remove"
+    gosec:
+      excludes:
+        # Desktop app: its entire purpose is to run ffmpeg/ffprobe and
+        # open the user's own vault files — these findings are inherent,
+        # not bugs.
+        - G204 # subprocess launched with variable (ffmpeg, ffprobe, cmd start)
+        - G304 # file inclusion via variable (handlers serve DB-resolved vault paths)
+        - G703 # path traversal (operates on user's own vault tree)
+        - G103 # unsafe needed for SHFileOperationW (Recycle Bin API)
+        - G122 # WalkDir callback TOCTOU (local .tagloom/thumbnails cleanup)
+        - G602 # slice bounds — MP4/EXIF binary parsers have explicit size guards
+        - G301 # single-user desktop app; 0755 is appropriate for user files

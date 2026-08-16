@@ -18,7 +18,7 @@ import (
 // next handler was reached.
 func middlewareChain(t *testing.T, a *App, hit *bool) http.Handler {
 	t.Helper()
-	return AssetMiddleware(a, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return AssetMiddleware(a, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		*hit = true
 		w.WriteHeader(http.StatusTeapot)
 	}))
@@ -38,7 +38,7 @@ func doRequest(t *testing.T, h http.Handler, method, target, rangeHeader string)
 func TestAssetMiddlewareOriginalRange(t *testing.T) {
 	a := newTestApp(t)
 	content := []byte("0123456789")
-	if err := os.WriteFile(filepath.Join(a.vaultPath, "clip.mp4"), content, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(a.vaultPath, "clip.mp4"), content, 0600); err != nil {
 		t.Fatalf("write file: %v", err)
 	}
 	id := seedFile(t, a, "clip.mp4")
@@ -156,7 +156,7 @@ func TestAssetMiddlewareThroughWailsAssetServer(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(thumbPath), 0755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.WriteFile(thumbPath, webp, 0644); err != nil {
+	if err := os.WriteFile(thumbPath, webp, 0600); err != nil {
 		t.Fatalf("write webp: %v", err)
 	}
 	id := seedFile(t, a, "img.jpg")
@@ -191,7 +191,7 @@ func TestAssetMiddlewareThroughWailsAssetServer(t *testing.T) {
 
 func TestAssetMiddlewareUnknownExtensionContentType(t *testing.T) {
 	a := newTestApp(t)
-	if err := os.WriteFile(filepath.Join(a.vaultPath, "data.bin"), []byte("x"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(a.vaultPath, "data.bin"), []byte("x"), 0600); err != nil {
 		t.Fatalf("write file: %v", err)
 	}
 	id := seedFile(t, a, "data.bin")

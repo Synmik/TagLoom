@@ -122,7 +122,8 @@ func (a *App) GenerateThumbnail(fileID int64) (string, error) {
 			encErr = utils.EncodeImageToWebP(absPath, thumbPath, size, quality)
 		}
 		if encErr != nil {
-			os.Remove(thumbPath)
+			// Clean up partial output — best-effort.
+			_ = os.Remove(thumbPath)
 			return "", fmt.Errorf("failed to encode image to WebP: %w", encErr)
 		}
 		// Update DB with thumbnail path (store relative to vault root)
@@ -142,7 +143,8 @@ func (a *App) GenerateThumbnail(fileID int64) (string, error) {
 			return "", fmt.Errorf("failed to create thumbnail directory: %w", err)
 		}
 		if err := utils.ExtractVideoFrame(absPath, thumbPath, size, utils.DefaultVideoThumbTimestamp); err != nil {
-			os.Remove(thumbPath)
+			// Clean up partial output — best-effort.
+			_ = os.Remove(thumbPath)
 			return "", fmt.Errorf("failed to extract video frame: %w", err)
 		}
 		// For video, skip the image resize/encode path — FFmpeg already produced the WebP
@@ -296,7 +298,7 @@ func (a *App) runThumbnailPool(repairAll bool) error {
 	}
 
 	// Worker function — does image I/O only, returns results for batched DB update
-	worker := func(workerID int, jobs <-chan pendingFile, wg *sync.WaitGroup) {
+	worker := func(_ int, jobs <-chan pendingFile, wg *sync.WaitGroup) {
 		defer wg.Done()
 
 		size := defaultThumbnailSize
@@ -354,7 +356,7 @@ func (a *App) runThumbnailPool(repairAll bool) error {
 					encErr = utils.EncodeImageToWebP(absPath, thumbPath, size, quality)
 				}
 				if encErr != nil {
-					os.Remove(thumbPath)
+					_ = os.Remove(thumbPath)
 					finishFile(f.id, false, "")
 					continue
 				}
@@ -373,7 +375,7 @@ func (a *App) runThumbnailPool(repairAll bool) error {
 					continue
 				}
 				if ffErr := utils.ExtractVideoFrame(absPath, thumbPath, size, utils.DefaultVideoThumbTimestamp); ffErr != nil {
-					os.Remove(thumbPath)
+					_ = os.Remove(thumbPath)
 					finishFile(f.id, false, "")
 					continue
 				}
@@ -427,7 +429,7 @@ func (a *App) runThumbnailPool(repairAll bool) error {
 				}
 				_, _ = stmt.Exec(relThumbPath, r.fileID)
 			}
-			stmt.Close()
+			_ = stmt.Close()
 		}
 		if commitErr := tx.Commit(); commitErr != nil {
 			fmt.Printf("thumbnail batch commit warning: %v\n", commitErr)
@@ -566,14 +568,15 @@ func (a *App) CleanupOrphanThumbnails() (int, error) {
 		return removed, fmt.Errorf("failed to walk thumbnails directory: %w", err)
 	}
 
-	// Remove empty subdirectories (left behind after orphan deletion)
-	filepath.WalkDir(thumbRoot, func(path string, d os.DirEntry, err error) error {
+	// Remove empty subdirectories (left behind after orphan deletion).
+	// Best-effort cleanup pass — a walk error just leaves empty dirs behind.
+	_ = filepath.WalkDir(thumbRoot, func(path string, d os.DirEntry, err error) error {
 		if err != nil || !d.IsDir() || path == thumbRoot {
 			return nil
 		}
 		entries, _ := os.ReadDir(path)
 		if len(entries) == 0 {
-			os.Remove(path)
+			_ = os.Remove(path)
 		}
 		return nil
 	})
@@ -596,7 +599,7 @@ func deleteThumbnailFile(thumbAbs string) {
 	}
 	// Remove the parent ({2char_hash} dir) if it is now empty.
 	if entries, err := os.ReadDir(filepath.Dir(thumbAbs)); err == nil && len(entries) == 0 {
-		os.Remove(filepath.Dir(thumbAbs))
+		_ = os.Remove(filepath.Dir(thumbAbs))
 	}
 }
 

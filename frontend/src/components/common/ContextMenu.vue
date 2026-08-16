@@ -1,13 +1,7 @@
 <template>
   <Teleport to="body">
     <transition name="context-fade">
-      <div
-        v-if="visible"
-        ref="menuEl"
-        class="context-menu"
-        :style="positionStyle"
-        @click.stop
-      >
+      <div v-if="visible" ref="menuEl" class="context-menu" :style="positionStyle" @click.stop>
         <template v-for="(item, i) in items" :key="i">
           <div
             v-if="item.type === 'item'"
@@ -15,7 +9,12 @@
             :class="{ disabled: item.disabled }"
             @click="handleClick(item)"
           >
-            <component :is="item.icon ? resolveIcon(item.icon) : null" v-if="item.icon" :size="14" class="menu-icon" />
+            <component
+              :is="item.icon ? resolveIcon(item.icon) : null"
+              v-if="item.icon"
+              :size="14"
+              class="menu-icon"
+            />
             <span class="menu-label">{{ item.label }}</span>
           </div>
           <div v-else-if="item.type === 'divider'" class="menu-divider" />
@@ -26,52 +25,54 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch, h } from 'vue'
-import * as LucideIcons from '@lucide/vue'
-import type { ContextMenuItem } from '../../composables/useContextMenu'
+import { ref, computed, onUnmounted, watch } from "vue";
+import * as LucideIcons from "@lucide/vue";
+import type { ContextMenuItem } from "../../composables/useContextMenu";
 
 // Resolve a Lucide icon name to a Vue component
 const resolveIcon = (name: string) => {
   // Normalize: e.g. 'folder-open' → 'FolderOpen'
-  const pascal = name.replace(/-([a-z])/g, (_, c) => c.toUpperCase()).replace(/^./, s => s.toUpperCase())
-  return (LucideIcons as Record<string, any>)[pascal] || null
-}
+  const pascal = name
+    .replace(/-([a-z])/g, (_, c) => c.toUpperCase())
+    .replace(/^./, (s) => s.toUpperCase());
+  return (LucideIcons as Record<string, any>)[pascal] || null;
+};
 
 const props = defineProps<{
-  visible: boolean
-  x: number
-  y: number
-  items: ContextMenuItem[]
-}>()
+  visible: boolean;
+  x: number;
+  y: number;
+  items: ContextMenuItem[];
+}>();
 
-const emit = defineEmits<{ close: [] }>()
+const emit = defineEmits<{ close: [] }>();
 
-const menuEl = ref<HTMLElement | null>(null)
+const menuEl = ref<HTMLElement | null>(null);
 
 const positionStyle = computed(() => {
   return {
     left: `${props.x}px`,
     top: `${props.y}px`,
-  }
-})
+  };
+});
 
 async function handleClick(item: ContextMenuItem) {
-  if (item.type === 'divider' || item.disabled) return
+  if (item.type === "divider" || item.disabled) return;
   if (item.action) {
-    await item.action()
+    await item.action();
   }
-  emit('close')
+  emit("close");
 }
 
 function onGlobalClick(e: MouseEvent) {
   if (menuEl.value && !menuEl.value.contains(e.target as Node)) {
-    emit('close')
+    emit("close");
   }
 }
 
 function onGlobalKeyDown(e: KeyboardEvent) {
-  if (e.key === 'Escape') {
-    emit('close')
+  if (e.key === "Escape") {
+    emit("close");
   }
 }
 
@@ -79,19 +80,19 @@ watch(
   () => props.visible,
   (v) => {
     if (v) {
-      document.addEventListener('click', onGlobalClick)
-      document.addEventListener('keydown', onGlobalKeyDown)
+      document.addEventListener("click", onGlobalClick);
+      document.addEventListener("keydown", onGlobalKeyDown);
     } else {
-      document.removeEventListener('click', onGlobalClick)
-      document.removeEventListener('keydown', onGlobalKeyDown)
+      document.removeEventListener("click", onGlobalClick);
+      document.removeEventListener("keydown", onGlobalKeyDown);
     }
-  }
-)
+  },
+);
 
 onUnmounted(() => {
-  document.removeEventListener('click', onGlobalClick)
-  document.removeEventListener('keydown', onGlobalKeyDown)
-})
+  document.removeEventListener("click", onGlobalClick);
+  document.removeEventListener("keydown", onGlobalKeyDown);
+});
 </script>
 
 <style scoped>
@@ -113,7 +114,7 @@ onUnmounted(() => {
   cursor: pointer;
   font-size: 12px;
   color: #ccc;
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
   user-select: none;
 }
 

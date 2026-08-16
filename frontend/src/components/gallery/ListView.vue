@@ -1,8 +1,5 @@
 <template>
-  <div
-    ref="scrollContainerRef"
-    class="list-scroll-container"
-  >
+  <div ref="scrollContainerRef" class="list-scroll-container">
     <!-- Sticky header (outside virtual area) -->
     <div class="list-header">
       <span class="col-name">Name</span>
@@ -12,11 +9,7 @@
     </div>
     <!-- Virtualized content area -->
     <div class="list-body" :style="{ height: `${totalHeight}px` }">
-      <div
-        v-for="vi in visibleItems"
-        :key="vi.item.id"
-        :style="vi.style"
-      >
+      <div v-for="vi in visibleItems" :key="vi.item.id" :style="vi.style">
         <ListRow :file="vi.item" />
       </div>
 
@@ -25,57 +18,63 @@
         v-if="hasMore"
         ref="sentinelRef"
         class="load-sentinel"
-        :style="{ position: 'absolute', top: `${sentinelTop}px`, left: '0', width: '100%', height: '1px' }"
+        :style="{
+          position: 'absolute',
+          top: `${sentinelTop}px`,
+          left: '0',
+          width: '100%',
+          height: '1px',
+        }"
       />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch, nextTick, type Ref } from 'vue'
-import ListRow from './ListRow.vue'
-import { useFilesStore } from '../../stores/files'
-import { useVirtualList } from '../../composables/useVirtualList'
-import { usePagination } from '../../composables/usePagination'
-import type { File } from '../../types/file'
+import { computed, onMounted, onUnmounted, ref, watch, nextTick, type Ref } from "vue";
+import ListRow from "./ListRow.vue";
+import { useFilesStore } from "../../stores/files";
+import { useVirtualList } from "../../composables/useVirtualList";
+import { usePagination } from "../../composables/usePagination";
+import type { File } from "../../types/file";
 
-const filesStore = useFilesStore()
-const { loadMore, hasMore } = usePagination()
+const filesStore = useFilesStore();
+const { loadMore, hasMore } = usePagination();
 
-const scrollContainerRef = ref<HTMLElement | null>(null)
-const sentinelRef = ref<HTMLElement | null>(null)
+const scrollContainerRef = ref<HTMLElement | null>(null);
+const sentinelRef = ref<HTMLElement | null>(null);
 
-const ROW_HEIGHT = 44
+const ROW_HEIGHT = 44;
 
-const filesRef: Ref<File[]> = computed(() => filesStore.files)
-const totalCountRef = computed(() => filesStore.totalCount)
+const filesRef: Ref<File[]> = computed(() => filesStore.files);
+const totalCountRef = computed(() => filesStore.totalCount);
 
-const { visibleItems, totalHeight, setContainerHeight, attachScroll, scrollTo } = useVirtualList(
+const { visibleItems, totalHeight, setContainerHeight, attachScroll } = useVirtualList(
   filesRef,
   ROW_HEIGHT,
-  5,  // overscan
+  5, // overscan
   12, // horizontal padding
   totalCountRef,
-)
+);
 
 // Position sentinel near the last LOADED file
 const sentinelTop = computed(() => {
-  const loadedCount = filesStore.files.length
-  return loadedCount * ROW_HEIGHT
-})
+  const loadedCount = filesStore.files.length;
+  return loadedCount * ROW_HEIGHT;
+});
 
-let scrollCleanup: (() => void) | undefined
-let resizeObserver: ResizeObserver | undefined
-let sentinelObserver: IntersectionObserver | undefined
+let scrollCleanup: (() => void) | undefined;
+let resizeObserver: ResizeObserver | undefined;
+let sentinelObserver: IntersectionObserver | undefined;
 
 onMounted(() => {
   nextTick(() => {
     if (scrollContainerRef.value) {
-      scrollCleanup = attachScroll(scrollContainerRef.value)
+      scrollCleanup = attachScroll(scrollContainerRef.value);
       // Account for header height when measuring viewport
-      const headerEl = scrollContainerRef.value.querySelector('.list-header') as HTMLElement | null
-      const headerHeight = headerEl?.offsetHeight ?? 37
-      setContainerHeight(scrollContainerRef.value.clientHeight - headerHeight)
+      const headerEl = scrollContainerRef.value.querySelector(".list-header") as HTMLElement | null;
+      const headerHeight = headerEl?.offsetHeight ?? 37;
+      setContainerHeight(scrollContainerRef.value.clientHeight - headerHeight);
     }
 
     // Observe sentinel immediately if hasMore is already true on mount.
@@ -83,21 +82,23 @@ onMounted(() => {
     // so without this the sentinel is never observed when ListView mounts
     // with data already loaded (e.g. switching from grid to list view).
     if (hasMore.value && sentinelRef.value && sentinelObserver) {
-      sentinelObserver.observe(sentinelRef.value)
+      sentinelObserver.observe(sentinelRef.value);
     }
-  })
+  });
 
   resizeObserver = new ResizeObserver((entries) => {
     for (const entry of entries) {
       if (scrollContainerRef.value) {
-        const headerEl = scrollContainerRef.value.querySelector('.list-header') as HTMLElement | null
-        const headerHeight = headerEl?.offsetHeight ?? 37
-        setContainerHeight(entry.contentRect.height - headerHeight)
+        const headerEl = scrollContainerRef.value.querySelector(
+          ".list-header",
+        ) as HTMLElement | null;
+        const headerHeight = headerEl?.offsetHeight ?? 37;
+        setContainerHeight(entry.contentRect.height - headerHeight);
       }
     }
-  })
+  });
   if (scrollContainerRef.value) {
-    resizeObserver.observe(scrollContainerRef.value)
+    resizeObserver.observe(scrollContainerRef.value);
   }
 
   // Sentinel: load next page when user scrolls near end of loaded data
@@ -105,28 +106,28 @@ onMounted(() => {
     (entries) => {
       for (const entry of entries) {
         if (entry.isIntersecting) {
-          loadMore()
+          loadMore();
         }
       }
     },
-    { root: null, rootMargin: '200px', threshold: 0 }
-  )
-})
+    { root: null, rootMargin: "200px", threshold: 0 },
+  );
+});
 
 onUnmounted(() => {
-  scrollCleanup?.()
-  resizeObserver?.disconnect()
-  sentinelObserver?.disconnect()
-})
+  scrollCleanup?.();
+  resizeObserver?.disconnect();
+  sentinelObserver?.disconnect();
+});
 
 // ── Scroll to top (called by Gallery on sort/filter change) ──
 function scrollToTop() {
   if (scrollContainerRef.value) {
-    scrollContainerRef.value.scrollTop = 0
+    scrollContainerRef.value.scrollTop = 0;
   }
 }
 
-defineExpose({ scrollToTop })
+defineExpose({ scrollToTop });
 
 // Observe/unobserve sentinel element when it appears/disappears.
 // Use nextTick to wait for the v-if DOM update — otherwise sentinelRef
@@ -134,27 +135,27 @@ defineExpose({ scrollToTop })
 watch(
   () => hasMore.value,
   async (more) => {
-    await nextTick()
+    await nextTick();
     if (more && sentinelRef.value && sentinelObserver) {
-      sentinelObserver.observe(sentinelRef.value)
+      sentinelObserver.observe(sentinelRef.value);
     } else {
-      sentinelObserver?.disconnect()
+      sentinelObserver?.disconnect();
     }
-  }
-)
+  },
+);
 
 // Re-observe when files array changes (new page loaded).
 // nextTick ensures the sentinel element is in the DOM before observing.
 watch(
   () => filesStore.files.length,
   async () => {
-    await nextTick()
+    await nextTick();
     if (hasMore.value && sentinelRef.value && sentinelObserver) {
-      sentinelObserver.disconnect()
-      sentinelObserver.observe(sentinelRef.value)
+      sentinelObserver.disconnect();
+      sentinelObserver.observe(sentinelRef.value);
     }
-  }
-)
+  },
+);
 </script>
 
 <style scoped>

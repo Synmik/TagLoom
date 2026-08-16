@@ -1,13 +1,13 @@
 <template>
   <Teleport to="body">
+    <!-- Menu visibility is toggled by the parent via v-if on this component,
+         so enter/leave animations run on mount/unmount — no inner toggle needed. -->
+    <!-- eslint-disable vue/require-toggle-inside-transition -->
     <transition name="import-fade">
-      <div
-        class="import-menu"
-        :style="positionStyle"
-        @click.stop
-        ref="menuEl"
-      >
-        <div class="import-menu-title">Import {{ files.length }} file{{ files.length > 1 ? 's' : '' }}</div>
+      <div ref="menuEl" class="import-menu" :style="positionStyle" @click.stop>
+        <div class="import-menu-title">
+          Import {{ files.length }} file{{ files.length > 1 ? "s" : "" }}
+        </div>
         <div class="menu-item" @click="handleCopy">
           <Copy :size="14" class="menu-icon" />
           <span class="menu-label">Copy</span>
@@ -24,65 +24,65 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
-import { Copy, Move } from '@lucide/vue'
-import type { DroppedFile } from '../../composables/useDragDrop'
+import { computed, ref, onMounted, onUnmounted, watch } from "vue";
+import { Copy, Move } from "@lucide/vue";
+import type { DroppedFile } from "../../composables/useDragDrop";
 
 const props = defineProps<{
-  files: DroppedFile[]
-  x: number
-  y: number
-}>()
+  files: DroppedFile[];
+  x: number;
+  y: number;
+}>();
 
 const emit = defineEmits<{
-  close: []
-  copy: []
-  move: []
-}>()
+  close: [];
+  copy: [];
+  move: [];
+}>();
 
-const menuEl = ref<HTMLElement | null>(null)
+const menuEl = ref<HTMLElement | null>(null);
 
 // Clamp menu position within viewport
 const positionStyle = computed(() => {
-  const menuWidth = 220
-  const menuHeight = 120
-  let x = props.x
-  let y = props.y
+  const menuWidth = 220;
+  const menuHeight = 120;
+  let x = props.x;
+  let y = props.y;
 
   // Clamp to viewport right edge
   if (x + menuWidth > window.innerWidth - 8) {
-    x = window.innerWidth - menuWidth - 8
+    x = window.innerWidth - menuWidth - 8;
   }
   // Clamp to viewport bottom edge
   if (y + menuHeight > window.innerHeight - 8) {
-    y = window.innerHeight - menuHeight - 8
+    y = window.innerHeight - menuHeight - 8;
   }
   // Ensure not off-screen left/top
-  if (x < 8) x = 8
-  if (y < 8) y = 8
+  if (x < 8) x = 8;
+  if (y < 8) y = 8;
 
-  return { left: `${x}px`, top: `${y}px` }
-})
+  return { left: `${x}px`, top: `${y}px` };
+});
 
 function handleCopy() {
-  emit('copy')
-  emit('close')
+  emit("copy");
+  emit("close");
 }
 
 function handleMove() {
-  emit('move')
-  emit('close')
+  emit("move");
+  emit("close");
 }
 
 function onGlobalClick(e: MouseEvent) {
   if (menuEl.value && !menuEl.value.contains(e.target as Node)) {
-    emit('close')
+    emit("close");
   }
 }
 
 function onGlobalKeyDown(e: KeyboardEvent) {
-  if (e.key === 'Escape') {
-    emit('close')
+  if (e.key === "Escape") {
+    emit("close");
   }
 }
 
@@ -90,24 +90,24 @@ watch(
   () => true,
   (v) => {
     if (v) {
-      document.addEventListener('click', onGlobalClick)
-      document.addEventListener('keydown', onGlobalKeyDown)
+      document.addEventListener("click", onGlobalClick);
+      document.addEventListener("keydown", onGlobalKeyDown);
     } else {
-      document.removeEventListener('click', onGlobalClick)
-      document.removeEventListener('keydown', onGlobalKeyDown)
+      document.removeEventListener("click", onGlobalClick);
+      document.removeEventListener("keydown", onGlobalKeyDown);
     }
-  }
-)
+  },
+);
 
 onMounted(() => {
-  document.addEventListener('click', onGlobalClick)
-  document.addEventListener('keydown', onGlobalKeyDown)
-})
+  document.addEventListener("click", onGlobalClick);
+  document.addEventListener("keydown", onGlobalKeyDown);
+});
 
 onUnmounted(() => {
-  document.removeEventListener('click', onGlobalClick)
-  document.removeEventListener('keydown', onGlobalKeyDown)
-})
+  document.removeEventListener("click", onGlobalClick);
+  document.removeEventListener("keydown", onGlobalKeyDown);
+});
 </script>
 
 <style scoped>
@@ -139,7 +139,7 @@ onUnmounted(() => {
   cursor: pointer;
   font-size: 13px;
   color: #ccc;
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
   user-select: none;
 }
 

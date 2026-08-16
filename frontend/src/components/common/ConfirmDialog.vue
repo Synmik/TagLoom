@@ -17,35 +17,40 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { AlertTriangle } from '@lucide/vue'
+import { AlertTriangle } from "@lucide/vue";
 
-const props = withDefaults(defineProps<{
-  title?: string
-  message?: string
-  confirmText?: string
-  cancelText?: string
-}>(), {
-  title: 'Confirm',
-  message: 'Are you sure?',
-  confirmText: 'Confirm',
-  cancelText: 'Cancel',
-})
+withDefaults(
+  defineProps<{
+    title?: string;
+    message?: string;
+    confirmText?: string;
+    cancelText?: string;
+  }>(),
+  {
+    title: "Confirm",
+    message: "Are you sure?",
+    confirmText: "Confirm",
+    cancelText: "Cancel",
+  },
+);
 
 const emit = defineEmits<{
-  confirm: []
-  cancel: []
-}>()
+  confirm: [];
+  cancel: [];
+}>();
 
-const confirm = () => emit('confirm')
-const cancel = () => emit('cancel')
+const confirm = () => emit("confirm");
+const cancel = () => emit("cancel");
 </script>
 
 <style scoped>
 .confirm-overlay {
-  position: fixed; inset: 0;
+  position: fixed;
+  inset: 0;
   background: rgba(0, 0, 0, 0.7);
-  display: flex; align-items: center; justify-content: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   z-index: 200;
 }
 .confirm-modal {
@@ -57,17 +62,21 @@ const cancel = () => emit('cancel')
   overflow: hidden;
 }
 .confirm-header {
-  display: flex; align-items: center; gap: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   padding: 14px 18px;
   border-bottom: 1px solid #1a1a1a;
 }
-.confirm-icon { color: #ef4444; }
+.confirm-icon {
+  color: #ef4444;
+}
 .confirm-header h3 {
   margin: 0;
   color: #e8e8e8;
   font-size: 14px;
   font-weight: 600;
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
 }
 .confirm-message {
   margin: 0;
@@ -75,10 +84,11 @@ const cancel = () => emit('cancel')
   color: #aaa;
   font-size: 13px;
   line-height: 1.5;
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
 }
 .confirm-actions {
-  display: flex; gap: 8px;
+  display: flex;
+  gap: 8px;
   padding: 12px 18px;
   border-top: 1px solid #1a1a1a;
 }
@@ -91,10 +101,15 @@ const cancel = () => emit('cancel')
   padding: 9px;
   cursor: pointer;
   font-size: 13px;
-  font-family: 'Inter', sans-serif;
-  transition: background 0.15s, border-color 0.15s;
+  font-family: "Inter", sans-serif;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
-.cancel-btn:hover { background: #222; border-color: #333; }
+.cancel-btn:hover {
+  background: #222;
+  border-color: #333;
+}
 .confirm-btn {
   flex: 1;
   background: rgba(239, 68, 68, 0.15);
@@ -104,8 +119,10 @@ const cancel = () => emit('cancel')
   padding: 9px;
   cursor: pointer;
   font-size: 13px;
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
   transition: background 0.15s;
 }
-.confirm-btn:hover { background: rgba(239, 68, 68, 0.25); }
+.confirm-btn:hover {
+  background: rgba(239, 68, 68, 0.25);
+}
 </style>

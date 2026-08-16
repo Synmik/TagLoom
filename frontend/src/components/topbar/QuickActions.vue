@@ -5,7 +5,7 @@
     </button>
 
     <!-- Vault switcher dropdown -->
-    <div class="vault-switcher" v-click-outside="closeDropdown" ref="dropdownRef">
+    <div ref="dropdownRef" v-click-outside="closeDropdown" class="vault-switcher">
       <button
         class="action-btn vault-btn"
         :class="{ active: dropdownOpen }"
@@ -62,60 +62,67 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import { Plus, FolderOpen, RefreshCw, FolderSearch, Settings, FolderCog, Tags, Info } from '@lucide/vue'
-import { useVaultStore } from '../../stores/vault'
-import { useUIStore } from '../../stores/ui'
-import { GetRecentVaults } from '../../api/backend'
-import { useToast } from '../../composables/useToast'
-import type { RecentVault } from '../../types/vault'
+import { ref } from "vue";
+import {
+  Plus,
+  FolderOpen,
+  RefreshCw,
+  FolderSearch,
+  Settings,
+  FolderCog,
+  Tags,
+  Info,
+} from "@lucide/vue";
+import { useVaultStore } from "../../stores/vault";
+import { useUIStore } from "../../stores/ui";
+import { GetRecentVaults } from "../../api/backend";
+import type { RecentVault } from "../../types/vault";
 
-const vaultStore = useVaultStore()
-const uiStore = useUIStore()
-const { error: toastError } = useToast()
+const vaultStore = useVaultStore();
+const uiStore = useUIStore();
 
-const dropdownOpen = ref(false)
-const dropdownRef = ref<HTMLElement | null>(null)
-const recentVaults = ref<RecentVault[]>([])
+const dropdownOpen = ref(false);
+const dropdownRef = ref<HTMLElement | null>(null);
+const recentVaults = ref<RecentVault[]>([]);
 
 const toggleDropdown = async () => {
   if (!dropdownOpen.value) {
-    await loadRecentVaults()
+    await loadRecentVaults();
   }
-  dropdownOpen.value = !dropdownOpen.value
-}
+  dropdownOpen.value = !dropdownOpen.value;
+};
 
 const closeDropdown = () => {
-  dropdownOpen.value = false
-}
+  dropdownOpen.value = false;
+};
 
 const loadRecentVaults = async () => {
   try {
-    recentVaults.value = await GetRecentVaults()
+    recentVaults.value = await GetRecentVaults();
   } catch (e) {
-    console.warn('[QuickActions] failed to load recent vaults:', e)
+    console.warn("[QuickActions] failed to load recent vaults:", e);
   }
-}
+};
 
 const openRecent = async (vault: RecentVault) => {
-  dropdownOpen.value = false
-  await vaultStore.openVault(vault.path)
-}
+  dropdownOpen.value = false;
+  await vaultStore.openVault(vault.path);
+};
 
-const onNewVault = () => uiStore.openNewVault()
+const onNewVault = () => uiStore.openNewVault();
 const onOpenVault = () => {
-  dropdownOpen.value = false
-  vaultStore.pickAndOpenVault()
-}
-const onRescanVault = () => vaultStore.rescanVault()
-const onFullScan = () => vaultStore.scanVault()
-const onVaultSettings = () => uiStore.openVaultSettings()
+  dropdownOpen.value = false;
+  vaultStore.pickAndOpenVault();
+};
+const onRescanVault = () => vaultStore.rescanVault();
+const onFullScan = () => vaultStore.scanVault();
+const onVaultSettings = () => uiStore.openVaultSettings();
 const onAppSettings = () => {
-  dropdownOpen.value = false
-  uiStore.openAppSettings()
-}
-const onTagManager = () => uiStore.openTagManager()
-const onAbout = () => uiStore.openAbout()
+  dropdownOpen.value = false;
+  uiStore.openAppSettings();
+};
+const onTagManager = () => uiStore.openTagManager();
+const onAbout = () => uiStore.openAbout();
 </script>
 
 <style scoped>
@@ -136,7 +143,9 @@ const onAbout = () => uiStore.openAbout()
   color: #666;
   cursor: pointer;
   border-radius: 4px;
-  transition: color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    background 0.15s;
 }
 
 .action-btn:hover {
@@ -181,7 +190,7 @@ const onAbout = () => uiStore.openAbout()
   border: none;
   color: #ccc;
   font-size: 12px;
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
   cursor: pointer;
   border-radius: 4px;
   text-align: left;

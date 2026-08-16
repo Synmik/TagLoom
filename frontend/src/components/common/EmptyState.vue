@@ -13,20 +13,20 @@
 </template>
 
 <script setup lang="ts">
-import type { Component } from 'vue'
+import type { Component } from "vue";
 
 defineProps<{
-  icon: Component | null
-  iconText?: string
-  title: string
-  description: string
-  actionText?: string
-  actionVariant?: 'primary' | 'secondary'
-}>()
+  icon: Component | null;
+  iconText?: string;
+  title: string;
+  description: string;
+  actionText?: string;
+  actionVariant?: "primary" | "secondary";
+}>();
 
 defineEmits<{
-  action: []
-}>()
+  action: [];
+}>();
 </script>
 
 <style scoped>

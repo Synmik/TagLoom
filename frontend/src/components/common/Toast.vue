@@ -1,20 +1,20 @@
 <script setup lang="ts">
-import type { ToastMessage } from '../../composables/useToast'
-import { Check, X, Info } from '@lucide/vue'
+import type { ToastMessage } from "../../composables/useToast";
+import { Check, X, Info } from "@lucide/vue";
 
-const props = defineProps<{
-  toast: ToastMessage
-}>()
+defineProps<{
+  toast: ToastMessage;
+}>();
 
 defineEmits<{
-  dismiss: [id: number]
-}>()
+  dismiss: [id: number];
+}>();
 
 const iconMap: Record<string, any> = {
   success: Check,
   error: X,
   info: Info,
-}
+};
 </script>
 
 <template>

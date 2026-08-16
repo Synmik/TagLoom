@@ -1,126 +1,133 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { X, FolderOpen } from '@lucide/vue'
-import { SelectFolder, CreateVault } from '../../api/backend'
-import { useVaultStore } from '../../stores/vault'
-import { useToast } from '../../composables/useToast'
-import { EventsOn, EventsOff } from '../../../wailsjs/runtime/runtime'
+import { ref, onMounted } from "vue";
+import { X, FolderOpen } from "@lucide/vue";
+import { SelectFolder, CreateVault } from "../../api/backend";
+import { useVaultStore } from "../../stores/vault";
+import { useToast } from "../../composables/useToast";
+import { EventsOn, EventsOff } from "../../../wailsjs/runtime/runtime";
 
-const vaultStore = useVaultStore()
-const { success, error: toastError } = useToast()
-const emit = defineEmits<{ close: [] }>()
+const vaultStore = useVaultStore();
+const { success, error: toastError } = useToast();
+const emit = defineEmits<{ close: [] }>();
 
 // ── Form state ─────────────────────────────────────────────────────
-const selectedPath = ref('')
-const thumbnailQuality = ref(80)
-const excludedFolders = ref<string[]>([])
-const newExcludedPath = ref('')
-const addError = ref('')
-const isCreating = ref(false)
-const createError = ref('')
-
-
+const selectedPath = ref("");
+const thumbnailQuality = ref(80);
+const excludedFolders = ref<string[]>([]);
+const newExcludedPath = ref("");
+const addError = ref("");
+const isCreating = ref(false);
+const createError = ref("");
 
 // ── Folder picker ──────────────────────────────────────────────────
 const pickFolder = async () => {
-  const dir = await SelectFolder()
+  const dir = await SelectFolder();
   if (dir) {
-    selectedPath.value = dir
-    createError.value = ''
+    selectedPath.value = dir;
+    createError.value = "";
   }
-}
+};
 
 // ── Excluded folders ──────────────────────────────────────────────
 const addExcluded = () => {
-  const path = newExcludedPath.value.trim()
-  if (!path) return
+  const path = newExcludedPath.value.trim();
+  if (!path) return;
   if (excludedFolders.value.includes(path)) {
-    addError.value = 'Already in list'
-    return
+    addError.value = "Already in list";
+    return;
   }
-  addError.value = ''
-  excludedFolders.value.push(path)
-  newExcludedPath.value = ''
-}
+  addError.value = "";
+  excludedFolders.value.push(path);
+  newExcludedPath.value = "";
+};
 
 const removeExcluded = (path: string) => {
-  excludedFolders.value = excludedFolders.value.filter(p => p !== path)
-}
+  excludedFolders.value = excludedFolders.value.filter((p) => p !== path);
+};
 
 const pickExcludedFolder = async () => {
-  const dir = await SelectFolder()
-  if (!dir) return
-  newExcludedPath.value = dir
-}
+  const dir = await SelectFolder();
+  if (!dir) return;
+  newExcludedPath.value = dir;
+};
 
 // ── Create vault ───────────────────────────────────────────────────
 const createVault = async () => {
   if (!selectedPath.value) {
-    createError.value = 'Please select a folder first'
-    return
+    createError.value = "Please select a folder first";
+    return;
   }
 
-  isCreating.value = true
-  createError.value = ''
+  isCreating.value = true;
+  createError.value = "";
 
   try {
     const vault = await CreateVault(selectedPath.value, {
       thumbnail_quality: thumbnailQuality.value,
       excluded_folders: excludedFolders.value,
-    } as any)
+    } as any);
 
-    vaultStore.currentVault = vault
-    await vaultStore.loadConfig()
+    vaultStore.currentVault = vault;
+    await vaultStore.loadConfig();
 
     // Wire up scan listeners (same as _doOpenVault)
-    vaultStore.isScanning = true
-    vaultStore.scanTotal = 0
-    vaultStore.scanCurrent = 0
+    vaultStore.isScanning = true;
+    vaultStore.scanTotal = 0;
+    vaultStore.scanCurrent = 0;
 
-    EventsOff('scan:progress')
-    EventsOff('scan:complete')
-    EventsOff('scan:error')
-    EventsOff('thumb:progress')
-    EventsOff('thumb:complete')
+    EventsOff("scan:progress");
+    EventsOff("scan:complete");
+    EventsOff("scan:error");
+    EventsOff("thumb:progress");
+    EventsOff("thumb:complete");
 
-    const autoProgressUnsub = EventsOn('scan:progress', (data: { current: number; total: number }) => {
-      vaultStore.scanCurrent = data.current
-      vaultStore.scanTotal = data.total
-    })
+    const autoProgressUnsub = EventsOn(
+      "scan:progress",
+      (data: { current: number; total: number }) => {
+        vaultStore.scanCurrent = data.current;
+        vaultStore.scanTotal = data.total;
+      },
+    );
 
-    const thumbProgressUnsub = EventsOn('thumb:progress', (data: { current: number; total: number }) => {
-      vaultStore.scanCurrent = data.current
-      vaultStore.scanTotal = data.total
-    })
+    const thumbProgressUnsub = EventsOn(
+      "thumb:progress",
+      (data: { current: number; total: number }) => {
+        vaultStore.scanCurrent = data.current;
+        vaultStore.scanTotal = data.total;
+      },
+    );
 
-    const thumbCompleteUnsub = EventsOn('thumb:complete', (data: { generated: number; failed: number; total: number }) => {
-      vaultStore.scanCurrent = data.total
-      vaultStore.scanTotal = data.total
-      vaultStore.isScanning = false
-      vaultStore.isLoading = false
-      vaultStore.refreshCurrentVault()
-    })
+    const thumbCompleteUnsub = EventsOn(
+      "thumb:complete",
+      (data: { generated: number; failed: number; total: number }) => {
+        vaultStore.scanCurrent = data.total;
+        vaultStore.scanTotal = data.total;
+        vaultStore.isScanning = false;
+        vaultStore.isLoading = false;
+        vaultStore.refreshCurrentVault();
+      },
+    );
 
     setTimeout(() => {
-      autoProgressUnsub()
-      thumbProgressUnsub()
-      thumbCompleteUnsub()
-    }, 60000)
+      autoProgressUnsub();
+      thumbProgressUnsub();
+      thumbCompleteUnsub();
+    }, 60000);
 
-    success(`Vault "${vault.name}" created successfully`)
-    emit('close')
+    success(`Vault "${vault.name}" created successfully`);
+    emit("close");
   } catch (e: any) {
-    createError.value = e.message || 'Failed to create vault'
-    toastError(createError.value)
+    createError.value = e.message || "Failed to create vault";
+    toastError(createError.value);
   } finally {
-    isCreating.value = false
+    isCreating.value = false;
   }
-}
+};
 
 // ── Lifecycle ──────────────────────────────────────────────────────
 onMounted(() => {
   // Auto-focus on mount
-})
+});
 </script>
 
 <template>
@@ -135,7 +142,10 @@ onMounted(() => {
         <!-- Folder selection -->
         <section class="section">
           <h4>Vault Folder</h4>
-          <p class="hint">Select a folder to create a new vault. A <code>.tagloom</code> directory will be created inside it.</p>
+          <p class="hint">
+            Select a folder to create a new vault. A <code>.tagloom</code> directory will be created
+            inside it.
+          </p>
           <div class="path-row">
             <input
               v-model="selectedPath"
@@ -143,7 +153,9 @@ onMounted(() => {
               class="form-input path-input"
               readonly
             />
-            <button class="picker-btn" @click="pickFolder" title="Browse…"><FolderOpen :size="14" /></button>
+            <button class="picker-btn" title="Browse…" @click="pickFolder">
+              <FolderOpen :size="14" />
+            </button>
           </div>
         </section>
 
@@ -152,13 +164,7 @@ onMounted(() => {
           <h4>Thumbnail Quality</h4>
           <div class="slider-row">
             <label>Quality</label>
-            <input
-              type="range"
-              min="10"
-              max="100"
-              step="5"
-              v-model.number="thumbnailQuality"
-            />
+            <input v-model.number="thumbnailQuality" type="range" min="10" max="100" step="5" />
             <span class="slider-value">{{ thumbnailQuality }}%</span>
           </div>
         </section>
@@ -168,10 +174,12 @@ onMounted(() => {
           <h4>Excluded Folders</h4>
           <p class="hint">These folders will be skipped during indexing.</p>
 
-          <div class="excluded-list" v-if="excludedFolders.length">
+          <div v-if="excludedFolders.length" class="excluded-list">
             <div v-for="path in excludedFolders" :key="path" class="excluded-item">
               <span class="excluded-path">{{ path }}</span>
-              <button class="remove-btn" @click="removeExcluded(path)" title="Remove"><X :size="14" /></button>
+              <button class="remove-btn" title="Remove" @click="removeExcluded(path)">
+                <X :size="14" />
+              </button>
             </div>
           </div>
           <p v-else class="empty-hint">No excluded folders</p>
@@ -183,12 +191,10 @@ onMounted(() => {
               class="form-input"
               @keydown.enter="addExcluded"
             />
-            <button class="picker-btn" @click="pickExcludedFolder" title="Browse…"><FolderOpen :size="14" /></button>
-            <button
-              class="add-btn"
-              :disabled="!newExcludedPath.trim()"
-              @click="addExcluded"
-            >
+            <button class="picker-btn" title="Browse…" @click="pickExcludedFolder">
+              <FolderOpen :size="14" />
+            </button>
+            <button class="add-btn" :disabled="!newExcludedPath.trim()" @click="addExcluded">
               +
             </button>
           </div>
@@ -206,7 +212,7 @@ onMounted(() => {
             :disabled="isCreating || !selectedPath.trim()"
             @click="createVault"
           >
-            {{ isCreating ? 'Creating…' : 'Create Vault' }}
+            {{ isCreating ? "Creating…" : "Create Vault" }}
           </button>
         </div>
       </div>
@@ -249,7 +255,7 @@ onMounted(() => {
   color: #e8e8e8;
   font-size: 14px;
   font-weight: 600;
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
 }
 
 .close-btn {
@@ -260,7 +266,9 @@ onMounted(() => {
   font-size: 16px;
   padding: 4px;
   border-radius: 4px;
-  transition: color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    background 0.15s;
 }
 
 .close-btn:hover {
@@ -344,7 +352,7 @@ onMounted(() => {
   font-size: 12px;
 }
 
-.slider-row input[type='range'] {
+.slider-row input[type="range"] {
   flex: 1;
   height: 4px;
   -webkit-appearance: none;
@@ -355,7 +363,7 @@ onMounted(() => {
   cursor: pointer;
 }
 
-.slider-row input[type='range']::-webkit-slider-thumb {
+.slider-row input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 12px;
@@ -367,7 +375,7 @@ onMounted(() => {
   cursor: pointer;
 }
 
-.slider-row input[type='range']::-moz-range-thumb {
+.slider-row input[type="range"]::-moz-range-thumb {
   width: 12px;
   height: 12px;
   background: #22c55e;
@@ -376,13 +384,13 @@ onMounted(() => {
   cursor: pointer;
 }
 
-.slider-row input[type='range']::-webkit-slider-runnable-track {
+.slider-row input[type="range"]::-webkit-slider-runnable-track {
   height: 4px;
   background: #2a2a2a;
   border-radius: 2px;
 }
 
-.slider-row input[type='range']::-moz-range-track {
+.slider-row input[type="range"]::-moz-range-track {
   height: 4px;
   background: #2a2a2a;
   border-radius: 2px;
@@ -537,7 +545,7 @@ onMounted(() => {
   padding: 8px 18px;
   font-size: 12px;
   font-weight: 500;
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
   cursor: pointer;
   transition: all 0.15s;
 }

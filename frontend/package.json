@@ -6,7 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write src",
+    "format:check": "prettier --check src"
   },
   "dependencies": {
     "@lucide/vue": "^1.17.0",
@@ -15,9 +19,16 @@
   },
   "devDependencies": {
     "@babel/types": "^7.18.10",
+    "@eslint/js": "^10.0.1",
     "@vitejs/plugin-vue": "^5.2.4",
+    "eslint": "^10.8.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-vue": "^10.10.0",
+    "prettier": "^3.9.6",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.67.0",
     "vite": "^5.4.21",
+    "vue-eslint-parser": "^10.4.1",
     "vue-tsc": "^2.2.12"
   }
 }

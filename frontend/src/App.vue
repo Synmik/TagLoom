@@ -1,5 +1,5 @@
 <template>
-  <div class="app-layout" ref="appRoot">
+  <div ref="appRoot" class="app-layout">
     <TitleBar />
     <TopBar />
     <div class="app-body">
@@ -39,170 +39,185 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
-import TitleBar from './components/common/TitleBar.vue'
-import TopBar from './components/topbar/TopBar.vue'
-import LeftPanel from './components/leftpanel/LeftPanel.vue'
-import Gallery from './components/gallery/Gallery.vue'
-import RightPanel from './components/rightpanel/RightPanel.vue'
-import ScanProgressBar from './components/common/ScanProgressBar.vue'
-import ToastContainer from './components/common/ToastContainer.vue'
-import FilePreviewModal from './components/modals/FilePreviewModal.vue'
-import BatchEditModal from './components/modals/BatchEditModal.vue'
-import VaultSettingsModal from './components/modals/VaultSettingsModal.vue'
-import AppSettingsModal from './components/modals/AppSettingsModal.vue'
-import TagManagerModal from './components/modals/TagManagerModal.vue'
-import NewVaultModal from './components/modals/NewVaultModal.vue'
-import AboutModal from './components/modals/AboutModal.vue'
-import ImportMenu from './components/common/ImportMenu.vue'
-import { usePreviewStore } from './stores/preview'
-import { useUIStore } from './stores/ui'
-import { useTagsStore } from './stores/tags'
-import { useFoldersStore } from './stores/folders'
-import { useVaultStore } from './stores/vault'
-import { useFilesStore } from './stores/files'
-import { useKeyboardShortcuts } from './composables/useKeyboardShortcuts'
-import { useDragDrop } from './composables/useDragDrop'
-import { GetAppSettings, ImportFile } from './api/backend'
-import { ArrowDown } from '@lucide/vue'
+import { onMounted, onUnmounted, ref } from "vue";
+import TitleBar from "./components/common/TitleBar.vue";
+import TopBar from "./components/topbar/TopBar.vue";
+import LeftPanel from "./components/leftpanel/LeftPanel.vue";
+import Gallery from "./components/gallery/Gallery.vue";
+import RightPanel from "./components/rightpanel/RightPanel.vue";
+import ScanProgressBar from "./components/common/ScanProgressBar.vue";
+import ToastContainer from "./components/common/ToastContainer.vue";
+import FilePreviewModal from "./components/modals/FilePreviewModal.vue";
+import BatchEditModal from "./components/modals/BatchEditModal.vue";
+import VaultSettingsModal from "./components/modals/VaultSettingsModal.vue";
+import AppSettingsModal from "./components/modals/AppSettingsModal.vue";
+import TagManagerModal from "./components/modals/TagManagerModal.vue";
+import NewVaultModal from "./components/modals/NewVaultModal.vue";
+import AboutModal from "./components/modals/AboutModal.vue";
+import ImportMenu from "./components/common/ImportMenu.vue";
+import { usePreviewStore } from "./stores/preview";
+import { useUIStore } from "./stores/ui";
+import { useTagsStore } from "./stores/tags";
+import { useFoldersStore } from "./stores/folders";
+import { useVaultStore } from "./stores/vault";
+import { useFilesStore } from "./stores/files";
+import { useKeyboardShortcuts } from "./composables/useKeyboardShortcuts";
+import { useDragDrop } from "./composables/useDragDrop";
+import { GetAppSettings, ImportFile } from "./api/backend";
+import { ArrowDown } from "@lucide/vue";
 
-const previewStore = usePreviewStore()
-const uiStore = useUIStore()
-const foldersStore = useFoldersStore()
-const vaultStore = useVaultStore()
+const previewStore = usePreviewStore();
+const uiStore = useUIStore();
+const foldersStore = useFoldersStore();
+const vaultStore = useVaultStore();
 
 // ── Drag & drop ──────────────────────────────────────────────────
 
-const appRoot = ref<HTMLElement | null>(null)
-const dragDrop = useDragDrop()
+const appRoot = ref<HTMLElement | null>(null);
+const dragDrop = useDragDrop();
 
 async function handleImport(move: boolean) {
-  const files = dragDrop.menuData.value?.files
+  const files = dragDrop.menuData.value?.files;
   if (!files || files.length === 0) {
-    dragDrop.closeMenu()
-    return
+    dragDrop.closeMenu();
+    return;
   }
 
   // Import into currently selected folder (empty = vault root).
   // Root folder's selectedPath is the full vault path — treat as vault root.
-  const targetFolder = foldersStore.selectedPath === vaultStore.currentVault?.path ? '' : foldersStore.selectedPath
-  dragDrop.closeMenu()
+  const targetFolder =
+    foldersStore.selectedPath === vaultStore.currentVault?.path ? "" : foldersStore.selectedPath;
+  dragDrop.closeMenu();
 
-  let imported = 0
-  let skipped = 0
-  const errors: string[] = []
+  let imported = 0;
+  let skipped = 0;
+  const errors: string[] = [];
 
   for (const f of files) {
     try {
-      const result = await ImportFile(f.path, move, targetFolder)
-      if (result?.imported) imported += result.imported
-      if (result?.skipped) skipped += result.skipped
-      if (result?.errors) errors.push(...result.errors)
+      const result = await ImportFile(f.path, move, targetFolder);
+      if (result?.imported) imported += result.imported;
+      if (result?.skipped) skipped += result.skipped;
+      if (result?.errors) errors.push(...result.errors);
     } catch (e: any) {
-      errors.push(`${f.name}: ${e.message || String(e)}`)
+      errors.push(`${f.name}: ${e.message || String(e)}`);
     }
   }
 
   // Reload gallery
-  await useFilesStore().loadFiles()
+  await useFilesStore().loadFiles();
 
   // Show result toast(s)
-  const { useToast } = await import('./composables/useToast')
-  const toast = useToast()
+  const { useToast } = await import("./composables/useToast");
+  const toast = useToast();
   if (imported > 0) {
-    toast.success(`Imported ${imported} file${imported > 1 ? 's' : ''}`)
+    toast.success(`Imported ${imported} file${imported > 1 ? "s" : ""}`);
   }
   if (skipped > 0) {
-    toast.info(`Skipped ${skipped} file${skipped > 1 ? 's' : ''} (already in vault)`)
+    toast.info(`Skipped ${skipped} file${skipped > 1 ? "s" : ""} (already in vault)`);
   }
   for (const err of errors) {
-    toast.error(err)
+    toast.error(err);
   }
 }
 
 // ── Panel resize logic ────────────────────────────────────────────
 
 const onLeftResizeStart = (e: MouseEvent) => {
-  e.preventDefault()
-  const startX = e.clientX
-  const startWidth = uiStore.leftPanelWidth
+  e.preventDefault();
+  const startX = e.clientX;
+  const startWidth = uiStore.leftPanelWidth;
 
   const onMouseMove = (ev: MouseEvent) => {
-    const delta = ev.clientX - startX
-    uiStore.setLeftPanelWidth(startWidth + delta)
-  }
+    const delta = ev.clientX - startX;
+    uiStore.setLeftPanelWidth(startWidth + delta);
+  };
 
   const onMouseUp = () => {
-    document.removeEventListener('mousemove', onMouseMove)
-    document.removeEventListener('mouseup', onMouseUp)
-    document.body.style.cursor = ''
-    document.body.style.userSelect = ''
-  }
+    document.removeEventListener("mousemove", onMouseMove);
+    document.removeEventListener("mouseup", onMouseUp);
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+  };
 
-  document.addEventListener('mousemove', onMouseMove)
-  document.addEventListener('mouseup', onMouseUp)
-  document.body.style.cursor = 'col-resize'
-  document.body.style.userSelect = 'none'
-}
+  document.addEventListener("mousemove", onMouseMove);
+  document.addEventListener("mouseup", onMouseUp);
+  document.body.style.cursor = "col-resize";
+  document.body.style.userSelect = "none";
+};
 
 const onRightResizeStart = (e: MouseEvent) => {
-  e.preventDefault()
-  const startX = e.clientX
-  const startWidth = uiStore.rightPanelWidth
+  e.preventDefault();
+  const startX = e.clientX;
+  const startWidth = uiStore.rightPanelWidth;
 
   const onMouseMove = (ev: MouseEvent) => {
-    const delta = startX - ev.clientX
-    uiStore.setRightPanelWidth(startWidth + delta)
-  }
+    const delta = startX - ev.clientX;
+    uiStore.setRightPanelWidth(startWidth + delta);
+  };
 
   const onMouseUp = () => {
-    document.removeEventListener('mousemove', onMouseMove)
-    document.removeEventListener('mouseup', onMouseUp)
-    document.body.style.cursor = ''
-    document.body.style.userSelect = ''
-  }
+    document.removeEventListener("mousemove", onMouseMove);
+    document.removeEventListener("mouseup", onMouseUp);
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+  };
 
-  document.addEventListener('mousemove', onMouseMove)
-  document.addEventListener('mouseup', onMouseUp)
-  document.body.style.cursor = 'col-resize'
-  document.body.style.userSelect = 'none'
-}
+  document.addEventListener("mousemove", onMouseMove);
+  document.addEventListener("mouseup", onMouseUp);
+  document.body.style.cursor = "col-resize";
+  document.body.style.userSelect = "none";
+};
 
 onMounted(async () => {
   // Set up drag-and-drop handlers on the app root element
   if (appRoot.value) {
-    dragDrop.setupHandlers(appRoot.value)
+    dragDrop.setupHandlers(appRoot.value);
   }
 
-  previewStore._syncSelection()
-  useTagsStore()._watchVault()
-  useFoldersStore()._watchVault()
+  previewStore._syncSelection();
+  useTagsStore()._watchVault();
+  useFoldersStore()._watchVault();
 
   // Load global app settings to check auto-open preference
-  let settings
+  let settings;
   try {
-    settings = await GetAppSettings()
+    settings = await GetAppSettings();
   } catch {
     // Non-fatal: proceed without settings
   }
   if (settings?.auto_open_last_vault) {
-    await useVaultStore().autoOpenLastVault()
+    await useVaultStore().autoOpenLastVault();
   }
 
   // ── Keyboard shortcuts ──────────────────────────────────────────
-  useKeyboardShortcuts()
-})
+  useKeyboardShortcuts();
+});
 
 onUnmounted(() => {
   if (appRoot.value) {
-    dragDrop.teardownHandlers(appRoot.value)
+    dragDrop.teardownHandlers(appRoot.value);
   }
-})
+});
 </script>
 
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d0d0d; color: #e8e8e8; }
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+body {
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+  background: #0d0d0d;
+  color: #e8e8e8;
+}
 </style>
 
 <style scoped>
@@ -213,7 +228,11 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Robo
   overflow: hidden;
   --wails-drop-target: drop;
 }
-.app-body { display: flex; flex: 1; overflow: hidden; }
+.app-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
 
 .resize-handle {
   width: 4px;
@@ -262,7 +281,12 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Robo
 }
 
 @keyframes drop-bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(8px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(8px);
+  }
 }
 </style>

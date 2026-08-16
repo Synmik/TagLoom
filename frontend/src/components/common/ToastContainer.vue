@@ -1,19 +1,14 @@
 <script setup lang="ts">
-import { useToast } from '../../composables/useToast'
-import Toast from './Toast.vue'
+import { useToast } from "../../composables/useToast";
+import Toast from "./Toast.vue";
 
-const { toasts, dismiss } = useToast()
+const { toasts, dismiss } = useToast();
 </script>
 
 <template>
   <div class="toast-container">
     <transition-group name="toast-list">
-      <Toast
-        v-for="toast in toasts"
-        :key="toast.id"
-        :toast="toast"
-        @dismiss="dismiss"
-      />
+      <Toast v-for="toast in toasts" :key="toast.id" :toast="toast" @dismiss="dismiss" />
     </transition-group>
   </div>
 </template>

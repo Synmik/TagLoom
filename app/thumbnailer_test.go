@@ -14,10 +14,10 @@ func TestThumbnailUpToDate(t *testing.T) {
 	dir := t.TempDir()
 	thumb := filepath.Join(dir, "thumb.webp")
 	src := filepath.Join(dir, "src.png")
-	if err := os.WriteFile(thumb, []byte("thumb"), 0644); err != nil {
+	if err := os.WriteFile(thumb, []byte("thumb"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(src, []byte("src"), 0644); err != nil {
+	if err := os.WriteFile(src, []byte("src"), 0600); err != nil {
 		t.Fatal(err)
 	}
 

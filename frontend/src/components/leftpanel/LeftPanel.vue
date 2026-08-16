@@ -5,17 +5,20 @@
       <button
         class="filter-btn"
         :class="{ active: filtersStore.activeFilters.favoritesOnly }"
-        @click="toggleFavorites"
         title="Show only favorites"
+        @click="toggleFavorites"
       >
-        <Star :size="14" :fill="filtersStore.activeFilters.favoritesOnly ? 'currentColor' : 'none'" />
+        <Star
+          :size="14"
+          :fill="filtersStore.activeFilters.favoritesOnly ? 'currentColor' : 'none'"
+        />
         <span>Favorites</span>
       </button>
       <button
         class="filter-btn"
         :class="{ active: filtersStore.activeFilters.untaggedOnly }"
-        @click="toggleUntagged"
         title="Show only untagged items"
+        @click="toggleUntagged"
       >
         <Tags :size="14" />
         <span>Untagged</span>
@@ -25,17 +28,24 @@
     <section class="panel-section" :style="{ height: `${uiStore.leftPanelSplit}%` }">
       <div class="section-header">
         <h3>Folders</h3>
-        <button class="icon-btn" @click="openVault" title="Open Vault"><FolderOpen :size="14" /></button>
+        <button class="icon-btn" title="Open Vault" @click="openVault">
+          <FolderOpen :size="14" />
+        </button>
       </div>
       <FolderTree />
     </section>
 
     <div class="divider" @mousedown="startDrag"></div>
 
-    <section class="panel-section tags-section" :style="{ height: `${100 - uiStore.leftPanelSplit}%` }">
+    <section
+      class="panel-section tags-section"
+      :style="{ height: `${100 - uiStore.leftPanelSplit}%` }"
+    >
       <div class="section-header">
         <h3>Tags</h3>
-        <button class="icon-btn" @click="openTagManager(null)" title="Create Tag"><Plus :size="14" /></button>
+        <button class="icon-btn" title="Create Tag" @click="openTagManager(null)">
+          <Plus :size="14" />
+        </button>
       </div>
       <TagTree @edit="openTagManager($event)" />
     </section>
@@ -45,79 +55,79 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onBeforeUnmount } from 'vue'
-import { FolderOpen, Plus, Star, Tags } from '@lucide/vue'
-import FolderTree from './FolderTree.vue'
-import TagTree from './TagTree.vue'
-import TagManagerModal from '../modals/TagManagerModal.vue'
-import { useVaultStore } from '../../stores/vault'
-import { useUIStore } from '../../stores/ui'
-import { useFiltersStore } from '../../stores/filters'
-import type { Tag } from '../../types/tag'
+import { ref, computed, onBeforeUnmount } from "vue";
+import { FolderOpen, Plus, Star, Tags } from "@lucide/vue";
+import FolderTree from "./FolderTree.vue";
+import TagTree from "./TagTree.vue";
+import TagManagerModal from "../modals/TagManagerModal.vue";
+import { useVaultStore } from "../../stores/vault";
+import { useUIStore } from "../../stores/ui";
+import { useFiltersStore } from "../../stores/filters";
+import type { Tag } from "../../types/tag";
 
-const uiStore = useUIStore()
-const filtersStore = useFiltersStore()
-const panelStyle = computed(() => ({ width: `${uiStore.leftPanelWidth}px` }))
+const uiStore = useUIStore();
+const filtersStore = useFiltersStore();
+const panelStyle = computed(() => ({ width: `${uiStore.leftPanelWidth}px` }));
 
-const vaultStore = useVaultStore()
-const showTagManager = ref(false)
-const editingTag = ref<Tag | null>(null)
+const vaultStore = useVaultStore();
+const showTagManager = ref(false);
+const editingTag = ref<Tag | null>(null);
 
-const openVault = () => vaultStore.pickAndOpenVault()
+const openVault = () => vaultStore.pickAndOpenVault();
 
 const toggleFavorites = () => {
-  const newState = !filtersStore.activeFilters.favoritesOnly
-  filtersStore.setFavoritesFilter(newState)
-}
+  const newState = !filtersStore.activeFilters.favoritesOnly;
+  filtersStore.setFavoritesFilter(newState);
+};
 
 const toggleUntagged = () => {
-  const newState = !filtersStore.activeFilters.untaggedOnly
-  filtersStore.setUntaggedFilter(newState)
-}
+  const newState = !filtersStore.activeFilters.untaggedOnly;
+  filtersStore.setUntaggedFilter(newState);
+};
 
 const openTagManager = (tag: Tag | null) => {
-  editingTag.value = tag
-  showTagManager.value = true
-}
+  editingTag.value = tag;
+  showTagManager.value = true;
+};
 
 const closeTagManager = () => {
-  showTagManager.value = false
-  editingTag.value = null
-}
+  showTagManager.value = false;
+  editingTag.value = null;
+};
 
 // Draggable divider
-const isDragging = ref(false)
+const isDragging = ref(false);
 
 const startDrag = (e: MouseEvent) => {
-  e.preventDefault()
-  isDragging.value = true
-  document.body.style.cursor = 'ns-resize'
-  document.body.style.userSelect = 'none'
-  window.addEventListener('mousemove', onDrag)
-  window.addEventListener('mouseup', stopDrag)
-}
+  e.preventDefault();
+  isDragging.value = true;
+  document.body.style.cursor = "ns-resize";
+  document.body.style.userSelect = "none";
+  window.addEventListener("mousemove", onDrag);
+  window.addEventListener("mouseup", stopDrag);
+};
 
 const onDrag = (e: MouseEvent) => {
-  if (!isDragging.value) return
-  const panel = (e.target as HTMLElement).closest('.left-panel') as HTMLElement
-  if (!panel) return
-  const rect = panel.getBoundingClientRect()
-  const ratio = ((e.clientY - rect.top) / rect.height) * 100
-  uiStore.setLeftPanelSplit(ratio)
-}
+  if (!isDragging.value) return;
+  const panel = (e.target as HTMLElement).closest(".left-panel") as HTMLElement;
+  if (!panel) return;
+  const rect = panel.getBoundingClientRect();
+  const ratio = ((e.clientY - rect.top) / rect.height) * 100;
+  uiStore.setLeftPanelSplit(ratio);
+};
 
 const stopDrag = () => {
-  isDragging.value = false
-  document.body.style.cursor = ''
-  document.body.style.userSelect = ''
-  window.removeEventListener('mousemove', onDrag)
-  window.removeEventListener('mouseup', stopDrag)
-}
+  isDragging.value = false;
+  document.body.style.cursor = "";
+  document.body.style.userSelect = "";
+  window.removeEventListener("mousemove", onDrag);
+  window.removeEventListener("mouseup", stopDrag);
+};
 
 onBeforeUnmount(() => {
-  window.removeEventListener('mousemove', onDrag)
-  window.removeEventListener('mouseup', stopDrag)
-})
+  window.removeEventListener("mousemove", onDrag);
+  window.removeEventListener("mouseup", stopDrag);
+});
 </script>
 
 <style scoped>
@@ -148,7 +158,7 @@ onBeforeUnmount(() => {
   border-radius: 6px;
   padding: 4px 10px;
   font-size: 11px;
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s;

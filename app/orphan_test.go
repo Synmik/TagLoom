@@ -15,7 +15,7 @@ func seedThumbnail(t *testing.T, a *App, id int64, name string) string {
 	if err := os.MkdirAll(filepath.Dir(thumbAbs), 0755); err != nil {
 		t.Fatalf("mkdir thumb dir: %v", err)
 	}
-	if err := os.WriteFile(thumbAbs, []byte("webp"), 0644); err != nil {
+	if err := os.WriteFile(thumbAbs, []byte("webp"), 0600); err != nil {
 		t.Fatalf("write thumb: %v", err)
 	}
 	rel := filepath.ToSlash(filepath.Join(".tagloom", "thumbnails", "ab", name+".webp"))

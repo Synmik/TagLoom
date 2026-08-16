@@ -1,18 +1,18 @@
-import { ref, onMounted, onUnmounted, type Ref, type ComputedRef, computed, nextTick } from 'vue'
-import type { File } from '../types/file'
+import { ref, onMounted, onUnmounted, type Ref, type ComputedRef, computed } from "vue";
+import type { File } from "../types/file";
 
 export interface VirtualItem {
-  index: number
-  item: File
-  style: string
+  index: number;
+  item: File;
+  style: string;
 }
 
 export interface UseVirtualListReturn {
-  visibleItems: ComputedRef<VirtualItem[]>
-  totalHeight: ComputedRef<number>
-  setContainerHeight: (h: number) => void
-  attachScroll: (el: HTMLElement | null) => () => void
-  scrollTo: (y: number) => void
+  visibleItems: ComputedRef<VirtualItem[]>;
+  totalHeight: ComputedRef<number>;
+  setContainerHeight: (h: number) => void;
+  attachScroll: (el: HTMLElement | null) => () => void;
+  scrollTo: (y: number) => void;
 }
 
 export function useVirtualList(
@@ -22,74 +22,74 @@ export function useVirtualList(
   horizontalPadding: number = 12,
   _totalCount?: Ref<number>, // kept for signature compat
 ): UseVirtualListReturn {
-  const scrollY = ref(0)
-  const containerHeight = ref(600)
+  const scrollY = ref(0);
+  const containerHeight = ref(600);
 
   // Use only loaded files for scroll height so the scrollbar reflects what's
   // actually in memory. Prevents overscrolling into unloaded area.
-  const logicalCount = computed(() => files.value.length)
+  const logicalCount = computed(() => files.value.length);
 
-  const totalHeight = computed(() => logicalCount.value * rowHeight)
+  const totalHeight = computed(() => logicalCount.value * rowHeight);
 
   const visibleItems = computed<VirtualItem[]>(() => {
-    const loadedCount = files.value.length
-    if (loadedCount === 0) return []
+    const loadedCount = files.value.length;
+    if (loadedCount === 0) return [];
 
-    const startIndex = Math.floor(scrollY.value / rowHeight)
-    const visibleCount = Math.ceil(containerHeight.value / rowHeight)
+    const startIndex = Math.floor(scrollY.value / rowHeight);
+    const visibleCount = Math.ceil(containerHeight.value / rowHeight);
 
-    const start = Math.max(0, startIndex - overscan)
-    const end = Math.min(loadedCount, startIndex + visibleCount + overscan)
+    const start = Math.max(0, startIndex - overscan);
+    const end = Math.min(loadedCount, startIndex + visibleCount + overscan);
 
-    const items: VirtualItem[] = []
+    const items: VirtualItem[] = [];
     for (let i = start; i < end; i++) {
-      const file = files.value[i]
-      if (!file) continue
+      const file = files.value[i];
+      if (!file) continue;
       items.push({
         index: i,
         item: file,
         style: `position:absolute;top:${i * rowHeight}px;left:${horizontalPadding}px;right:${horizontalPadding}px;height:${rowHeight}px;`,
-      })
+      });
     }
-    return items
-  })
+    return items;
+  });
 
   const onScroll = (e: Event) => {
-    scrollY.value = (e.target as HTMLElement).scrollTop
-  }
+    scrollY.value = (e.target as HTMLElement).scrollTop;
+  };
 
   const onResize = () => {
     // Will be called with the actual container element
-  }
-
-  let scrollCleanup: (() => void) | undefined
+  };
 
   onMounted(() => {
-    window.addEventListener('resize', onResize)
-  })
+    window.addEventListener("resize", onResize);
+  });
 
   onUnmounted(() => {
-    window.removeEventListener('resize', onResize)
-    scrollCleanup?.()
-  })
+    window.removeEventListener("resize", onResize);
+  });
 
   const scrollTo = (y: number) => {
-    scrollY.value = y
-  }
+    scrollY.value = y;
+  };
 
   return {
     visibleItems,
     totalHeight,
-    setContainerHeight: (h: number) => { containerHeight.value = h },
+    setContainerHeight: (h: number) => {
+      containerHeight.value = h;
+    },
     attachScroll: (el: HTMLElement | null) => {
-      scrollCleanup?.()
       if (el) {
-        el.addEventListener('scroll', onScroll, { passive: true })
+        el.addEventListener("scroll", onScroll, { passive: true });
         // Measure initial height
-        containerHeight.value = el.clientHeight
+        containerHeight.value = el.clientHeight;
       }
-      return () => { el?.removeEventListener('scroll', onScroll) }
+      return () => {
+        el?.removeEventListener("scroll", onScroll);
+      };
     },
     scrollTo,
-  }
+  };
 }

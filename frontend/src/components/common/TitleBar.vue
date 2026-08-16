@@ -8,7 +8,7 @@
   />
   <div class="titlebar" style="--wails-draggable: drag">
     <div class="titlebar-left">
-      <div class="menu-wrapper" ref="menuRef">
+      <div ref="menuRef" class="menu-wrapper">
         <button
           class="app-menu-btn"
           style="--wails-draggable: no-drag"
@@ -24,11 +24,7 @@
             <button class="menu-item" @click="onOpenVault">
               <FolderOpen :size="16" class="menu-icon" /> Open Vault
             </button>
-            <button
-              v-if="vaultStore.currentVault"
-              class="menu-item"
-              @click="onCloseVault"
-            >
+            <button v-if="vaultStore.currentVault" class="menu-item" @click="onCloseVault">
               <X :size="16" class="menu-icon" /> Close Vault
             </button>
             <button class="menu-item" @click="onRescanVault">
@@ -68,14 +64,14 @@
       </span>
     </div>
 
-    <div class="titlebar-center drag-region" style="--wails-draggable: no-drag" @dblclick="toggleMaximise"></div>
+    <div
+      class="titlebar-center drag-region"
+      style="--wails-draggable: no-drag"
+      @dblclick="toggleMaximise"
+    ></div>
 
     <div class="titlebar-right" style="--wails-draggable: no-drag">
-      <button
-        class="window-btn minimize"
-        title="Minimize"
-        @click="minimise"
-      >
+      <button class="window-btn minimize" title="Minimize" @click="minimise">
         <Minus :size="14" />
       </button>
       <button
@@ -86,11 +82,7 @@
         <Maximize v-if="!isMaximised" :size="14" />
         <Minimize2 v-else :size="14" />
       </button>
-      <button
-        class="window-btn close"
-        title="Close"
-        @click="close"
-      >
+      <button class="window-btn close" title="Close" @click="close">
         <X :size="14" />
       </button>
     </div>
@@ -98,123 +90,138 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
-import { Menu, Plus, FolderOpen, X, RefreshCw, FolderSearch, Settings, FolderCog, Tags, Info, LogOut, Minus, Maximize, Minimize2 } from '@lucide/vue'
-import ConfirmDialog from './ConfirmDialog.vue'
-import { useVaultStore } from '../../stores/vault'
-import { useUIStore } from '../../stores/ui'
-import { GetAppSettings } from '../../api/backend'
+import { ref, onMounted, onUnmounted } from "vue";
+import {
+  Menu,
+  Plus,
+  FolderOpen,
+  X,
+  RefreshCw,
+  FolderSearch,
+  Settings,
+  FolderCog,
+  Tags,
+  Info,
+  LogOut,
+  Minus,
+  Maximize,
+  Minimize2,
+} from "@lucide/vue";
+import ConfirmDialog from "./ConfirmDialog.vue";
+import { useVaultStore } from "../../stores/vault";
+import { useUIStore } from "../../stores/ui";
+import { GetAppSettings } from "../../api/backend";
 import {
   WindowMinimise,
   WindowMaximise,
   WindowUnmaximise,
   WindowIsMaximised,
   Quit,
-} from '../../../wailsjs/runtime/runtime'
+} from "../../../wailsjs/runtime/runtime";
 
-const vaultStore = useVaultStore()
-const uiStore = useUIStore()
-const showMenu = ref(false)
-const menuRef = ref<HTMLElement | null>(null)
-const isMaximised = ref(false)
-const showExitConfirm = ref(false)
+const vaultStore = useVaultStore();
+const uiStore = useUIStore();
+const showMenu = ref(false);
+const menuRef = ref<HTMLElement | null>(null);
+const isMaximised = ref(false);
+const showExitConfirm = ref(false);
 
 // Track maximised state
 const updateMaximisedState = () => {
   WindowIsMaximised().then((state: boolean) => {
-    isMaximised.value = state
-  })
-}
+    isMaximised.value = state;
+  });
+};
 
 const minimise = () => {
-  WindowMinimise()
-}
+  WindowMinimise();
+};
 
 const toggleMaximise = async () => {
-  const maximised = await WindowIsMaximised()
+  const maximised = await WindowIsMaximised();
   if (maximised) {
-    WindowUnmaximise()
+    WindowUnmaximise();
   } else {
-    WindowMaximise()
+    WindowMaximise();
   }
-  isMaximised.value = !maximised
-}
+  isMaximised.value = !maximised;
+};
 
 const close = async () => {
-  const settings = await GetAppSettings().catch(() => null)
+  const settings = await GetAppSettings().catch(() => null);
   if (settings?.confirm_before_exit) {
-    showExitConfirm.value = true
-    return
+    showExitConfirm.value = true;
+    return;
   }
-  Quit()
-}
+  Quit();
+};
 
 const onNewVault = () => {
-  showMenu.value = false
-  uiStore.openNewVault()
-}
+  showMenu.value = false;
+  uiStore.openNewVault();
+};
 const onOpenVault = async () => {
-  showMenu.value = false
-  await vaultStore.pickAndOpenVault()
-}
+  showMenu.value = false;
+  await vaultStore.pickAndOpenVault();
+};
 const onCloseVault = async () => {
-  showMenu.value = false
-  await vaultStore.closeVault()
-}
+  showMenu.value = false;
+  await vaultStore.closeVault();
+};
 const onRescanVault = async () => {
-  showMenu.value = false
-  await vaultStore.rescanVault()
-}
+  showMenu.value = false;
+  await vaultStore.rescanVault();
+};
 const onFullScan = async () => {
-  showMenu.value = false
-  await vaultStore.scanVault()
-}
+  showMenu.value = false;
+  await vaultStore.scanVault();
+};
 const onVaultSettings = () => {
-  showMenu.value = false
-  uiStore.openVaultSettings()
-}
+  showMenu.value = false;
+  uiStore.openVaultSettings();
+};
 const onAppSettings = () => {
-  showMenu.value = false
-  uiStore.openAppSettings()
-}
+  showMenu.value = false;
+  uiStore.openAppSettings();
+};
 const onTagManager = () => {
-  showMenu.value = false
-  uiStore.openTagManager()
-}
+  showMenu.value = false;
+  uiStore.openTagManager();
+};
 const onAbout = () => {
-  showMenu.value = false
-  uiStore.openAbout()
-}
+  showMenu.value = false;
+  uiStore.openAbout();
+};
 const onExit = async () => {
-  showMenu.value = false
-  const settings = await GetAppSettings().catch(() => null)
+  showMenu.value = false;
+  const settings = await GetAppSettings().catch(() => null);
   if (settings?.confirm_before_exit) {
-    showExitConfirm.value = true
-    return
+    showExitConfirm.value = true;
+    return;
   }
-  Quit()
-}
+  Quit();
+};
 
 const doExit = () => {
-  showExitConfirm.value = false
-  Quit()
-}
+  showExitConfirm.value = false;
+  Quit();
+};
 
 // Close menu on outside click
 const closeMenu = (e: MouseEvent) => {
   if (menuRef.value && !menuRef.value.contains(e.target as Node)) {
-    showMenu.value = false
+    showMenu.value = false;
   }
-}
+};
 
 onMounted(() => {
-  document.addEventListener('mousedown', closeMenu)
-  updateMaximisedState()
-})
+  document.addEventListener("mousedown", closeMenu);
+  updateMaximisedState();
+});
 
 onUnmounted(() => {
-  document.removeEventListener('mousedown', closeMenu)
-})
+  document.removeEventListener("mousedown", closeMenu);
+});
 </script>
 
 <style scoped>
@@ -265,7 +272,9 @@ onUnmounted(() => {
   color: #aaa;
   cursor: pointer;
   border-radius: 4px;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 .app-menu-btn:hover {
@@ -297,7 +306,7 @@ onUnmounted(() => {
   color: #ccc;
   padding: 7px 12px;
   font-size: 13px;
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
   cursor: pointer;
   border-radius: 5px;
   transition: background 0.1s;
@@ -355,7 +364,9 @@ onUnmounted(() => {
   border: none;
   color: #aaa;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 .window-btn:hover {

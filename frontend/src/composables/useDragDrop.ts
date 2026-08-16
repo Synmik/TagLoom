@@ -1,16 +1,16 @@
-import { ref } from 'vue'
-import { SUPPORTED_EXTENSIONS } from '../types/file'
-import { OnFileDrop, OnFileDropOff } from '../../wailsjs/runtime/runtime'
+import { ref } from "vue";
+import { SUPPORTED_EXTENSIONS } from "../types/file";
+import { OnFileDrop, OnFileDropOff } from "../../wailsjs/runtime/runtime";
 
 export interface DroppedFile {
-  name: string
-  path: string
+  name: string;
+  path: string;
 }
 
 export interface ImportMenuData {
-  files: DroppedFile[]
-  x: number
-  y: number
+  files: DroppedFile[];
+  x: number;
+  y: number;
 }
 
 /**
@@ -23,64 +23,64 @@ export interface ImportMenuData {
  * that class to show/hide the overlay.
  */
 export function useDragDrop() {
-  const isDragging = ref(false)
-  const showMenu = ref(false)
-  const menuData = ref<ImportMenuData | null>(null)
+  const isDragging = ref(false);
+  const showMenu = ref(false);
+  const menuData = ref<ImportMenuData | null>(null);
 
   function closeMenu() {
-    showMenu.value = false
-    menuData.value = null
+    showMenu.value = false;
+    menuData.value = null;
   }
 
   function onWailsDrop(x: number, y: number, paths: string[]) {
-    console.log('[drag-drop] OnFileDrop:', x, y, paths)
+    console.log("[drag-drop] OnFileDrop:", x, y, paths);
 
-    if (paths.length === 0) return
+    if (paths.length === 0) return;
 
-    const droppedFiles: DroppedFile[] = paths.map(p => ({
+    const droppedFiles: DroppedFile[] = paths.map((p) => ({
       name: p.split(/[\\/]/).pop() || p,
       path: p,
-    }))
+    }));
 
-    const supported = droppedFiles.filter(f => {
-      const ext = '.' + f.name.split('.').pop()?.toLowerCase()
-      return SUPPORTED_EXTENSIONS.has(ext)
-    })
+    const supported = droppedFiles.filter((f) => {
+      const ext = "." + f.name.split(".").pop()?.toLowerCase();
+      return SUPPORTED_EXTENSIONS.has(ext);
+    });
 
     if (supported.length === 0) {
-      console.log('[drag-drop] No supported files found')
-      return
+      console.log("[drag-drop] No supported files found");
+      return;
     }
 
-    console.log(`[drag-drop] Showing import menu for ${supported.length} file(s)`)
-    menuData.value = { files: supported, x, y }
-    showMenu.value = true
+    console.log(`[drag-drop] Showing import menu for ${supported.length} file(s)`);
+    menuData.value = { files: supported, x, y };
+    showMenu.value = true;
   }
 
   function setupHandlers(rootEl: HTMLElement) {
     // Register Wails file-drop callback (useDropTarget=true = only fires on
     // elements with --wails-drop-target: drop CSS property)
-    OnFileDrop(onWailsDrop, true)
+    OnFileDrop(onWailsDrop, true);
 
     // Watch for Wails' active drop-target class to show the overlay.
     // Wails adds 'wails-drop-target-active' to elements during drag-over.
     const observer = new MutationObserver(() => {
-      const active = rootEl.classList.contains('wails-drop-target-active')
-      isDragging.value = active
-    })
+      const active = rootEl.classList.contains("wails-drop-target-active");
+      isDragging.value = active;
+    });
 
-    observer.observe(rootEl, { attributes: true, attributeFilter: ['class'] })
+    observer.observe(rootEl, { attributes: true, attributeFilter: ["class"] });
 
     // Store observer for cleanup
-    ;(setupHandlers as any)._observer = observer
+    (setupHandlers as any)._observer = observer;
   }
 
-  function teardownHandlers(rootEl: HTMLElement) {
-    OnFileDropOff()
+  function teardownHandlers(_rootEl: HTMLElement) {
+    OnFileDropOff();
 
-    const observer = (setupHandlers as any)._observer
+    const observer = (setupHandlers as any)._observer;
     if (observer) {
-      observer.disconnect()
+      observer.disconnect();
     }
   }
 
@@ -91,5 +91,5 @@ export function useDragDrop() {
     closeMenu,
     setupHandlers,
     teardownHandlers,
-  }
+  };
 }

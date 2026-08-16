@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { X, FolderOpen, Plus, Pencil, Wrench, Trash2 } from '@lucide/vue'
-import { useVaultStore } from '../../stores/vault'
-import { useFilesStore } from '../../stores/files'
-import { useToast } from '../../composables/useToast'
-import ConfirmDialog from '../common/ConfirmDialog.vue'
-import { EventsOn, EventsOff } from '../../../wailsjs/runtime/runtime'
+import { ref, onMounted, computed } from "vue";
+import { X, FolderOpen, Plus, Pencil, Wrench, Trash2 } from "@lucide/vue";
+import { useVaultStore } from "../../stores/vault";
+import { useFilesStore } from "../../stores/files";
+import { useToast } from "../../composables/useToast";
+import ConfirmDialog from "../common/ConfirmDialog.vue";
+import { EventsOn } from "../../../wailsjs/runtime/runtime";
 import {
   GetExcludedFolders,
   AddExcludedFolder,
@@ -13,206 +13,210 @@ import {
   SelectFolder,
   RepairAllThumbnails,
   CleanupOrphanThumbnails,
-} from '../../api/backend'
+} from "../../api/backend";
 
-const vaultStore = useVaultStore()
-const filesStore = useFilesStore()
-const { success, error: toastError } = useToast()
-defineEmits<{ close: [] }>()
+const vaultStore = useVaultStore();
+const filesStore = useFilesStore();
+const { success, error: toastError } = useToast();
+defineEmits<{ close: [] }>();
 
 // ── Excluded folders (loaded from backend) ──────────────────────────
-const excludedFolders = ref<string[]>([])
-const newExcludedPath = ref('')
-const addError = ref('')
-const isAdding = ref(false)
+const excludedFolders = ref<string[]>([]);
+const newExcludedPath = ref("");
+const addError = ref("");
+const isAdding = ref(false);
 
 const loadExcludedFolders = async () => {
   try {
-    const result = await GetExcludedFolders()
-    excludedFolders.value = Array.isArray(result) ? result : []
+    const result = await GetExcludedFolders();
+    excludedFolders.value = Array.isArray(result) ? result : [];
   } catch (e) {
-    console.error('Failed to load excluded folders:', e)
+    console.error("Failed to load excluded folders:", e);
   }
-}
+};
 
 const pickFolder = async () => {
-  const dir = await SelectFolder()
-  if (!dir) return
+  const dir = await SelectFolder();
+  if (!dir) return;
   // Store the full absolute path — the backend normalises it
-  newExcludedPath.value = dir
-}
+  newExcludedPath.value = dir;
+};
 
 const addExcluded = async () => {
-  const path = newExcludedPath.value.trim()
-  if (!path) return
+  const path = newExcludedPath.value.trim();
+  if (!path) return;
 
-  isAdding.value = true
-  addError.value = ''
+  isAdding.value = true;
+  addError.value = "";
   try {
-    await AddExcludedFolder(path)
-    newExcludedPath.value = ''
-    await loadExcludedFolders()
-    success(`Excluded "${path}"`)
+    await AddExcludedFolder(path);
+    newExcludedPath.value = "";
+    await loadExcludedFolders();
+    success(`Excluded "${path}"`);
   } catch (e: any) {
-    addError.value = e.message || 'Failed to add excluded folder'
-    toastError(addError.value)
+    addError.value = e.message || "Failed to add excluded folder";
+    toastError(addError.value);
   } finally {
-    isAdding.value = false
+    isAdding.value = false;
   }
-}
+};
 
 const removeExcluded = async (path: string) => {
   try {
-    await RemoveExcludedFolder(path)
-    await loadExcludedFolders()
-    success(`Un-excluded "${path}"`)
+    await RemoveExcludedFolder(path);
+    await loadExcludedFolders();
+    success(`Un-excluded "${path}"`);
   } catch (e: any) {
-    toastError('Failed to remove excluded folder')
+    void e; // error details logged by backend
+    toastError("Failed to remove excluded folder");
   }
-}
+};
 
 // ── Thumbnail quality ──────────────────────────────────────────────
-const thumbnailQuality = ref(80)
+const thumbnailQuality = ref(80);
 
 // ── Rescan ─────────────────────────────────────────────────────────
-const isRescanning = ref(false)
+const isRescanning = ref(false);
 
-const showRescanConfirm = ref(false)
+const showRescanConfirm = ref(false);
 
 const rescanVault = () => {
-  showRescanConfirm.value = true
-}
+  showRescanConfirm.value = true;
+};
 
 const confirmRescan = async () => {
-  showRescanConfirm.value = false
-  isRescanning.value = true
+  showRescanConfirm.value = false;
+  isRescanning.value = true;
   try {
-    await vaultStore.rescanVault()
-    success('Vault re-scan complete')
+    await vaultStore.rescanVault();
+    success("Vault re-scan complete");
   } catch (e: any) {
-    toastError('Re-scan failed: ' + (e.message || String(e)))
+    toastError("Re-scan failed: " + (e.message || String(e)));
   } finally {
-    isRescanning.value = false
+    isRescanning.value = false;
   }
-}
+};
 
 // ── Repair all thumbnails ──────────────────────────────────────────
-const isRepairing = ref(false)
-const repairProgress = ref<{ current: number; total: number } | null>(null)
-const showRepairConfirm = ref(false)
+const isRepairing = ref(false);
+const repairProgress = ref<{ current: number; total: number } | null>(null);
+const showRepairConfirm = ref(false);
 
 const confirmRepairAll = async () => {
-  showRepairConfirm.value = false
-  isRepairing.value = true
-  repairProgress.value = null
+  showRepairConfirm.value = false;
+  isRepairing.value = true;
+  repairProgress.value = null;
   try {
-    const progressUnsub = EventsOn('thumb:progress', (data: { current: number; total: number }) => {
-      repairProgress.value = data
-    })
-    const completeUnsub = EventsOn('thumb:complete', (data: { generated: number; failed: number; total: number }) => {
-      if (data.failed > 0) {
-        toastError(`Thumbnail repair: ${data.generated} fixed, ${data.failed} failed out of ${data.total}`)
-      } else {
-        success(`Thumbnail repair complete — ${data.generated}/${data.total} checked`)
-      }
-    })
+    const progressUnsub = EventsOn("thumb:progress", (data: { current: number; total: number }) => {
+      repairProgress.value = data;
+    });
+    const completeUnsub = EventsOn(
+      "thumb:complete",
+      (data: { generated: number; failed: number; total: number }) => {
+        if (data.failed > 0) {
+          toastError(
+            `Thumbnail repair: ${data.generated} fixed, ${data.failed} failed out of ${data.total}`,
+          );
+        } else {
+          success(`Thumbnail repair complete — ${data.generated}/${data.total} checked`);
+        }
+      },
+    );
     try {
-      await RepairAllThumbnails()
+      await RepairAllThumbnails();
     } finally {
-      progressUnsub()
-      completeUnsub()
+      progressUnsub();
+      completeUnsub();
     }
     // Re-render the gallery so freshly fixed thumbnails load
-    await filesStore.reloadFiles()
+    await filesStore.reloadFiles();
   } catch (e: any) {
-    toastError('Thumbnail repair failed: ' + (e.message || String(e)))
+    toastError("Thumbnail repair failed: " + (e.message || String(e)));
   } finally {
-    isRepairing.value = false
-    repairProgress.value = null
+    isRepairing.value = false;
+    repairProgress.value = null;
   }
-}
+};
 
 // ── Clean up orphaned thumbnails ───────────────────────────────────
-const isCleaning = ref(false)
-const showCleanupConfirm = ref(false)
+const isCleaning = ref(false);
+const showCleanupConfirm = ref(false);
 
 const confirmCleanupOrphans = async () => {
-  showCleanupConfirm.value = false
-  isCleaning.value = true
+  showCleanupConfirm.value = false;
+  isCleaning.value = true;
   try {
-    const removed = await CleanupOrphanThumbnails()
+    const removed = await CleanupOrphanThumbnails();
     if (removed > 0) {
-      success(`Removed ${removed} orphan thumbnail${removed === 1 ? '' : 's'}`)
+      success(`Removed ${removed} orphan thumbnail${removed === 1 ? "" : "s"}`);
     } else {
-      success('No orphaned thumbnails found')
+      success("No orphaned thumbnails found");
     }
   } catch (e: any) {
-    toastError('Thumbnail cleanup failed: ' + (e.message || String(e)))
+    toastError("Thumbnail cleanup failed: " + (e.message || String(e)));
   } finally {
-    isCleaning.value = false
+    isCleaning.value = false;
   }
-}
+};
 
 // ── Save config (quality + auto-tag) ───────────────────────────────
-const isSaving = ref(false)
+const isSaving = ref(false);
 
 const saveNameAndSettings = async () => {
-  if (!vaultStore.config) return
-  isSaving.value = true
-  const wasEditingName = editingName.value
+  if (!vaultStore.config) return;
+  isSaving.value = true;
+  const wasEditingName = editingName.value;
   try {
-    vaultStore.config.settings.thumbnail_quality = thumbnailQuality.value
+    vaultStore.config.settings.thumbnail_quality = thumbnailQuality.value;
     // Update vault name if editing
-    const newNameTrimmed = newName.value.trim()
+    const newNameTrimmed = newName.value.trim();
     if (wasEditingName && newNameTrimmed) {
-      vaultStore.config.name = newNameTrimmed
+      vaultStore.config.name = newNameTrimmed;
       // Also update currentVault so TitleBar reflects the change
       if (vaultStore.currentVault) {
-        vaultStore.currentVault.name = newNameTrimmed
+        vaultStore.currentVault.name = newNameTrimmed;
       }
-      editingName.value = false
+      editingName.value = false;
     }
-    await vaultStore.saveConfig(vaultStore.config)
-    success('Settings saved')
+    await vaultStore.saveConfig(vaultStore.config);
+    success("Settings saved");
   } catch (e: any) {
-    const msg = e.message || String(e)
+    const msg = e.message || String(e);
     if (wasEditingName) {
-      toastError('Failed to rename vault: ' + msg)
+      toastError("Failed to rename vault: " + msg);
     } else {
-      toastError('Failed to save settings')
+      toastError("Failed to save settings");
     }
   } finally {
-    isSaving.value = false
+    isSaving.value = false;
   }
-}
+};
 
 // ── Vault info ─────────────────────────────────────────────────────
-const vaultName = computed(() => vaultStore.config?.name ?? vaultStore.currentVault?.name ?? '—')
-const vaultPath = computed(() => vaultStore.currentVault?.path ?? '—')
-const fileCount = computed(() => vaultStore.currentVault?.file_count ?? '—')
-const editingName = ref(false)
-const newName = ref('')
+const vaultName = computed(() => vaultStore.config?.name ?? vaultStore.currentVault?.name ?? "—");
+const vaultPath = computed(() => vaultStore.currentVault?.path ?? "—");
+const fileCount = computed(() => vaultStore.currentVault?.file_count ?? "—");
+const editingName = ref(false);
+const newName = ref("");
 
 const startEditingName = () => {
-  newName.value = vaultStore.config?.name ?? vaultStore.currentVault?.name ?? ''
-  editingName.value = true
-}
+  newName.value = vaultStore.config?.name ?? vaultStore.currentVault?.name ?? "";
+  editingName.value = true;
+};
 
 const cancelEditingName = () => {
-  editingName.value = false
-  newName.value = ''
-}
-
-
+  editingName.value = false;
+  newName.value = "";
+};
 
 // ── Lifecycle ──────────────────────────────────────────────────────
 onMounted(async () => {
-  await loadExcludedFolders()
+  await loadExcludedFolders();
   // Initialise settings from current config
   if (vaultStore.config?.settings) {
-    thumbnailQuality.value = vaultStore.config.settings.thumbnail_quality ?? 80
+    thumbnailQuality.value = vaultStore.config.settings.thumbnail_quality ?? 80;
   }
-})
+});
 </script>
 
 <template>
@@ -255,14 +259,16 @@ onMounted(async () => {
                 <input
                   v-model="newName"
                   class="name-input"
+                  autofocus
                   @keydown.enter="saveNameAndSettings()"
                   @keydown.escape="cancelEditingName()"
-                  autofocus
                 />
               </template>
               <template v-else>
                 <span class="value">{{ vaultName }}</span>
-                <button class="edit-btn" @click="startEditingName" title="Rename"><Pencil :size="12" /></button>
+                <button class="edit-btn" title="Rename" @click="startEditingName">
+                  <Pencil :size="12" />
+                </button>
               </template>
             </div>
           </div>
@@ -281,13 +287,7 @@ onMounted(async () => {
           <h4>Thumbnails</h4>
           <div class="slider-row">
             <label>Quality</label>
-            <input
-              type="range"
-              min="10"
-              max="100"
-              step="5"
-              v-model.number="thumbnailQuality"
-            />
+            <input v-model.number="thumbnailQuality" type="range" min="10" max="100" step="5" />
             <span class="slider-value">{{ thumbnailQuality }}%</span>
           </div>
           <div class="thumb-actions">
@@ -297,7 +297,7 @@ onMounted(async () => {
               @click="showRepairConfirm = true"
             >
               <Wrench :size="13" />
-              {{ isRepairing ? 'Repairing…' : 'Repair all thumbnails' }}
+              {{ isRepairing ? "Repairing…" : "Repair all thumbnails" }}
             </button>
             <button
               class="repair-btn"
@@ -305,13 +305,16 @@ onMounted(async () => {
               @click="showCleanupConfirm = true"
             >
               <Trash2 :size="13" />
-              {{ isCleaning ? 'Cleaning up…' : 'Clean up orphaned thumbnails' }}
+              {{ isCleaning ? "Cleaning up…" : "Clean up orphaned thumbnails" }}
             </button>
           </div>
           <p v-if="repairProgress" class="repair-progress">
             {{ repairProgress.current }} / {{ repairProgress.total }}
           </p>
-          <p class="hint">Repair fixes missing or stale thumbnails (old vaults with out-of-date paths). Clean up removes WebP files whose source file is gone.</p>
+          <p class="hint">
+            Repair fixes missing or stale thumbnails (old vaults with out-of-date paths). Clean up
+            removes WebP files whose source file is gone.
+          </p>
         </section>
 
         <!-- Excluded folders -->
@@ -319,10 +322,12 @@ onMounted(async () => {
           <h4>Excluded Folders</h4>
           <p class="hint">Folders listed here are skipped during indexing.</p>
 
-          <div class="excluded-list" v-if="excludedFolders.length">
+          <div v-if="excludedFolders.length" class="excluded-list">
             <div v-for="path in excludedFolders" :key="path" class="excluded-item">
               <span class="excluded-path">{{ path }}</span>
-              <button class="remove-btn" @click="removeExcluded(path)" title="Remove"><X :size="14" /></button>
+              <button class="remove-btn" title="Remove" @click="removeExcluded(path)">
+                <X :size="14" />
+              </button>
             </div>
           </div>
           <p v-else class="empty-hint">No excluded folders</p>
@@ -334,7 +339,9 @@ onMounted(async () => {
               class="form-input"
               @keydown.enter="addExcluded"
             />
-            <button class="picker-btn" @click="pickFolder" title="Browse…"><FolderOpen :size="14" /></button>
+            <button class="picker-btn" title="Browse…" @click="pickFolder">
+              <FolderOpen :size="14" />
+            </button>
             <button
               class="add-btn"
               :disabled="isAdding || !newExcludedPath.trim()"
@@ -348,19 +355,11 @@ onMounted(async () => {
 
         <!-- Actions -->
         <div class="actions">
-          <button
-            class="rescan-btn"
-            :disabled="isRescanning"
-            @click="rescanVault"
-          >
-            {{ isRescanning ? 'Re-scanning…' : 'Re-scan Vault' }}
+          <button class="rescan-btn" :disabled="isRescanning" @click="rescanVault">
+            {{ isRescanning ? "Re-scanning…" : "Re-scan Vault" }}
           </button>
-          <button
-            class="save-btn"
-            :disabled="isSaving"
-            @click="saveNameAndSettings"
-          >
-            {{ isSaving ? 'Saving…' : 'Save Settings' }}
+          <button class="save-btn" :disabled="isSaving" @click="saveNameAndSettings">
+            {{ isSaving ? "Saving…" : "Save Settings" }}
           </button>
         </div>
       </div>
@@ -403,7 +402,7 @@ onMounted(async () => {
   color: #e8e8e8;
   font-size: 14px;
   font-weight: 600;
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
 }
 
 .close-btn {
@@ -414,7 +413,9 @@ onMounted(async () => {
   font-size: 16px;
   padding: 4px;
   border-radius: 4px;
-  transition: color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    background 0.15s;
 }
 
 .close-btn:hover {
@@ -495,7 +496,7 @@ onMounted(async () => {
   outline: none;
   width: 250px;
   text-align: right;
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
 }
 
 .edit-btn {
@@ -531,7 +532,7 @@ onMounted(async () => {
   font-size: 12px;
 }
 
-.slider-row input[type='range'] {
+.slider-row input[type="range"] {
   flex: 1;
   height: 4px;
   -webkit-appearance: none;
@@ -542,7 +543,7 @@ onMounted(async () => {
   cursor: pointer;
 }
 
-.slider-row input[type='range']::-webkit-slider-thumb {
+.slider-row input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 12px;
@@ -554,7 +555,7 @@ onMounted(async () => {
   cursor: pointer;
 }
 
-.slider-row input[type='range']::-moz-range-thumb {
+.slider-row input[type="range"]::-moz-range-thumb {
   width: 12px;
   height: 12px;
   background: #22c55e;
@@ -563,13 +564,13 @@ onMounted(async () => {
   cursor: pointer;
 }
 
-.slider-row input[type='range']::-webkit-slider-runnable-track {
+.slider-row input[type="range"]::-webkit-slider-runnable-track {
   height: 4px;
   background: #2a2a2a;
   border-radius: 2px;
 }
 
-.slider-row input[type='range']::-moz-range-track {
+.slider-row input[type="range"]::-moz-range-track {
   height: 4px;
   background: #2a2a2a;
   border-radius: 2px;
@@ -601,7 +602,7 @@ onMounted(async () => {
   border-radius: 6px;
   padding: 6px 12px;
   font-size: 12px;
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -634,7 +635,7 @@ onMounted(async () => {
   cursor: pointer;
 }
 
-.checkbox-row input[type='checkbox'] {
+.checkbox-row input[type="checkbox"] {
   accent-color: #22c55e;
 }
 
@@ -768,7 +769,7 @@ onMounted(async () => {
   padding: 8px 18px;
   font-size: 12px;
   font-weight: 500;
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
   cursor: pointer;
   transition: all 0.15s;
 }

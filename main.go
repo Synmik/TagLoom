@@ -1,3 +1,4 @@
+// main is the entry point for the TagLoom Wails desktop application.
 package main
 
 import (

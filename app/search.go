@@ -178,7 +178,7 @@ func buildFileFilterClause(v vault, filter db.FileFilter) (string, []any) {
 	var args []any
 
 	if filter.FolderPath != "" {
-		conditions = append(conditions, fmt.Sprintf("f.folder_path = ?"))
+		conditions = append(conditions, "f.folder_path = ?")
 		// Convert absolute folder path to relative for DB comparison.
 		// Root folder (vault path) → ".", subfolder → relative path.
 		folderFilter := filter.FolderPath
@@ -215,9 +215,9 @@ func buildFileFilterClause(v vault, filter db.FileFilter) (string, []any) {
 		// join must never supply the LIKE keyword, or a single-format
 		// filter degenerates into WHERE (?).
 		formatParts := make([]string, len(filter.FileFormats))
-		for i, fmt_ := range filter.FileFormats {
+		for i, ext := range filter.FileFormats {
 			formatParts[i] = "LOWER(f.vault_path) LIKE ?"
-			args = append(args, "%."+strings.ToLower(fmt_)+"%")
+			args = append(args, "%."+strings.ToLower(ext)+"%")
 		}
 		conditions = append(conditions, "("+strings.Join(formatParts, " OR ")+")")
 	}

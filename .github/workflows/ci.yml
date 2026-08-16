@@ -35,6 +35,14 @@ jobs:
         working-directory: frontend
         run: npm run build
 
+      - name: npm run lint (ESLint)
+        working-directory: frontend
+        run: npm run lint
+
+      - name: npm run format:check (Prettier)
+        working-directory: frontend
+        run: npm run format:check
+
       # frontend/dist is //go:embed'ed by main.go, so the frontend must be
       # built before any Go step.
 
@@ -43,6 +51,12 @@ jobs:
 
       - name: go vet
         run: go vet ./...
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v2.12.2
+          # Uses .golangci.yml from the repo root; no build tags needed.
 
       - name: go test
         run: go test ./... -count=1

@@ -163,7 +163,7 @@ func TestScanVaultStoresFileSize(t *testing.T) {
 	a := newTestApp(t)
 
 	content := strings.Repeat("x", 1234)
-	if err := os.WriteFile(filepath.Join(a.vaultPath, "big.jpg"), []byte(content), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(a.vaultPath, "big.jpg"), []byte(content), 0600); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 
@@ -187,7 +187,7 @@ func TestGetFilesSortByFileSize(t *testing.T) {
 	a := newTestApp(t)
 
 	writeTestFile(t, a.vaultPath, "small.jpg") // 4 bytes ("test")
-	if err := os.WriteFile(filepath.Join(a.vaultPath, "big.jpg"), []byte(strings.Repeat("y", 100)), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(a.vaultPath, "big.jpg"), []byte(strings.Repeat("y", 100)), 0600); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 

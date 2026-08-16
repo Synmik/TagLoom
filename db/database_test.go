@@ -30,7 +30,7 @@ func openAt(t *testing.T, path string) *Database {
 	if err != nil {
 		t.Fatalf("NewDatabase: %v", err)
 	}
-	t.Cleanup(func() { d.Close() })
+	t.Cleanup(func() { _ = d.Close() })
 	return d
 }
 
@@ -79,7 +79,7 @@ func TestNewDatabaseReopenIdempotent(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "db.sqlite")
 	d := openAt(t, path)
 	first, _ := d.SchemaVersion()
-	d.Close()
+	_ = d.Close()
 
 	// Reopen — no migration should re-run, version unchanged
 	d2 := openAt(t, path)

@@ -29,109 +29,141 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { ChevronDown, ChevronRight, Folder, Ban, FolderOpen, Pencil } from '@lucide/vue'
-import { useFoldersStore } from '../../stores/folders'
-import { useFiltersStore } from '../../stores/filters'
-import { useVaultStore } from '../../stores/vault'
-import { useContextMenu, type ContextMenuItem } from '../../composables/useContextMenu'
-import { ClipboardSetText } from '../../../wailsjs/runtime/runtime'
-import { AddExcludedFolder } from '../../api/backend'
-import { useToast } from '../../composables/useToast'
-import { useFilesStore } from '../../stores/files'
-import { useUIStore } from '../../stores/ui'
-import ContextMenu from '../common/ContextMenu.vue'
-import type { FolderNode as FolderNodeType } from '../../types/vault'
+import { computed } from "vue";
+import { ChevronDown, ChevronRight, Folder } from "@lucide/vue";
+import { useFoldersStore } from "../../stores/folders";
+import { useFiltersStore } from "../../stores/filters";
+import { useVaultStore } from "../../stores/vault";
+import { useContextMenu, type ContextMenuItem } from "../../composables/useContextMenu";
+import { ClipboardSetText } from "../../../wailsjs/runtime/runtime";
+import { AddExcludedFolder } from "../../api/backend";
+import { useToast } from "../../composables/useToast";
+import { useFilesStore } from "../../stores/files";
+import { useUIStore } from "../../stores/ui";
+import ContextMenu from "../common/ContextMenu.vue";
+import type { FolderNode as FolderNodeType } from "../../types/vault";
 
 const props = defineProps<{
-  node: FolderNodeType
-  depth: number
-}>()
+  node: FolderNodeType;
+  depth: number;
+}>();
 
-const foldersStore = useFoldersStore()
-const filtersStore = useFiltersStore()
-const vaultStore = useVaultStore()
-const filesStore = useFilesStore()
-const uiStore = useUIStore()
-const { success, error: toastError } = useToast()
-const { visible, x, y, items, open, close } = useContextMenu()
+const foldersStore = useFoldersStore();
+const filtersStore = useFiltersStore();
+const vaultStore = useVaultStore();
+const filesStore = useFilesStore();
+const uiStore = useUIStore();
+const { success, error: toastError } = useToast();
+const { visible, x, y, items, open, close } = useContextMenu();
 
-const hasChildren = computed(() => props.node.children?.length > 0)
-const isExpanded = computed(() => foldersStore.expandedPaths.includes(props.node.path))
+const hasChildren = computed(() => props.node.children?.length > 0);
+const isExpanded = computed(() => foldersStore.expandedPaths.includes(props.node.path));
 const absolutePath = computed(() => {
   // Root node has absolute path; child nodes have relative paths
-  if (props.node.path === vaultStore.currentVault?.path) return props.node.path
-  return vaultStore.currentVault?.path + '\\' + props.node.path
-})
+  if (props.node.path === vaultStore.currentVault?.path) return props.node.path;
+  return vaultStore.currentVault?.path + "\\" + props.node.path;
+});
 
-const toggleExpand = () => foldersStore.toggleFolder(props.node.path)
+const toggleExpand = () => foldersStore.toggleFolder(props.node.path);
 const selectFolder = () => {
   // Toggle: clicking the same selected folder deselects it → shows all files
   if (foldersStore.selectedPath === props.node.path) {
-    foldersStore.clearSelection()
-    filtersStore.setFolderFilter('')
+    foldersStore.clearSelection();
+    filtersStore.setFolderFilter("");
   } else {
-    foldersStore.selectFolder(props.node.path)
-    filtersStore.setFolderFilter(props.node.path)
+    foldersStore.selectFolder(props.node.path);
+    filtersStore.setFolderFilter(props.node.path);
   }
-}
+};
 const onContext = (e: MouseEvent) => {
   const menuItems: ContextMenuItem[] = [
     {
-      type: 'item',
-      label: 'Bulk Edit',
-      icon: 'pencil',
+      type: "item",
+      label: "Bulk Edit",
+      icon: "pencil",
       action: async () => {
         // Set folder bulk edit mode — targets ALL files in folder, not just loaded ones
-        foldersStore.selectFolder(props.node.path)
-        filtersStore.setFolderFilter(props.node.path)
-        await filesStore.reloadFiles()
-        filesStore.setFolderBulkEdit(props.node.path)
-        uiStore.openBatchEdit()
+        foldersStore.selectFolder(props.node.path);
+        filtersStore.setFolderFilter(props.node.path);
+        await filesStore.reloadFiles();
+        filesStore.setFolderBulkEdit(props.node.path);
+        uiStore.openBatchEdit();
       },
     },
-    { type: 'divider' },
+    { type: "divider" },
     {
-      type: 'item',
-      label: 'Exclude from indexing',
-      icon: 'ban',
+      type: "item",
+      label: "Exclude from indexing",
+      icon: "ban",
       action: async () => {
         try {
-          await AddExcludedFolder(props.node.path)
-          success(`Excluded "${props.node.name}"`)
+          await AddExcludedFolder(props.node.path);
+          success(`Excluded "${props.node.name}"`);
         } catch (err: any) {
-          toastError(err.message || 'Failed to exclude folder')
+          toastError(err.message || "Failed to exclude folder");
         }
       },
     },
-    { type: 'divider' },
+    { type: "divider" },
     {
-      type: 'item',
-      label: 'Copy path',
-      icon: 'folder-open',
+      type: "item",
+      label: "Copy path",
+      icon: "folder-open",
       action: () => {
         ClipboardSetText(absolutePath.value).then((ok) => {
-          if (ok) success('Path copied')
-          else toastError('Failed to copy path')
-        })
+          if (ok) success("Path copied");
+          else toastError("Failed to copy path");
+        });
       },
     },
-  ]
+  ];
 
-  open(e, menuItems)
-}
+  open(e, menuItems);
+};
 </script>
 
 <style scoped>
 .node-row {
-  display: flex; align-items: center; gap: 6px;
-  padding: 4px 10px; cursor: pointer; border-radius: 6px; margin: 1px 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  border-radius: 6px;
+  margin: 1px 0;
   font-size: 13px;
 }
-.node-row:hover { background: #1e1e1e; }
-.node-row.selected { background: #14532d; color: #e8e8e8; }
-.expand-icon { font-size: 10px; width: 14px; text-align: center; color: #666; flex-shrink: 0; }
-.folder-icon { font-size: 14px; color: #888; flex-shrink: 0; }
-.folder-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #ccc; }
-.file-count { font-size: 11px; color: #555; background: #1a1a1a; padding: 1px 6px; border-radius: 10px; }
+.node-row:hover {
+  background: #1e1e1e;
+}
+.node-row.selected {
+  background: #14532d;
+  color: #e8e8e8;
+}
+.expand-icon {
+  font-size: 10px;
+  width: 14px;
+  text-align: center;
+  color: #666;
+  flex-shrink: 0;
+}
+.folder-icon {
+  font-size: 14px;
+  color: #888;
+  flex-shrink: 0;
+}
+.folder-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #ccc;
+}
+.file-count {
+  font-size: 11px;
+  color: #555;
+  background: #1a1a1a;
+  padding: 1px 6px;
+  border-radius: 10px;
+}
 </style>

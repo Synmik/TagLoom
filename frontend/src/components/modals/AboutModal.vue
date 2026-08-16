@@ -1,56 +1,59 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { X, ExternalLink, CheckCircle2, XCircle, Terminal } from '@lucide/vue'
-import logoImg from '../../assets/appicon_small.png'
-import { CheckFFmpeg, GetAppInfo, GetVersion } from '../../api/backend'
-import { BrowserOpenURL } from '../../../wailsjs/runtime/runtime'
+import { ref, onMounted } from "vue";
+import { X, ExternalLink, CheckCircle2, XCircle, Terminal } from "@lucide/vue";
+import logoImg from "../../assets/appicon_small.png";
+import { CheckFFmpeg, GetAppInfo, GetVersion } from "../../api/backend";
+import { BrowserOpenURL } from "../../../wailsjs/runtime/runtime";
 
-defineEmits<{ close: [] }>()
+defineEmits<{ close: [] }>();
 
-const version = ref('dev')
+const version = ref("dev");
 
 // ── FFmpeg status ─────────────────────────────────────────────────
 interface FFmpegStatus {
-  ffmpeg_ok: boolean
-  ffprobe_ok: boolean
-  ffmpeg_path: string
-  ffprobe_path: string
+  ffmpeg_ok: boolean;
+  ffprobe_ok: boolean;
+  ffmpeg_path: string;
+  ffprobe_path: string;
 }
 
-const ffmpeg = ref<FFmpegStatus | null>(null)
+const ffmpeg = ref<FFmpegStatus | null>(null);
 
 // ── System info ───────────────────────────────────────────────────
-const appInfo = ref<Record<string, string> | null>(null)
+const appInfo = ref<Record<string, string> | null>(null);
 
 const shortcuts: { key: string; desc: string }[] = [
-  { key: 'Ctrl+A', desc: 'Select all files matching current filters' },
-  { key: 'Ctrl+B', desc: 'Open batch edit modal for selected items' },
-  { key: 'Ctrl+C', desc: 'Copy original image to clipboard, if possible' },
-  { key: 'Ctrl+F', desc: 'Focus search bar' },
-  { key: 'Ctrl+R', desc: 'Rescan the vault' },
-  { key: 'Ctrl+D', desc: 'Toggle favorite on selected file(s)' },
-  { key: 'Enter', desc: 'Open preview (same as double-click on thumbnail)' },
-  { key: 'Escape', desc: 'Close open modals (priority order), then clear selection, unfocus search' },
-  { key: '\u2190 / \u2192', desc: 'Navigate gallery (previous / next file)' },
-]
+  { key: "Ctrl+A", desc: "Select all files matching current filters" },
+  { key: "Ctrl+B", desc: "Open batch edit modal for selected items" },
+  { key: "Ctrl+C", desc: "Copy original image to clipboard, if possible" },
+  { key: "Ctrl+F", desc: "Focus search bar" },
+  { key: "Ctrl+R", desc: "Rescan the vault" },
+  { key: "Ctrl+D", desc: "Toggle favorite on selected file(s)" },
+  { key: "Enter", desc: "Open preview (same as double-click on thumbnail)" },
+  {
+    key: "Escape",
+    desc: "Close open modals (priority order), then clear selection, unfocus search",
+  },
+  { key: "\u2190 / \u2192", desc: "Navigate gallery (previous / next file)" },
+];
 
 onMounted(async () => {
   try {
-    ffmpeg.value = await CheckFFmpeg()
+    ffmpeg.value = await CheckFFmpeg();
   } catch {
-    ffmpeg.value = null
+    ffmpeg.value = null;
   }
   try {
-    appInfo.value = await GetAppInfo()
+    appInfo.value = await GetAppInfo();
   } catch {
-    appInfo.value = null
+    appInfo.value = null;
   }
   try {
-    version.value = await GetVersion()
+    version.value = await GetVersion();
   } catch {
-    version.value = 'dev'
+    version.value = "dev";
   }
-})
+});
 </script>
 
 <template>
@@ -179,7 +182,7 @@ onMounted(async () => {
   color: #e8e8e8;
   font-size: 14px;
   font-weight: 600;
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
 }
 
 .close-btn {
@@ -190,7 +193,9 @@ onMounted(async () => {
   font-size: 16px;
   padding: 4px;
   border-radius: 4px;
-  transition: color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    background 0.15s;
 }
 
 .close-btn:hover {
@@ -233,7 +238,7 @@ onMounted(async () => {
   font-size: 22px;
   font-weight: 700;
   color: #e8e8e8;
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
 }
 
 .hero-version {
@@ -269,7 +274,9 @@ onMounted(async () => {
   background: #1a1a1a;
   color: #999;
   border: 1px solid #2a2a2a;
-  transition: color 0.15s, border-color 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
 }
 
 .badge-github:hover {

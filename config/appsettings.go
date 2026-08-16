@@ -1,3 +1,4 @@
+// Package config holds TagLoom application and vault configuration types.
 package config
 
 import (
@@ -79,5 +80,5 @@ func SaveAppSettings(settings *AppSettings) error {
 	}
 
 	path := filepath.Join(settingsDir, "settings.json")
-	return os.WriteFile(path, data, 0644)
+	return os.WriteFile(path, data, 0600)
 }

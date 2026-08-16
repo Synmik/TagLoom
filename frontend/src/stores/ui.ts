@@ -1,15 +1,16 @@
-import { defineStore } from 'pinia'
+import { defineStore } from "pinia";
 
-export type ViewMode = 'grid' | 'list'
-export type GridSize = 'small' | 'medium' | 'large'
-export type SortField = 'indexed_at' | 'filename' | 'name' | 'file_size' | 'rating' | 'date_modified'
+export type ViewMode = "grid" | "list";
+export type GridSize = "small" | "medium" | "large";
+export type SortField =
+  "indexed_at" | "filename" | "name" | "file_size" | "rating" | "date_modified";
 
-export const useUIStore = defineStore('ui', {
+export const useUIStore = defineStore("ui", {
   state: () => ({
-    viewMode: 'grid' as ViewMode,
-    gridSize: 'medium' as GridSize,
-    sortBy: 'indexed_at' as SortField,
-    sortOrder: 'desc' as 'asc' | 'desc',
+    viewMode: "grid" as ViewMode,
+    gridSize: "medium" as GridSize,
+    sortBy: "indexed_at" as SortField,
+    sortOrder: "desc" as "asc" | "desc",
     leftPanelWidth: 280,
     rightPanelWidth: 400,
     leftPanelSplit: 50,
@@ -22,76 +23,76 @@ export const useUIStore = defineStore('ui', {
   }),
   getters: {
     gridPixelSize: (state) => {
-      const sizes = { small: 128, medium: 192, large: 256 }
-      return sizes[state.gridSize]
+      const sizes = { small: 128, medium: 192, large: 256 };
+      return sizes[state.gridSize];
     },
   },
   actions: {
     setViewMode(mode: ViewMode) {
-      this.viewMode = mode
+      this.viewMode = mode;
     },
     toggleViewMode() {
-      this.viewMode = this.viewMode === 'grid' ? 'list' : 'grid'
+      this.viewMode = this.viewMode === "grid" ? "list" : "grid";
     },
     setGridSize(size: GridSize) {
-      this.gridSize = size
+      this.gridSize = size;
     },
     cycleGridSize() {
-      const sizes: GridSize[] = ['small', 'medium', 'large']
-      const index = sizes.indexOf(this.gridSize)
-      this.gridSize = sizes[(index + 1) % sizes.length]
+      const sizes: GridSize[] = ["small", "medium", "large"];
+      const index = sizes.indexOf(this.gridSize);
+      this.gridSize = sizes[(index + 1) % sizes.length];
     },
-    setSort(field: SortField, order: 'asc' | 'desc' = 'desc') {
-      this.sortBy = field
-      this.sortOrder = order
+    setSort(field: SortField, order: "asc" | "desc" = "desc") {
+      this.sortBy = field;
+      this.sortOrder = order;
     },
     toggleSortOrder() {
-      this.sortOrder = this.sortOrder === 'asc' ? 'desc' : 'asc'
+      this.sortOrder = this.sortOrder === "asc" ? "desc" : "asc";
     },
     openBatchEdit() {
-      this.showBatchEdit = true
+      this.showBatchEdit = true;
     },
     closeBatchEdit() {
-      this.showBatchEdit = false
+      this.showBatchEdit = false;
     },
     openVaultSettings() {
-      this.showVaultSettings = true
+      this.showVaultSettings = true;
     },
     closeVaultSettings() {
-      this.showVaultSettings = false
+      this.showVaultSettings = false;
     },
     openAppSettings() {
-      this.showAppSettings = true
+      this.showAppSettings = true;
     },
     closeAppSettings() {
-      this.showAppSettings = false
+      this.showAppSettings = false;
     },
     openTagManager() {
-      this.showTagManager = true
+      this.showTagManager = true;
     },
     closeTagManager() {
-      this.showTagManager = false
+      this.showTagManager = false;
     },
     setLeftPanelWidth(width: number) {
-      this.leftPanelWidth = Math.max(180, Math.min(500, width))
+      this.leftPanelWidth = Math.max(180, Math.min(500, width));
     },
     setRightPanelWidth(width: number) {
-      this.rightPanelWidth = Math.max(200, Math.min(600, width))
+      this.rightPanelWidth = Math.max(200, Math.min(600, width));
     },
     openNewVault() {
-      this.showNewVault = true
+      this.showNewVault = true;
     },
     closeNewVault() {
-      this.showNewVault = false
+      this.showNewVault = false;
     },
     openAbout() {
-      this.showAbout = true
+      this.showAbout = true;
     },
     closeAbout() {
-      this.showAbout = false
+      this.showAbout = false;
     },
     setLeftPanelSplit(percent: number) {
-      this.leftPanelSplit = Math.max(15, Math.min(85, percent))
+      this.leftPanelSplit = Math.max(15, Math.min(85, percent));
     },
   },
-})
+});

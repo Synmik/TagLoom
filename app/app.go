@@ -1,3 +1,5 @@
+// Package app implements the TagLoom application layer: vault management,
+// scanning, search, tags, metadata, thumbnails, and the HTTP file API.
 package app
 
 import (
@@ -167,7 +169,9 @@ func (v vault) generateThumbnailAbsolutePath(relFilePath string) string {
 	hash := utils.HashPath(relFilePath)
 	subdir := utils.ThumbnailSubdir(hash)
 	thumbDir := filepath.Join(v.path, ".tagloom", "thumbnails", subdir)
-	os.MkdirAll(thumbDir, 0755)
+	// Best-effort pre-creation — the thumbnailer re-creates the directory
+	// on demand if it is missing.
+	_ = os.MkdirAll(thumbDir, 0755)
 	return filepath.Join(thumbDir, hash+".webp")
 }
 

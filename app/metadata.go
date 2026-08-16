@@ -178,7 +178,7 @@ func (a *App) GetFileMetadata(fileID int64) (*FileMetadata, error) {
 }
 
 // getImageDimensions returns image width and height without loading the full image.
-func getImageDimensions(path string, ext string) (int, int, error) {
+func getImageDimensions(path string, _ string) (int, int, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return 0, 0, err
@@ -340,12 +340,6 @@ func getMP4Duration(path string) (float64, error) {
 	return 0, fmt.Errorf("moov atom not found")
 }
 
-// getVideoDimensions tries to get video resolution from container headers.
-// This is a simplified version that works for MP4/MOV.
-func getVideoDimensions(path string, ext string) (int, int, error) {
-	// For now, return 0 - full video dimension extraction requires FFmpeg
-	return 0, 0, fmt.Errorf("video dimensions require FFmpeg")
-}
 
 // getFileCreationTime extracts the original creation time.
 // Priority: EXIF DateTimeOriginal > Windows CreationTime > ModTime.
@@ -410,21 +404,6 @@ func (a *App) GetBatchMetadata(fileIDs []int64) ([]FileMetadata, error) {
 		results = append(results, *meta)
 	}
 	return results, nil
-}
-
-// Helper functions for min/max (Go 1.21+)
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }
 
 // Ensure time is used

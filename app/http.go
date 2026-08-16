@@ -71,7 +71,8 @@ func (a *App) serveThumbnail(w http.ResponseWriter, idStr string) {
 	}
 	w.Header().Set("Content-Type", "image/webp")
 	w.Header().Set("Cache-Control", "max-age=3600")
-	w.Write(data)
+	// Write errors mean the client disconnected — nothing to do.
+	_, _ = w.Write(data)
 }
 
 // serveGeneratedThumbnail generates the thumbnail on demand if needed,
@@ -93,7 +94,8 @@ func (a *App) serveGeneratedThumbnail(w http.ResponseWriter, idStr string) {
 	}
 	w.Header().Set("Content-Type", "image/webp")
 	w.Header().Set("Cache-Control", "max-age=3600")
-	w.Write(data)
+	// Write errors mean the client disconnected — nothing to do.
+	_, _ = w.Write(data)
 }
 
 // serveOriginal streams the original file with Range support (video
@@ -139,5 +141,6 @@ func (a *App) serveThumbnailInfo(w http.ResponseWriter, idStr string) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(info)
+	// Encode errors mean the client disconnected — nothing to do.
+	_ = json.NewEncoder(w).Encode(info)
 }

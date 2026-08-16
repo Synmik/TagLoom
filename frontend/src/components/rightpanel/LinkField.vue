@@ -4,16 +4,16 @@
     <div class="input-row">
       <input
         :value="localLink"
-        @input="onInput"
         placeholder="https://…"
         class="field-input"
         :class="{ 'invalid-url': isInvalid }"
+        @input="onInput"
       />
       <button
         v-if="localLink.trim() && !isInvalid"
         class="open-link-btn"
-        @click="openInBrowser"
         title="Open in browser"
+        @click="openInBrowser"
       >
         <ExternalLink :size="14" />
       </button>
@@ -23,89 +23,135 @@
 </template>
 
 <script setup lang="ts">
-import { computed, shallowRef, watch } from 'vue'
-import { ExternalLink } from '@lucide/vue'
-import { usePreviewStore } from '../../stores/preview'
-import { BrowserOpenURL } from '../../../wailsjs/runtime/runtime'
+import { computed, shallowRef, watch } from "vue";
+import { ExternalLink } from "@lucide/vue";
+import { usePreviewStore } from "../../stores/preview";
+import { BrowserOpenURL } from "../../../wailsjs/runtime/runtime";
 
-const previewStore = usePreviewStore()
+const previewStore = usePreviewStore();
 
-const editingFileId = shallowRef<number | null>(null)
-const localLink = shallowRef('')
+const editingFileId = shallowRef<number | null>(null);
+const localLink = shallowRef("");
 
 watch(
   () => previewStore.currentFile,
   (file) => {
-    editingFileId.value = file?.id ?? null
-    localLink.value = file?.link || ''
+    editingFileId.value = file?.id ?? null;
+    localLink.value = file?.link || "";
   },
   { immediate: true },
-)
+);
 
 function onInput(event: Event) {
-  localLink.value = (event.target as HTMLInputElement).value
+  localLink.value = (event.target as HTMLInputElement).value;
 }
 
 const openInBrowser = () => {
-  const url = localLink.value.trim()
+  const url = localLink.value.trim();
   if (url && !isInvalid.value) {
-    BrowserOpenURL(url)
+    BrowserOpenURL(url);
   }
-}
+};
 
 // Simple URL validation: empty is allowed, otherwise must be a valid URL
 const isInvalid = computed(() => {
-  const v = localLink.value.trim()
-  if (!v) return false
-  try { new URL(v) } catch { return true }
-  return false
-})
+  const v = localLink.value.trim();
+  if (!v) return false;
+  try {
+    new URL(v);
+  } catch {
+    return true;
+  }
+  return false;
+});
 
 // Debounced auto-save (500ms) — guarded by file ID + value comparison
 watch(localLink, (value, _prev, onCleanup) => {
-  const currentFile = previewStore.currentFile
-  if (!currentFile) return
+  const currentFile = previewStore.currentFile;
+  if (!currentFile) return;
 
-  const currentLink = currentFile.link || ''
+  const currentLink = currentFile.link || "";
   // If the value matches what's already in the store, this is a
   // programmatic reset (file switch), not a user edit — skip entirely.
-  if (value === currentLink) return
+  if (value === currentLink) return;
 
-  const savedFileId = currentFile.id
+  const savedFileId = currentFile.id;
 
   const timer = setTimeout(() => {
-    if (previewStore.currentFile?.id !== savedFileId) return
+    if (previewStore.currentFile?.id !== savedFileId) return;
 
-    const trimmed = value.trim()
+    const trimmed = value.trim();
     // Only save if empty or a valid URL
     if (!trimmed || !isInvalid.value) {
-      previewStore.updateLink(trimmed)
+      previewStore.updateLink(trimmed);
     }
-  }, 500)
-  onCleanup(() => clearTimeout(timer))
-})
+  }, 500);
+  onCleanup(() => clearTimeout(timer));
+});
 </script>
 
 <style scoped>
-.field-section { display: flex; flex-direction: column; gap: 6px; }
-.field-label { color: #666; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-.input-row { display: flex; gap: 4px; align-items: center; }
+.field-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.field-label {
+  color: #666;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.input-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
 .field-input {
-  flex: 1; min-width: 0;
-  background: #1a1a1a; border: 1px solid #2a2a2a; color: #e8e8e8;
-  border-radius: 6px; padding: 7px 10px; font-size: 13px;
-  font-family: 'Inter', sans-serif;
-  outline: none; transition: border-color 0.15s;
+  flex: 1;
+  min-width: 0;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  color: #e8e8e8;
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-size: 13px;
+  font-family: "Inter", sans-serif;
+  outline: none;
+  transition: border-color 0.15s;
 }
-.field-input:focus { border-color: #22c55e; }
-.field-input::placeholder { color: #444; }
-.invalid-url { border-color: #ef4444 !important; }
+.field-input:focus {
+  border-color: #22c55e;
+}
+.field-input::placeholder {
+  color: #444;
+}
+.invalid-url {
+  border-color: #ef4444 !important;
+}
 .open-link-btn {
-  display: flex; align-items: center; justify-content: center;
-  width: 30px; height: 30px; flex-shrink: 0;
-  background: #1a1a1a; border: 1px solid #2a2a2a; color: #666;
-  border-radius: 6px; cursor: pointer; transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  color: #666;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
 }
-.open-link-btn:hover { background: #222; border-color: #333; color: #e8e8e8; }
-.error-msg { color: #ef4444; font-size: 10px; margin-top: 2px; }
+.open-link-btn:hover {
+  background: #222;
+  border-color: #333;
+  color: #e8e8e8;
+}
+.error-msg {
+  color: #ef4444;
+  font-size: 10px;
+  margin-top: 2px;
+}
 </style>

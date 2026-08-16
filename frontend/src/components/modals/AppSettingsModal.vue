@@ -1,94 +1,103 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { X, Check, FolderOpen, Trash2, FolderOpen as FolderOpenIcon } from '@lucide/vue'
-import { GetAppSettings, SetAppSettings, SelectFolder, GetRecentVaults, RemoveRecentVault } from '../../api/backend'
-import { useToast } from '../../composables/useToast'
-import type { RecentVault } from '../../types/vault'
-import { useVaultStore } from '../../stores/vault'
+import { ref, onMounted } from "vue";
+import { X, Check, FolderOpen, Trash2, FolderOpen as FolderOpenIcon } from "@lucide/vue";
+import {
+  GetAppSettings,
+  SetAppSettings,
+  SelectFolder,
+  GetRecentVaults,
+  RemoveRecentVault,
+} from "../../api/backend";
+import { useToast } from "../../composables/useToast";
+import type { RecentVault } from "../../types/vault";
+import { useVaultStore } from "../../stores/vault";
 
-const vaultStore = useVaultStore()
+const vaultStore = useVaultStore();
 
-defineEmits<{ close: [] }>()
+defineEmits<{ close: [] }>();
 
-const { success, error: toastError } = useToast()
+const { success, error: toastError } = useToast();
 
 // ── Settings state ────────────────────────────────────────────────
-const lastVaultPath = ref('')
-const autoOpenLastVault = ref(true)
-const confirmBeforeExit = ref(false)
+const lastVaultPath = ref("");
+const autoOpenLastVault = ref(true);
+const confirmBeforeExit = ref(false);
 
-const isSaving = ref(false)
-const isLoaded = ref(false)
+const isSaving = ref(false);
+const isLoaded = ref(false);
 
 // ── Recent vaults ─────────────────────────────────────────────────
-const recentVaults = ref<RecentVault[]>([])
+const recentVaults = ref<RecentVault[]>([]);
 
 const loadRecentVaults = async () => {
-  recentVaults.value = await GetRecentVaults()
-}
+  recentVaults.value = await GetRecentVaults();
+};
 
 const openRecentVault = async (vault: RecentVault) => {
-  await vaultStore.openVault(vault.path)
-}
+  await vaultStore.openVault(vault.path);
+};
 
 const removeRecentVault = async (path: string) => {
   try {
-    await RemoveRecentVault(path)
-    await loadRecentVaults()
+    await RemoveRecentVault(path);
+    await loadRecentVaults();
   } catch (e: any) {
-    toastError('Failed to remove vault: ' + (e.message || String(e)))
+    toastError("Failed to remove vault: " + (e.message || String(e)));
   }
-}
+};
 
 const formatDate = (iso: string) => {
   try {
-    const d = new Date(iso)
-    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) +
-      ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+    const d = new Date(iso);
+    return (
+      d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) +
+      " " +
+      d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
+    );
   } catch {
-    return iso
+    return iso;
   }
-}
+};
 
 // ── Load settings on mount ────────────────────────────────────────
 onMounted(async () => {
   try {
-    const settings = await GetAppSettings()
+    const settings = await GetAppSettings();
     if (settings) {
-      lastVaultPath.value = settings.last_vault_path || ''
-      autoOpenLastVault.value = settings.auto_open_last_vault ?? true
-      confirmBeforeExit.value = settings.confirm_before_exit ?? false
+      lastVaultPath.value = settings.last_vault_path || "";
+      autoOpenLastVault.value = settings.auto_open_last_vault ?? true;
+      confirmBeforeExit.value = settings.confirm_before_exit ?? false;
     }
   } catch (e) {
-    console.warn('[AppSettingsModal] failed to load settings:', e)
+    console.warn("[AppSettingsModal] failed to load settings:", e);
   }
-  await loadRecentVaults()
-  isLoaded.value = true
-})
+  await loadRecentVaults();
+  isLoaded.value = true;
+});
 
 // ── Save ──────────────────────────────────────────────────────────
 const save = async () => {
-  isSaving.value = true
+  isSaving.value = true;
   try {
     await SetAppSettings({
       last_vault_path: lastVaultPath.value,
       recent_vaults: recentVaults.value,
       auto_open_last_vault: autoOpenLastVault.value,
       confirm_before_exit: confirmBeforeExit.value,
-    } as any)
-    success('Settings saved')
+    } as any);
+    success("Settings saved");
   } catch (e: any) {
-    toastError('Failed to save settings: ' + (e.message || String(e)))
+    toastError("Failed to save settings: " + (e.message || String(e)));
   } finally {
-    isSaving.value = false
+    isSaving.value = false;
   }
-}
+};
 
 // ── Pick last vault folder ────────────────────────────────────────
 const pickLastVault = async () => {
-  const dir = await SelectFolder()
-  if (dir) lastVaultPath.value = dir
-}
+  const dir = await SelectFolder();
+  if (dir) lastVaultPath.value = dir;
+};
 </script>
 
 <template>
@@ -99,16 +108,16 @@ const pickLastVault = async () => {
         <button class="close-btn" @click="$emit('close')"><X :size="16" /></button>
       </div>
 
-      <div class="modal-body" v-if="isLoaded">
+      <div v-if="isLoaded" class="modal-body">
         <!-- General -->
         <section class="section">
           <h4>General</h4>
           <label class="checkbox-row">
-            <input type="checkbox" v-model="autoOpenLastVault" />
+            <input v-model="autoOpenLastVault" type="checkbox" />
             <span>Auto-open last vault on startup</span>
           </label>
           <label class="checkbox-row">
-            <input type="checkbox" v-model="confirmBeforeExit" />
+            <input v-model="confirmBeforeExit" type="checkbox" />
             <span>Confirm before exiting the app</span>
           </label>
         </section>
@@ -123,7 +132,7 @@ const pickLastVault = async () => {
               class="form-input"
               readonly
             />
-            <button class="picker-btn" @click="pickLastVault" title="Browse…">
+            <button class="picker-btn" title="Browse…" @click="pickLastVault">
               <FolderOpen :size="14" />
             </button>
           </div>
@@ -154,8 +163,8 @@ const pickLastVault = async () => {
                 <span class="recent-date">{{ formatDate(vault.opened_at) }}</span>
                 <button
                   class="remove-btn"
-                  @click.stop="removeRecentVault(vault.path)"
                   title="Remove from list"
+                  @click.stop="removeRecentVault(vault.path)"
                 >
                   <Trash2 :size="12" />
                 </button>
@@ -166,13 +175,9 @@ const pickLastVault = async () => {
 
         <!-- Actions -->
         <div class="actions">
-          <button
-            class="save-btn"
-            :disabled="isSaving"
-            @click="save"
-          >
+          <button class="save-btn" :disabled="isSaving" @click="save">
             <Check v-if="!isSaving" :size="14" />
-            {{ isSaving ? 'Saving…' : 'Save Settings' }}
+            {{ isSaving ? "Saving…" : "Save Settings" }}
           </button>
         </div>
       </div>
@@ -215,7 +220,7 @@ const pickLastVault = async () => {
   color: #e8e8e8;
   font-size: 14px;
   font-weight: 600;
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
 }
 
 .close-btn {
@@ -226,7 +231,9 @@ const pickLastVault = async () => {
   font-size: 16px;
   padding: 4px;
   border-radius: 4px;
-  transition: color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    background 0.15s;
 }
 
 .close-btn:hover {
@@ -276,7 +283,7 @@ const pickLastVault = async () => {
   padding: 4px 0;
 }
 
-.checkbox-row input[type='checkbox'] {
+.checkbox-row input[type="checkbox"] {
   accent-color: #22c55e;
 }
 
@@ -340,7 +347,7 @@ const pickLastVault = async () => {
   padding: 8px 18px;
   font-size: 12px;
   font-weight: 500;
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
   cursor: pointer;
   background: #22c55e;
   color: #000;

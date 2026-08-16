@@ -1,16 +1,19 @@
+// Package utils provides file, image, video, and system helpers for TagLoom.
 package utils
 
 import (
 	"bytes"
-	_ "image/gif"
-	_ "image/jpeg"
-	_ "image/png"
 	"fmt"
 	"image"
 	"image/png"
 	"os"
 
 	"golang.design/x/clipboard"
+
+	// Register extra image-format decoders with image.Decode
+	// (image/png's named import already registers PNG).
+	_ "image/gif"
+	_ "image/jpeg"
 	_ "golang.org/x/image/tiff"
 	_ "golang.org/x/image/webp"
 )

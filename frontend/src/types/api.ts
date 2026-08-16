@@ -3,46 +3,46 @@
 
 export interface AppBindings {
   // Vault
-  OpenVault(path: string): Promise<VaultInfo>
-  CloseVault(): Promise<void>
-  GetCurrentVault(): Promise<VaultInfo | null>
-  ScanVault(): Promise<number>
-  RescanVault(): Promise<number>
+  OpenVault(path: string): Promise<VaultInfo>;
+  CloseVault(): Promise<void>;
+  GetCurrentVault(): Promise<VaultInfo | null>;
+  ScanVault(): Promise<number>;
+  RescanVault(): Promise<number>;
 
   // Files
-  GetFiles(filter: FileFilter, sort: SortOpts, page: number, limit: number): Promise<FilePage>
-  GetFileIDs(filter: FileFilter): Promise<number[]>
-  GetFileByID(id: number): Promise<File>
-  UpdateFile(update: FileUpdate): Promise<void>
-  SearchFiles(query: string, limit: number): Promise<File[]>
+  GetFiles(filter: FileFilter, sort: SortOpts, page: number, limit: number): Promise<FilePage>;
+  GetFileIDs(filter: FileFilter): Promise<number[]>;
+  GetFileByID(id: number): Promise<File>;
+  UpdateFile(update: FileUpdate): Promise<void>;
+  SearchFiles(query: string, limit: number): Promise<File[]>;
 
   // Folders
-  GetFolderTree(path: string): Promise<FolderNode>
-  AddExcludedFolder(path: string): Promise<void>
-  RemoveExcludedFolder(path: string): Promise<void>
-  GetExcludedFolders(): Promise<string[]>
+  GetFolderTree(path: string): Promise<FolderNode>;
+  AddExcludedFolder(path: string): Promise<void>;
+  RemoveExcludedFolder(path: string): Promise<void>;
+  GetExcludedFolders(): Promise<string[]>;
 
   // Tags
-  GetTags(category: string): Promise<Tag[]>
-  CreateTag(tag: TagCreate): Promise<Tag>
-  UpdateTag(tag: TagUpdate): Promise<void>
-  DeleteTag(id: number): Promise<void>
-  AddTagToFile(fileID: number, tagID: number): Promise<void>
-  RemoveTagFromFile(fileID: number, tagID: number): Promise<void>
-  GetFileTags(fileID: number): Promise<Tag[]>
+  GetTags(category: string): Promise<Tag[]>;
+  CreateTag(tag: TagCreate): Promise<Tag>;
+  UpdateTag(tag: TagUpdate): Promise<void>;
+  DeleteTag(id: number): Promise<void>;
+  AddTagToFile(fileID: number, tagID: number): Promise<void>;
+  RemoveTagFromFile(fileID: number, tagID: number): Promise<void>;
+  GetFileTags(fileID: number): Promise<Tag[]>;
 
   // Metadata
-  GetFileMetadata(fileID: number): Promise<FileMetadata>
+  GetFileMetadata(fileID: number): Promise<FileMetadata>;
 
   // Config
-  GetVaultConfig(): Promise<VaultConfig>
-  SetVaultConfig(config: VaultConfig): Promise<void>
+  GetVaultConfig(): Promise<VaultConfig>;
+  SetVaultConfig(config: VaultConfig): Promise<void>;
 
   // Thumbnails
-  GenerateThumbnail(fileID: number): Promise<string>
-  RepairAllThumbnails(): Promise<void>
+  GenerateThumbnail(fileID: number): Promise<string>;
+  RepairAllThumbnails(): Promise<void>;
 }
 
-import type { VaultInfo, VaultConfig, FolderNode } from './vault'
-import type { File, FileUpdate, FilePage, FileFilter, SortOpts, FileMetadata } from './file'
-import type { Tag, TagCreate, TagUpdate } from './tag'
+import type { VaultInfo, VaultConfig, FolderNode } from "./vault";
+import type { File, FileUpdate, FilePage, FileFilter, SortOpts, FileMetadata } from "./file";
+import type { Tag, TagCreate, TagUpdate } from "./tag";
