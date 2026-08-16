@@ -8,10 +8,10 @@
 </p>
 
 <p align="center">
-<img align=center src="https://img.shields.io/badge/OS-Windows-blue?style=for-the-badge">
-<img align=center src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge">
-<img align=center src="https://img.shields.io/badge/Version-0.4.0-blue?style=for-the-badge">
-<img align=center src="https://img.shields.io/badge/size-18MB-green?style=for-the-badge"><br>
+<img align=center src="https://img.shields.io/badge/OS-Windows-blue?style=plastic">
+<img align=center src="https://img.shields.io/badge/License-MIT-green?style=plastic">
+<img align=center src="https://img.shields.io/badge/Version-0.5.0-blue?style=plastic">
+<img align=center src="https://img.shields.io/badge/size-18MB-violet?style=plastic"><br>
 </p>
 
 **TagLoom** is a desktop multimedia tagging and library management application for images, videos, and GIFs.
