@@ -12,6 +12,7 @@ import {
   RescanVault,
 } from "../api/backend";
 import { EventsOn, EventsOff } from "../../wailsjs/runtime/runtime";
+import { logger } from "../utils/logger";
 
 export const useVaultStore = defineStore("vault", {
   state: () => ({
@@ -104,7 +105,7 @@ export const useVaultStore = defineStore("vault", {
             "scan:complete",
             (_count: number | { added: number; removed: number }) => {
               // Scan done — thumbnails are generated next by backend
-              console.log("Auto-scan complete, generating thumbnails...");
+              logger.log("vault.openVault", "auto-scan complete, generating thumbnails...");
             },
           );
 
@@ -116,8 +117,9 @@ export const useVaultStore = defineStore("vault", {
               this.isScanning = false;
               this.isLoading = false;
               this.refreshCurrentVault();
-              console.log(
-                `Auto-scan + thumbnails: ${data.generated} generated, ${data.failed} failed`,
+              logger.log(
+                "vault.openVault",
+                `auto-scan + thumbnails: ${data.generated} generated, ${data.failed} failed`,
               );
             },
           );
@@ -125,7 +127,7 @@ export const useVaultStore = defineStore("vault", {
           const autoErrorUnsub = EventsOn("scan:error", (data: { error: string }) => {
             this.isScanning = false;
             this.isLoading = false;
-            console.error("Auto-scan error:", data.error);
+            logger.error("vault.openVault", "auto-scan error:", data.error);
           });
 
           // Clean up listeners after 60 seconds
@@ -179,7 +181,10 @@ export const useVaultStore = defineStore("vault", {
         (data: { added: number; removed: number; total: number }) => {
           this.scanTotal = data.total;
           this.scanCurrent = 0;
-          console.log(`Rescan diff: +${data.added} -${data.removed} total=${data.total}`);
+          logger.log(
+            "vault.rescanVault",
+            `rescan diff: +${data.added} -${data.removed} total=${data.total}`,
+          );
         },
       );
 
@@ -205,14 +210,17 @@ export const useVaultStore = defineStore("vault", {
       const completeUnsub = EventsOn(
         "rescan:complete",
         async (data: { added: number; removed: number }) => {
-          console.log(`Rescan complete: +${data.added} -${data.removed}, generating thumbnails...`);
+          logger.log(
+            "vault.rescanVault",
+            `rescan complete: +${data.added} -${data.removed}, generating thumbnails...`,
+          );
           // Mark scan as done (show 100%) using total from rescan:diff —
           // thumbnails will update progress further if there's work to do
           this.scanCurrent = this.scanTotal;
           try {
             await import("../api/backend").then((m) => m.GenerateThumbnailsPool());
           } catch (e) {
-            console.error("Thumbnail generation failed:", e);
+            logger.error("vault.rescanVault", "thumbnail generation failed:", e);
           }
         },
       );
@@ -228,8 +236,9 @@ export const useVaultStore = defineStore("vault", {
           }
           this.isScanning = false;
           this.isLoading = false;
-          console.log(
-            `Thumbnails: ${data.generated} generated, ${data.failed} failed out of ${data.total}`,
+          logger.log(
+            "vault.rescanVault",
+            `thumbnails: ${data.generated} generated, ${data.failed} failed out of ${data.total}`,
           );
           this.refreshCurrentVault();
           // Safe to clean up now that we're done
@@ -239,9 +248,9 @@ export const useVaultStore = defineStore("vault", {
 
       try {
         const added = await RescanVault();
-        console.log("RescanVault result:", added, "added");
+        logger.log("vault.rescanVault", added, "added");
       } catch (e) {
-        console.error("RescanVault failed:", e);
+        logger.error("vault.rescanVault", e);
         this.isScanning = false;
         this.isLoading = false;
       } finally {
@@ -287,11 +296,11 @@ export const useVaultStore = defineStore("vault", {
         this.scanCurrent = count;
         this.scanTotal = count;
         // Thumbnails are generated next — keep isScanning true
-        console.log("Scan complete, generating thumbnails...");
+        logger.log("vault.scanVault", "scan complete, generating thumbnails...");
         try {
           await import("../api/backend").then((m) => m.GenerateThumbnailsPool());
         } catch (e) {
-          console.error("Thumbnail generation failed:", e);
+          logger.error("vault.scanVault", "thumbnail generation failed:", e);
         }
       });
 
@@ -304,8 +313,9 @@ export const useVaultStore = defineStore("vault", {
           this.scanTotal = data.total;
           this.isScanning = false;
           this.isLoading = false;
-          console.log(
-            `Thumbnails: ${data.generated} generated, ${data.failed} failed out of ${data.total}`,
+          logger.log(
+            "vault.scanVault",
+            `thumbnails: ${data.generated} generated, ${data.failed} failed out of ${data.total}`,
           );
           this.refreshCurrentVault();
           // Safe to clean up now that we're done
@@ -315,9 +325,9 @@ export const useVaultStore = defineStore("vault", {
 
       try {
         const count = await ScanVault();
-        console.log("ScanVault indexed", count, "files");
+        logger.log("vault.scanVault", "indexed", count, "files");
       } catch (e) {
-        console.error("ScanVault failed:", e);
+        logger.error("vault.scanVault", e);
         this.isScanning = false;
         this.isLoading = false;
       } finally {

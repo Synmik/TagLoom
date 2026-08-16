@@ -77,6 +77,7 @@ import { useVaultStore } from "../../stores/vault";
 import { useUIStore } from "../../stores/ui";
 import { GetRecentVaults } from "../../api/backend";
 import type { RecentVault } from "../../types/vault";
+import { logger } from "../../utils/logger";
 
 const vaultStore = useVaultStore();
 const uiStore = useUIStore();
@@ -100,7 +101,7 @@ const loadRecentVaults = async () => {
   try {
     recentVaults.value = await GetRecentVaults();
   } catch (e) {
-    console.warn("[QuickActions] failed to load recent vaults:", e);
+    logger.warn("QuickActions.loadRecent", e);
   }
 };
 

@@ -1,6 +1,7 @@
 import { ref } from "vue";
 import { SUPPORTED_EXTENSIONS } from "../types/file";
 import { OnFileDrop, OnFileDropOff } from "../../wailsjs/runtime/runtime";
+import { logger } from "../utils/logger";
 
 export interface DroppedFile {
   name: string;
@@ -33,7 +34,7 @@ export function useDragDrop() {
   }
 
   function onWailsDrop(x: number, y: number, paths: string[]) {
-    console.log("[drag-drop] OnFileDrop:", x, y, paths);
+    logger.log("dragDrop.onFileDrop", x, y, paths);
 
     if (paths.length === 0) return;
 
@@ -48,11 +49,11 @@ export function useDragDrop() {
     });
 
     if (supported.length === 0) {
-      console.log("[drag-drop] No supported files found");
+      logger.log("dragDrop.onFileDrop", "no supported files found");
       return;
     }
 
-    console.log(`[drag-drop] Showing import menu for ${supported.length} file(s)`);
+    logger.log("dragDrop.onFileDrop", `showing import menu for ${supported.length} file(s)`);
     menuData.value = { files: supported, x, y };
     showMenu.value = true;
   }

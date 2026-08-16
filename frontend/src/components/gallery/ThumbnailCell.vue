@@ -38,6 +38,7 @@ import { useToast } from "../../composables/useToast";
 import ContextMenu from "../common/ContextMenu.vue";
 import ConfirmDialog from "../common/ConfirmDialog.vue";
 import type { File } from "../../types/file";
+import { logger } from "../../utils/logger";
 
 const props = defineProps<{ file: File }>();
 const { isSelected, toggleSelection } = useSelection();
@@ -83,7 +84,7 @@ const confirmDeleteOriginal = async () => {
     await filesStore.reloadFiles();
   } catch (e) {
     toastError("Failed to delete file");
-    console.error(e);
+    logger.error("ThumbnailCell.delete", e);
   }
 };
 
@@ -199,7 +200,7 @@ const onContextMenu = (e: MouseEvent) => {
           await filesStore.openOriginalFile(props.file.id);
         } catch (e) {
           toastError("Failed to open file");
-          console.error(e);
+          logger.error("ThumbnailCell.openFile", e);
         }
       },
     },
@@ -212,7 +213,7 @@ const onContextMenu = (e: MouseEvent) => {
           await filesStore.openFileFolder(props.file.id);
         } catch (e) {
           toastError("Failed to open folder");
-          console.error(e);
+          logger.error("ThumbnailCell.openFolder", e);
         }
       },
     },

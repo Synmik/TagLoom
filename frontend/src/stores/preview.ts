@@ -4,6 +4,7 @@ import type { File, FileMetadata } from "../types/file";
 import type { Tag } from "../types/tag";
 import { GetFileMetadata, GetFileTags, UpdateFile } from "../api/backend";
 import { useFilesStore } from "./files";
+import { logger } from "../utils/logger";
 
 export const usePreviewStore = defineStore("preview", {
   state: () => ({
@@ -49,11 +50,11 @@ export const usePreviewStore = defineStore("preview", {
       const seq = ++this._loadSeq;
       // Fetch metadata and tags independently so one failure doesn't block the other
       const metadataPromise = GetFileMetadata(fileID).catch((e) => {
-        console.warn(`[previewStore] metadata fetch failed for ${fileID}:`, e);
+        logger.warn("preview.metadata", `metadata fetch failed for ${fileID}:`, e);
         return null;
       });
       const tagsPromise = GetFileTags(fileID).catch((e) => {
-        console.warn(`[previewStore] tags fetch failed for ${fileID}:`, e);
+        logger.warn("preview.tags", `tags fetch failed for ${fileID}:`, e);
         return [];
       });
       const [metadata, tags] = await Promise.all([metadataPromise, tagsPromise]);

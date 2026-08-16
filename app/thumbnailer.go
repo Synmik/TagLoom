@@ -432,7 +432,7 @@ func (a *App) runThumbnailPool(repairAll bool) error {
 			_ = stmt.Close()
 		}
 		if commitErr := tx.Commit(); commitErr != nil {
-			fmt.Printf("thumbnail batch commit warning: %v\n", commitErr)
+			utils.LogWarn("thumbnail batch commit warning: %v", commitErr)
 		}
 	}
 
@@ -582,7 +582,7 @@ func (a *App) CleanupOrphanThumbnails() (int, error) {
 	})
 
 	if removed > 0 {
-		fmt.Printf("cleaned up %d orphan thumbnails\n", removed)
+		utils.LogInfo("cleaned up %d orphan thumbnails", removed)
 	}
 	return removed, nil
 }
@@ -595,7 +595,7 @@ func deleteThumbnailFile(thumbAbs string) {
 		return
 	}
 	if err := os.Remove(thumbAbs); err != nil && !os.IsNotExist(err) {
-		fmt.Printf("thumbnail delete warning: %v\n", err)
+		utils.LogWarn("thumbnail delete warning: %v", err)
 	}
 	// Remove the parent ({2char_hash} dir) if it is now empty.
 	if entries, err := os.ReadDir(filepath.Dir(thumbAbs)); err == nil && len(entries) == 0 {

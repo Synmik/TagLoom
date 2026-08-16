@@ -8,6 +8,7 @@ import (
 
 	"TagLoom/config"
 	"TagLoom/db"
+	"TagLoom/utils"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -66,7 +67,7 @@ func (a *App) OpenVault(path string) (*db.VaultInfo, error) {
 	// Migrate absolute paths to relative paths for existing vaults.
 	// This ensures the vault can be moved to a different location.
 	if err := a.migrateToRelativePaths(d, path); err != nil {
-		fmt.Printf("path migration warning: %v\n", err)
+		utils.LogWarn("path migration warning: %v", err)
 	}
 
 	// Load or create config
@@ -113,7 +114,7 @@ func (a *App) OpenVault(path string) (*db.VaultInfo, error) {
 			} else {
 				// Generate thumbnails after scan completes
 				if err := a.GenerateThumbnailsPool(); err != nil {
-					fmt.Printf("thumbnail generation warning: %v\n", err)
+					utils.LogWarn("thumbnail generation warning: %v", err)
 				}
 			}
 			runtime.EventsEmit(a.ctx, "scan:complete", count)
@@ -139,7 +140,7 @@ func (a *App) CloseVault() error {
 	// Clean up orphan thumbnails before closing. Runs on the snapshot with
 	// no lock held — CleanupOrphanThumbnails takes its own read lock.
 	if _, err := a.CleanupOrphanThumbnails(); err != nil {
-		fmt.Printf("orphan thumbnail cleanup warning: %v\n", err)
+		utils.LogWarn("orphan thumbnail cleanup warning: %v", err)
 	}
 
 	a.mu.Lock()
@@ -256,7 +257,7 @@ func (a *App) CreateVault(path string, settings NewVaultSettings) (*db.VaultInfo
 			})
 		} else {
 			if err := a.GenerateThumbnailsPool(); err != nil {
-				fmt.Printf("thumbnail generation warning: %v\n", err)
+				utils.LogWarn("thumbnail generation warning: %v", err)
 			}
 		}
 		runtime.EventsEmit(a.ctx, "scan:complete", count)
@@ -323,7 +324,7 @@ func (a *App) migrateToRelativePaths(d *db.Database, vaultPath string) error {
 		return nil // No absolute paths found (new vault or already migrated)
 	}
 
-	fmt.Printf("migrating %d file records from absolute to relative paths\n", count)
+	utils.LogInfo("migrating %d file records from absolute to relative paths", count)
 
 	// Use a single UPDATE with SQLite string functions
 	// vault_path: strip the vault prefix to get relative path

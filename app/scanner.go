@@ -952,7 +952,7 @@ func (a *App) ImportFile(sourcePath string, move bool, targetFolder string) *Imp
 	if err == nil {
 		go func() {
 			if _, err := a.GenerateThumbnail(newID); err != nil {
-				fmt.Printf("thumbnail generation warning for %s: %v\n", fileName, err)
+				utils.LogWarn("thumbnail generation warning for %s: %v", fileName, err)
 			}
 		}()
 	}

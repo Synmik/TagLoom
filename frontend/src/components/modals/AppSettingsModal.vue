@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { X, Check, FolderOpen, Trash2, FolderOpen as FolderOpenIcon } from "@lucide/vue";
+import { Check, FolderOpen } from "@lucide/vue";
 import {
   GetAppSettings,
   SetAppSettings,
@@ -11,6 +11,9 @@ import {
 import { useToast } from "../../composables/useToast";
 import type { RecentVault } from "../../types/vault";
 import { useVaultStore } from "../../stores/vault";
+import ModalShell from "../common/ModalShell.vue";
+import RecentVaultsList from "../common/RecentVaultsList.vue";
+import { logger } from "../../utils/logger";
 
 const vaultStore = useVaultStore();
 
@@ -46,19 +49,6 @@ const removeRecentVault = async (path: string) => {
   }
 };
 
-const formatDate = (iso: string) => {
-  try {
-    const d = new Date(iso);
-    return (
-      d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) +
-      " " +
-      d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
-    );
-  } catch {
-    return iso;
-  }
-};
-
 // ── Load settings on mount ────────────────────────────────────────
 onMounted(async () => {
   try {
@@ -69,7 +59,7 @@ onMounted(async () => {
       confirmBeforeExit.value = settings.confirm_before_exit ?? false;
     }
   } catch (e) {
-    console.warn("[AppSettingsModal] failed to load settings:", e);
+    logger.warn("AppSettingsModal.load", e);
   }
   await loadRecentVaults();
   isLoaded.value = true;
@@ -101,154 +91,53 @@ const pickLastVault = async () => {
 </script>
 
 <template>
-  <div class="modal-overlay" @click.self="$emit('close')">
-    <div class="modal">
-      <div class="modal-header">
-        <h3>App Settings</h3>
-        <button class="close-btn" @click="$emit('close')"><X :size="16" /></button>
+  <ModalShell title="App Settings" width="440px" @close="$emit('close')">
+    <!-- General -->
+    <section v-if="isLoaded" class="section">
+      <h4>General</h4>
+      <label class="checkbox-row">
+        <input v-model="autoOpenLastVault" type="checkbox" />
+        <span>Auto-open last vault on startup</span>
+      </label>
+      <label class="checkbox-row">
+        <input v-model="confirmBeforeExit" type="checkbox" />
+        <span>Confirm before exiting the app</span>
+      </label>
+    </section>
+
+    <!-- Last Vault -->
+    <section v-if="isLoaded" class="section">
+      <h4>Last Opened Vault</h4>
+      <div class="path-row">
+        <input v-model="lastVaultPath" placeholder="No vault set…" class="form-input" readonly />
+        <button class="picker-btn" title="Browse…" @click="pickLastVault">
+          <FolderOpen :size="14" />
+        </button>
       </div>
+      <p class="hint">Auto-opened when the app starts (if enabled above).</p>
+    </section>
 
-      <div v-if="isLoaded" class="modal-body">
-        <!-- General -->
-        <section class="section">
-          <h4>General</h4>
-          <label class="checkbox-row">
-            <input v-model="autoOpenLastVault" type="checkbox" />
-            <span>Auto-open last vault on startup</span>
-          </label>
-          <label class="checkbox-row">
-            <input v-model="confirmBeforeExit" type="checkbox" />
-            <span>Confirm before exiting the app</span>
-          </label>
-        </section>
+    <!-- Recent Vaults -->
+    <section v-if="isLoaded" class="section">
+      <h4>Recent Vaults ({{ recentVaults.length }})</h4>
+      <RecentVaultsList
+        :vaults="recentVaults"
+        @open="openRecentVault"
+        @remove="removeRecentVault"
+      />
+    </section>
 
-        <!-- Last Vault -->
-        <section class="section">
-          <h4>Last Opened Vault</h4>
-          <div class="path-row">
-            <input
-              v-model="lastVaultPath"
-              placeholder="No vault set…"
-              class="form-input"
-              readonly
-            />
-            <button class="picker-btn" title="Browse…" @click="pickLastVault">
-              <FolderOpen :size="14" />
-            </button>
-          </div>
-          <p class="hint">Auto-opened when the app starts (if enabled above).</p>
-        </section>
-
-        <!-- Recent Vaults -->
-        <section class="section">
-          <h4>Recent Vaults ({{ recentVaults.length }})</h4>
-          <div v-if="recentVaults.length === 0" class="empty-recent">
-            <p>No recent vaults.</p>
-          </div>
-          <div v-else class="recent-list">
-            <div
-              v-for="vault in recentVaults"
-              :key="vault.path"
-              class="recent-item"
-              @click="openRecentVault(vault)"
-            >
-              <div class="recent-info">
-                <FolderOpenIcon :size="14" class="recent-icon" />
-                <div class="recent-text">
-                  <span class="recent-name">{{ vault.name }}</span>
-                  <span class="recent-path">{{ vault.path }}</span>
-                </div>
-              </div>
-              <div class="recent-actions">
-                <span class="recent-date">{{ formatDate(vault.opened_at) }}</span>
-                <button
-                  class="remove-btn"
-                  title="Remove from list"
-                  @click.stop="removeRecentVault(vault.path)"
-                >
-                  <Trash2 :size="12" />
-                </button>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- Actions -->
-        <div class="actions">
-          <button class="save-btn" :disabled="isSaving" @click="save">
-            <Check v-if="!isSaving" :size="14" />
-            {{ isSaving ? "Saving…" : "Save Settings" }}
-          </button>
-        </div>
-      </div>
+    <!-- Actions -->
+    <div v-if="isLoaded" class="actions">
+      <button class="save-btn" :disabled="isSaving" @click="save">
+        <Check v-if="!isSaving" :size="14" />
+        {{ isSaving ? "Saving…" : "Save Settings" }}
+      </button>
     </div>
-  </div>
+  </ModalShell>
 </template>
 
 <style scoped>
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-}
-
-.modal {
-  background: #111111;
-  border-radius: 12px;
-  width: 440px;
-  max-height: 85vh;
-  display: flex;
-  flex-direction: column;
-  border: 1px solid #222;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px 18px;
-  border-bottom: 1px solid #1a1a1a;
-}
-
-.modal-header h3 {
-  margin: 0;
-  color: #e8e8e8;
-  font-size: 14px;
-  font-weight: 600;
-  font-family: "Inter", sans-serif;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  color: #666;
-  cursor: pointer;
-  font-size: 16px;
-  padding: 4px;
-  border-radius: 4px;
-  transition:
-    color 0.15s,
-    background 0.15s;
-}
-
-.close-btn:hover {
-  color: #e8e8e8;
-  background: #1a1a1a;
-}
-
-.modal-body {
-  padding: 18px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
 /* ── Sections ───────────────────────────────────────────────────── */
 .section {
   display: flex;
@@ -361,108 +250,5 @@ const pickLastVault = async () => {
 .save-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-/* ── Recent vaults ──────────────────────────────────────────────── */
-.empty-recent {
-  color: #555;
-  font-size: 12px;
-  padding: 8px 0;
-}
-
-.empty-recent p {
-  margin: 0;
-}
-
-.recent-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.recent-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 8px 10px;
-  background: #1a1a1a;
-  border: 1px solid #2a2a2a;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.recent-item:hover {
-  background: #222;
-  border-color: #333;
-}
-
-.recent-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  flex: 1;
-}
-
-.recent-icon {
-  color: #22c55e;
-  flex-shrink: 0;
-}
-
-.recent-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.recent-name {
-  color: #e8e8e8;
-  font-size: 12px;
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.recent-path {
-  color: #666;
-  font-size: 10px;
-  font-family: monospace;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.recent-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.recent-date {
-  color: #555;
-  font-size: 10px;
-  white-space: nowrap;
-}
-
-.remove-btn {
-  background: none;
-  border: none;
-  color: #555;
-  cursor: pointer;
-  padding: 2px;
-  border-radius: 3px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s;
-}
-
-.remove-btn:hover {
-  color: #ef4444;
-  background: rgba(239, 68, 68, 0.1);
 }
 </style>

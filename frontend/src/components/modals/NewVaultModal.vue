@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
-import { X, FolderOpen } from "@lucide/vue";
+import { ref } from "vue";
+import { FolderOpen } from "@lucide/vue";
 import { SelectFolder, CreateVault } from "../../api/backend";
 import { useVaultStore } from "../../stores/vault";
 import { useToast } from "../../composables/useToast";
 import { EventsOn, EventsOff } from "../../../wailsjs/runtime/runtime";
+import ModalShell from "../common/ModalShell.vue";
+import QualitySlider from "../common/QualitySlider.vue";
+import ExcludedFoldersEditor from "../common/ExcludedFoldersEditor.vue";
 
 const vaultStore = useVaultStore();
 const { success, error: toastError } = useToast();
@@ -14,10 +17,10 @@ const emit = defineEmits<{ close: [] }>();
 const selectedPath = ref("");
 const thumbnailQuality = ref(80);
 const excludedFolders = ref<string[]>([]);
-const newExcludedPath = ref("");
 const addError = ref("");
 const isCreating = ref(false);
 const createError = ref("");
+const excludedEditor = ref<InstanceType<typeof ExcludedFoldersEditor>>();
 
 // ── Folder picker ──────────────────────────────────────────────────
 const pickFolder = async () => {
@@ -28,27 +31,19 @@ const pickFolder = async () => {
   }
 };
 
-// ── Excluded folders ──────────────────────────────────────────────
-const addExcluded = () => {
-  const path = newExcludedPath.value.trim();
-  if (!path) return;
+// ── Excluded folders (local only until vault is created) ──────────
+const addExcluded = (path: string) => {
   if (excludedFolders.value.includes(path)) {
     addError.value = "Already in list";
     return;
   }
   addError.value = "";
   excludedFolders.value.push(path);
-  newExcludedPath.value = "";
+  excludedEditor.value?.clearInput();
 };
 
 const removeExcluded = (path: string) => {
   excludedFolders.value = excludedFolders.value.filter((p) => p !== path);
-};
-
-const pickExcludedFolder = async () => {
-  const dir = await SelectFolder();
-  if (!dir) return;
-  newExcludedPath.value = dir;
 };
 
 // ── Create vault ───────────────────────────────────────────────────
@@ -123,167 +118,67 @@ const createVault = async () => {
     isCreating.value = false;
   }
 };
-
-// ── Lifecycle ──────────────────────────────────────────────────────
-onMounted(() => {
-  // Auto-focus on mount
-});
 </script>
 
 <template>
-  <div class="modal-overlay" @click.self="$emit('close')">
-    <div class="modal">
-      <div class="modal-header">
-        <h3>New Vault</h3>
-        <button class="close-btn" @click="$emit('close')"><X :size="16" /></button>
+  <ModalShell title="New Vault" width="520px" @close="emit('close')">
+    <!-- Folder selection -->
+    <section class="section">
+      <h4>Vault Folder</h4>
+      <p class="hint">
+        Select a folder to create a new vault. A <code>.tagloom</code> directory will be created
+        inside it.
+      </p>
+      <div class="path-row">
+        <input
+          v-model="selectedPath"
+          placeholder="Select a folder…"
+          class="form-input path-input"
+          readonly
+        />
+        <button class="picker-btn" title="Browse…" @click="pickFolder">
+          <FolderOpen :size="14" />
+        </button>
       </div>
+    </section>
 
-      <div class="modal-body">
-        <!-- Folder selection -->
-        <section class="section">
-          <h4>Vault Folder</h4>
-          <p class="hint">
-            Select a folder to create a new vault. A <code>.tagloom</code> directory will be created
-            inside it.
-          </p>
-          <div class="path-row">
-            <input
-              v-model="selectedPath"
-              placeholder="Select a folder…"
-              class="form-input path-input"
-              readonly
-            />
-            <button class="picker-btn" title="Browse…" @click="pickFolder">
-              <FolderOpen :size="14" />
-            </button>
-          </div>
-        </section>
+    <!-- Thumbnail quality -->
+    <section class="section">
+      <h4>Thumbnail Quality</h4>
+      <QualitySlider v-model="thumbnailQuality" />
+    </section>
 
-        <!-- Thumbnail quality -->
-        <section class="section">
-          <h4>Thumbnail Quality</h4>
-          <div class="slider-row">
-            <label>Quality</label>
-            <input v-model.number="thumbnailQuality" type="range" min="10" max="100" step="5" />
-            <span class="slider-value">{{ thumbnailQuality }}%</span>
-          </div>
-        </section>
+    <!-- Excluded folders -->
+    <section class="section">
+      <h4>Excluded Folders</h4>
+      <p class="hint">These folders will be skipped during indexing.</p>
+      <ExcludedFoldersEditor
+        ref="excludedEditor"
+        :folders="excludedFolders"
+        :error="addError"
+        @add="addExcluded"
+        @remove="removeExcluded"
+      />
+    </section>
 
-        <!-- Excluded folders -->
-        <section class="section">
-          <h4>Excluded Folders</h4>
-          <p class="hint">These folders will be skipped during indexing.</p>
+    <!-- Error -->
+    <p v-if="createError" class="create-error">{{ createError }}</p>
 
-          <div v-if="excludedFolders.length" class="excluded-list">
-            <div v-for="path in excludedFolders" :key="path" class="excluded-item">
-              <span class="excluded-path">{{ path }}</span>
-              <button class="remove-btn" title="Remove" @click="removeExcluded(path)">
-                <X :size="14" />
-              </button>
-            </div>
-          </div>
-          <p v-else class="empty-hint">No excluded folders</p>
-
-          <div class="add-row">
-            <input
-              v-model="newExcludedPath"
-              placeholder="Folder path…"
-              class="form-input"
-              @keydown.enter="addExcluded"
-            />
-            <button class="picker-btn" title="Browse…" @click="pickExcludedFolder">
-              <FolderOpen :size="14" />
-            </button>
-            <button class="add-btn" :disabled="!newExcludedPath.trim()" @click="addExcluded">
-              +
-            </button>
-          </div>
-          <p v-if="addError" class="error">{{ addError }}</p>
-        </section>
-
-        <!-- Error -->
-        <p v-if="createError" class="create-error">{{ createError }}</p>
-
-        <!-- Actions -->
-        <div class="actions">
-          <button class="cancel-btn" @click="$emit('close')">Cancel</button>
-          <button
-            class="create-btn"
-            :disabled="isCreating || !selectedPath.trim()"
-            @click="createVault"
-          >
-            {{ isCreating ? "Creating…" : "Create Vault" }}
-          </button>
-        </div>
-      </div>
+    <!-- Actions -->
+    <div class="actions">
+      <button class="cancel-btn" @click="emit('close')">Cancel</button>
+      <button
+        class="create-btn"
+        :disabled="isCreating || !selectedPath.trim()"
+        @click="createVault"
+      >
+        {{ isCreating ? "Creating…" : "Create Vault" }}
+      </button>
     </div>
-  </div>
+  </ModalShell>
 </template>
 
 <style scoped>
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-}
-
-.modal {
-  background: #111111;
-  border-radius: 12px;
-  width: 520px;
-  max-height: 85vh;
-  display: flex;
-  flex-direction: column;
-  border: 1px solid #222;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px 18px;
-  border-bottom: 1px solid #1a1a1a;
-}
-
-.modal-header h3 {
-  margin: 0;
-  color: #e8e8e8;
-  font-size: 14px;
-  font-weight: 600;
-  font-family: "Inter", sans-serif;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  color: #666;
-  cursor: pointer;
-  font-size: 16px;
-  padding: 4px;
-  border-radius: 4px;
-  transition:
-    color 0.15s,
-    background 0.15s;
-}
-
-.close-btn:hover {
-  color: #e8e8e8;
-  background: #1a1a1a;
-}
-
-.modal-body {
-  padding: 18px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
 /* ── Sections ───────────────────────────────────────────────────── */
 .section {
   display: flex;
@@ -336,185 +231,6 @@ onMounted(() => {
 
 .path-input:focus {
   border-color: #22c55e;
-}
-
-/* ── Slider ─────────────────────────────────────────────────────── */
-.slider-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 12px;
-  color: #ccc;
-}
-
-.slider-row label {
-  min-width: 60px;
-  font-size: 12px;
-}
-
-.slider-row input[type="range"] {
-  flex: 1;
-  height: 4px;
-  -webkit-appearance: none;
-  appearance: none;
-  background: #2a2a2a;
-  border-radius: 2px;
-  outline: none;
-  cursor: pointer;
-}
-
-.slider-row input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 12px;
-  height: 12px;
-  margin-top: -4px;
-  background: #22c55e;
-  border: none;
-  border-radius: 2px;
-  cursor: pointer;
-}
-
-.slider-row input[type="range"]::-moz-range-thumb {
-  width: 12px;
-  height: 12px;
-  background: #22c55e;
-  border: none;
-  border-radius: 2px;
-  cursor: pointer;
-}
-
-.slider-row input[type="range"]::-webkit-slider-runnable-track {
-  height: 4px;
-  background: #2a2a2a;
-  border-radius: 2px;
-}
-
-.slider-row input[type="range"]::-moz-range-track {
-  height: 4px;
-  background: #2a2a2a;
-  border-radius: 2px;
-}
-
-.slider-value {
-  min-width: 40px;
-  text-align: right;
-  color: #22c55e;
-  font-weight: 600;
-  font-size: 12px;
-}
-
-/* ── Excluded folders ───────────────────────────────────────────── */
-.excluded-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  max-height: 120px;
-  overflow-y: auto;
-}
-
-.excluded-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #1a1a1a;
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 12px;
-}
-
-.excluded-path {
-  color: #ccc;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-  margin-right: 8px;
-  font-family: monospace;
-  font-size: 11px;
-}
-
-.remove-btn {
-  background: none;
-  border: none;
-  color: #555;
-  cursor: pointer;
-  font-size: 14px;
-  padding: 0 4px;
-  flex-shrink: 0;
-  transition: color 0.15s;
-}
-
-.remove-btn:hover {
-  color: #ef4444;
-}
-
-.empty-hint {
-  margin: 0;
-  color: #444;
-  font-size: 11px;
-  font-style: italic;
-}
-
-.add-row {
-  display: flex;
-  gap: 4px;
-  margin-top: 4px;
-}
-
-.form-input {
-  flex: 1;
-  background: #1a1a1a;
-  border: 1px solid #2a2a2a;
-  color: #e8e8e8;
-  border-radius: 6px;
-  padding: 6px 10px;
-  font-size: 12px;
-  outline: none;
-  font-family: monospace;
-  transition: border-color 0.15s;
-}
-
-.form-input:focus {
-  border-color: #22c55e;
-}
-
-.form-input::placeholder {
-  color: #444;
-}
-
-.picker-btn,
-.add-btn {
-  background: #1a1a1a;
-  border: 1px solid #2a2a2a;
-  color: #999;
-  border-radius: 6px;
-  padding: 5px 8px;
-  cursor: pointer;
-  font-size: 14px;
-  min-width: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s;
-}
-
-.picker-btn:hover,
-.add-btn:hover:not(:disabled) {
-  background: #222;
-  border-color: #333;
-  color: #e8e8e8;
-}
-
-.add-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.error {
-  margin: 0;
-  color: #ef4444;
-  font-size: 11px;
 }
 
 /* ── Create error ───────────────────────────────────────────────── */

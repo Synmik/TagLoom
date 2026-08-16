@@ -20,6 +20,7 @@ import {
 import { EventsOn } from "../../wailsjs/runtime/runtime";
 import { useFiltersStore } from "./filters";
 import { useUIStore } from "./ui";
+import { logger } from "../utils/logger";
 
 export const useFilesStore = defineStore("files", {
   state: () => ({
@@ -33,8 +34,8 @@ export const useFilesStore = defineStore("files", {
     isLoading: false,
   }),
   getters: {
-    hasSelection: (state: any) => state.selectedFiles.length > 0,
-    selectionCount: (state: any) => state.selectedFiles.length,
+    hasSelection: (state) => state.selectedFiles.length > 0,
+    selectionCount: (state) => state.selectedFiles.length,
   },
   actions: {
     async loadFiles(
@@ -61,7 +62,7 @@ export const useFilesStore = defineStore("files", {
         }
         this.totalCount = result?.total_count ?? 0;
       } catch (e) {
-        console.error("filesStore.loadFiles failed:", e);
+        logger.error("files.loadFiles", e);
         if (!append) {
           this.files = [];
           this.totalCount = 0;
@@ -100,7 +101,7 @@ export const useFilesStore = defineStore("files", {
         this.totalCount = result?.total_count ?? 0;
         this.page = 0;
       } catch (e) {
-        console.error("filesStore.loadAllFiles failed:", e);
+        logger.error("files.loadAllFiles", e);
         this.files = [];
         this.totalCount = 0;
       } finally {
@@ -132,7 +133,7 @@ export const useFilesStore = defineStore("files", {
         this.files = [...this.files, ...fileArray];
         this.page = nextPage;
       } catch (e) {
-        console.error("filesStore.loadNextPage failed:", e);
+        logger.error("files.loadNextPage", e);
       } finally {
         this.isLoading = false;
       }
@@ -223,7 +224,7 @@ export const useFilesStore = defineStore("files", {
         this.totalCount = fileArray.length;
         this.page = 0;
       } catch (e) {
-        console.error("filesStore.searchFiles failed:", e);
+        logger.error("files.searchFiles", e);
         this.files = [];
         this.totalCount = 0;
       } finally {
@@ -241,7 +242,7 @@ export const useFilesStore = defineStore("files", {
         await GenerateThumbnail(fileID);
         return true;
       } catch (e) {
-        console.warn("Failed to regenerate thumbnail for", fileID, e);
+        logger.warn("files.regenerateThumbnail", fileID, e);
         return false;
       }
     },
@@ -333,8 +334,9 @@ export const useFilesStore = defineStore("files", {
         "thumb:progress",
         (data: { current: number; total: number; generated: number }) => {
           this.isLoading = false;
-          console.log(
-            `Thumbnail pool: ${data.current}/${data.total} (${data.generated} generated)`,
+          logger.log(
+            "files.generateThumbnailsPool",
+            `${data.current}/${data.total} (${data.generated} generated)`,
           );
         },
       );
@@ -343,8 +345,9 @@ export const useFilesStore = defineStore("files", {
         "thumb:complete",
         (data: { generated: number; failed: number; total: number }) => {
           this.isLoading = false;
-          console.log(
-            `Thumbnail pool complete: ${data.generated} generated, ${data.failed} failed out of ${data.total}`,
+          logger.log(
+            "files.generateThumbnailsPool",
+            `${data.generated} generated, ${data.failed} failed out of ${data.total}`,
           );
         },
       );
@@ -352,7 +355,7 @@ export const useFilesStore = defineStore("files", {
       try {
         await GenerateThumbnailsPool();
       } catch (e) {
-        console.error("Thumbnail pool failed:", e);
+        logger.error("files.generateThumbnailsPool", e);
       } finally {
         this.isLoading = false;
         progressUnsub();

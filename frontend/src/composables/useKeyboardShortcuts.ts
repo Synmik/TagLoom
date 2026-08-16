@@ -4,6 +4,7 @@ import { useFilesStore } from "../stores/files";
 import { usePreviewStore } from "../stores/preview";
 import { useVaultStore } from "../stores/vault";
 import { useToast } from "./useToast";
+import { logger } from "../utils/logger";
 
 /**
  * Global keyboard shortcut handler.
@@ -133,7 +134,7 @@ export function useKeyboardShortcuts() {
         await filesStore.openOriginalFile(file.id);
       } catch (e) {
         error("Failed to open file");
-        console.error(e);
+        logger.error("keyboardShortcuts.openFile", e);
       }
       return;
     }
@@ -152,7 +153,7 @@ export function useKeyboardShortcuts() {
       success("Image copied to clipboard");
     } catch (e) {
       error("Failed to copy image to clipboard");
-      console.error(e);
+      logger.error("keyboardShortcuts.copyImage", e);
     }
   };
 
