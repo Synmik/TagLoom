@@ -86,7 +86,8 @@ END;
 CREATE INDEX IF NOT EXISTS idx_files_folder ON files(folder_path);
 CREATE INDEX IF NOT EXISTS idx_files_rating ON files(rating);
 CREATE INDEX IF NOT EXISTS idx_files_favorite ON files(is_favorite);
-CREATE INDEX IF NOT EXISTS idx_files_filename ON files(filename);
+-- NOTE: idx_files_filename is created by migration 4 (not here), so it is
+-- only created once the filename column is guaranteed to exist.
 CREATE INDEX IF NOT EXISTS idx_file_tags_tag ON file_tags(tag_id);
 CREATE INDEX IF NOT EXISTS idx_tags_parent ON tags(parent_id);
 CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name);

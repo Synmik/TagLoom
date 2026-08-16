@@ -85,12 +85,12 @@ type ExcludedFolder struct {
 
 // FileFilter holds query parameters for GetFiles.
 type FileFilter struct {
-	FolderPath string   `json:"folder_path"`
-	TagGroups  [][]int64 `json:"tag_groups"` // Each group = OR; between groups = AND
-	FileFormats   []string `json:"file_formats"`
-	MinRating     int      `json:"min_rating"`
-	FavoritesOnly bool     `json:"favorites_only"`
-	UntaggedOnly  bool     `json:"untagged_only"`
+	FolderPath    string    `json:"folder_path"`
+	TagGroups     [][]int64 `json:"tag_groups"` // Each group = OR; between groups = AND
+	FileFormats   []string  `json:"file_formats"`
+	MinRating     int       `json:"min_rating"`
+	FavoritesOnly bool      `json:"favorites_only"`
+	UntaggedOnly  bool      `json:"untagged_only"`
 }
 
 // SortOpts holds sorting parameters.
