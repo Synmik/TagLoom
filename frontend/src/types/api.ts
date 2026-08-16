@@ -11,6 +11,7 @@ export interface AppBindings {
 
   // Files
   GetFiles(filter: FileFilter, sort: SortOpts, page: number, limit: number): Promise<FilePage>
+  GetFileIDs(filter: FileFilter): Promise<number[]>
   GetFileByID(id: number): Promise<File>
   UpdateFile(update: FileUpdate): Promise<void>
   SearchFiles(query: string, limit: number): Promise<File[]>

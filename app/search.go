@@ -102,64 +102,7 @@ func (a *App) GetFiles(filter db.FileFilter, sortOpts db.SortOpts, page, limit i
 		page = 0
 	}
 
-	// Build WHERE clause dynamically
-	var conditions []string
-	var args []any
-
-	if filter.FolderPath != "" {
-		conditions = append(conditions, fmt.Sprintf("f.folder_path = ?"))
-		// Convert absolute folder path to relative for DB comparison.
-		// Root folder (vault path) → ".", subfolder → relative path.
-		folderFilter := filter.FolderPath
-		if filepath.IsAbs(folderFilter) {
-			folderFilter = v.toRelativePath(folderFilter)
-		}
-		args = append(args, folderFilter)
-	}
-	if len(filter.TagGroups) > 0 {
-		// Each group = OR (tag + descendants); between groups = AND
-		for _, group := range filter.TagGroups {
-			if len(group) == 0 {
-				continue
-			}
-			if len(group) == 1 {
-				// Single tag — simple equality
-				conditions = append(conditions, "f.id IN (SELECT file_id FROM file_tags WHERE tag_id = ?)")
-				args = append(args, group[0])
-			} else {
-				// Multiple tags in group — OR via IN
-				placeholders := make([]string, len(group))
-				for i, tagID := range group {
-					placeholders[i] = "?"
-					args = append(args, tagID)
-				}
-				conditions = append(conditions, fmt.Sprintf("f.id IN (SELECT file_id FROM file_tags WHERE tag_id IN (%s))", strings.Join(placeholders, ",")))
-			}
-		}
-	}
-	if len(filter.FileFormats) > 0 {
-		formatPlaceholders := make([]string, len(filter.FileFormats))
-		for i, fmt_ := range filter.FileFormats {
-			formatPlaceholders[i] = "?"
-			args = append(args, "%."+fmt_+"%")
-		}
-		conditions = append(conditions, "("+strings.Join(formatPlaceholders, " OR f.vault_path LIKE ")+")")
-	}
-	if filter.MinRating > 0 {
-		conditions = append(conditions, "f.rating >= ?")
-		args = append(args, filter.MinRating)
-	}
-	if filter.FavoritesOnly {
-		conditions = append(conditions, "f.is_favorite = 1")
-	}
-	if filter.UntaggedOnly {
-		conditions = append(conditions, "f.id NOT IN (SELECT file_id FROM file_tags)")
-	}
-
-	whereClause := ""
-	if len(conditions) > 0 {
-		whereClause = "WHERE " + strings.Join(conditions, " AND ")
-	}
+	whereClause, args := buildFileFilterClause(v, filter)
 
 	// Build sorting
 	sortField := sortOpts.Field
@@ -225,6 +168,109 @@ func (a *App) GetFiles(filter db.FileFilter, sortOpts db.SortOpts, page, limit i
 		Page:       page,
 		Limit:      limit,
 	}, nil
+}
+
+// buildFileFilterClause builds the WHERE clause (with bound arguments) for a
+// files query from the given filter. Shared by GetFiles (rows + count) and
+// GetFileIDs (ids only), so both always agree on what "matching" means.
+func buildFileFilterClause(v vault, filter db.FileFilter) (string, []any) {
+	var conditions []string
+	var args []any
+
+	if filter.FolderPath != "" {
+		conditions = append(conditions, fmt.Sprintf("f.folder_path = ?"))
+		// Convert absolute folder path to relative for DB comparison.
+		// Root folder (vault path) → ".", subfolder → relative path.
+		folderFilter := filter.FolderPath
+		if filepath.IsAbs(folderFilter) {
+			folderFilter = v.toRelativePath(folderFilter)
+		}
+		args = append(args, folderFilter)
+	}
+	if len(filter.TagGroups) > 0 {
+		// Each group = OR (tag + descendants); between groups = AND
+		for _, group := range filter.TagGroups {
+			if len(group) == 0 {
+				continue
+			}
+			if len(group) == 1 {
+				// Single tag — simple equality
+				conditions = append(conditions, "f.id IN (SELECT file_id FROM file_tags WHERE tag_id = ?)")
+				args = append(args, group[0])
+			} else {
+				// Multiple tags in group — OR via IN
+				placeholders := make([]string, len(group))
+				for i, tagID := range group {
+					placeholders[i] = "?"
+					args = append(args, tagID)
+				}
+				conditions = append(conditions, fmt.Sprintf("f.id IN (SELECT file_id FROM file_tags WHERE tag_id IN (%s))", strings.Join(placeholders, ",")))
+			}
+		}
+	}
+	if len(filter.FileFormats) > 0 {
+		// LOWER() on both sides — SQLite LIKE is case-sensitive for ASCII,
+		// and stored paths can carry uppercase extensions.
+		// One full "LOWER(f.vault_path) LIKE ?" clause per format — the
+		// join must never supply the LIKE keyword, or a single-format
+		// filter degenerates into WHERE (?).
+		formatParts := make([]string, len(filter.FileFormats))
+		for i, fmt_ := range filter.FileFormats {
+			formatParts[i] = "LOWER(f.vault_path) LIKE ?"
+			args = append(args, "%."+strings.ToLower(fmt_)+"%")
+		}
+		conditions = append(conditions, "("+strings.Join(formatParts, " OR ")+")")
+	}
+	if filter.MinRating > 0 {
+		conditions = append(conditions, "f.rating >= ?")
+		args = append(args, filter.MinRating)
+	}
+	if filter.FavoritesOnly {
+		conditions = append(conditions, "f.is_favorite = 1")
+	}
+	if filter.UntaggedOnly {
+		conditions = append(conditions, "f.id NOT IN (SELECT file_id FROM file_tags)")
+	}
+
+	whereClause := ""
+	if len(conditions) > 0 {
+		whereClause = "WHERE " + strings.Join(conditions, " AND ")
+	}
+	return whereClause, args
+}
+
+// GetFileIDs returns only the IDs of all files matching the filter — no
+// pagination, sorting, COUNT(*), or tag attachment. Batch operations that
+// target an entire folder need exactly this and nothing else, so a 500K-file
+// folder costs one query returning bare ints instead of ~1000 pages of full
+// file objects over the JSON-RPC bridge.
+func (a *App) GetFileIDs(filter db.FileFilter) ([]int64, error) {
+	v := a.vault()
+	if v.db == nil {
+		return nil, fmt.Errorf("no vault open")
+	}
+
+	whereClause, args := buildFileFilterClause(v, filter)
+	querySQL := fmt.Sprintf("SELECT f.id FROM files f %s", whereClause)
+
+	rows, err := v.db.Conn().Query(querySQL, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query file IDs: %w", err)
+	}
+	defer rows.Close()
+
+	ids := []int64{}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return ids, nil
 }
 
 // attachTagsForFiles does a single batch query to get all tags for the given file IDs

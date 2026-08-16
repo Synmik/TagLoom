@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import type { File, FileUpdate, FilePage, FileFilter, SortOpts } from '../types/file'
-import { GetFiles, UpdateFile, SearchFiles, GenerateThumbnail, GenerateThumbnailsPool, AddTagsToFiles, RemoveTagsFromFiles, SetRatingForFiles, SetFavoriteForFiles, DeleteFile, OpenOriginalFile, OpenFileFolder, DeleteOriginalFile, CopyImageToClipboard } from '../api/backend'
+import { GetFiles, GetFileIDs, UpdateFile, SearchFiles, GenerateThumbnail, GenerateThumbnailsPool, AddTagsToFiles, RemoveTagsFromFiles, SetRatingForFiles, SetFavoriteForFiles, DeleteFile, OpenOriginalFile, OpenFileFolder, DeleteOriginalFile, CopyImageToClipboard } from '../api/backend'
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime'
 import { useFiltersStore } from './filters'
 import { useUIStore } from './ui'
@@ -147,31 +147,13 @@ export const useFilesStore = defineStore('files', {
     /** Get all file IDs for current selection or folder bulk edit scope */
     async getAllSelectedIds(): Promise<number[]> {
       if (this.folderBulkEditPath) {
-        // Fetch all file IDs for this folder from backend (without loading into gallery)
+        // One backend query returning only IDs (no full file objects,
+        // no pagination loop) — see GetFileIDs on the Go side.
         const filtersStore = useFiltersStore()
         const activeFilter = filtersStore.asBackendFilter
-        const allIds: number[] = []
-        const limit = 500
-        let page = 0
-        let totalCount = 0
-
-        // First get total count
-        const firstResult: FilePage = await GetFiles(
-          { ...activeFilter, folder_path: this.folderBulkEditPath }, { field: 'indexed_at', order: 'desc' }, 0, 1
-        )
-        totalCount = firstResult?.total_count ?? 0
-
-        // Fetch all pages of IDs
-        for (let p = 0; p * limit < totalCount; p++) {
-          const result: FilePage = await GetFiles(
-            { ...activeFilter, folder_path: this.folderBulkEditPath }, { field: 'indexed_at', order: 'desc' }, p, limit
-          )
-          const fileArray: File[] = result && Array.isArray(result.files) ? result.files : []
-          for (const f of fileArray) {
-            allIds.push(f.id)
-          }
-        }
-        return allIds
+        const ids = await GetFileIDs({ ...activeFilter, folder_path: this.folderBulkEditPath })
+        // Go returns nil slice → null in JS when nothing matches
+        return Array.isArray(ids) ? ids : []
       }
       return this.selectedFiles.map(f => f.id)
     },

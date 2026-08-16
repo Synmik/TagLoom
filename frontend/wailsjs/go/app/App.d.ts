@@ -54,6 +54,8 @@ export function GetFileMetadata(arg1:number):Promise<app.FileMetadata>;
 
 export function GetFileTags(arg1:number):Promise<Array<db.Tag>>;
 
+export function GetFileIDs(arg1:db.FileFilter):Promise<Array<number>>;
+
 export function GetFiles(arg1:db.FileFilter,arg2:db.SortOpts,arg3:number,arg4:number):Promise<db.FilePage>;
 
 export function GetFolderTree(arg1:string):Promise<db.FolderNode>;

@@ -7,7 +7,7 @@ export { GetVaultConfig, SetVaultConfig } from '../../wailsjs/go/app/App'
 export { ScanVault, RescanVault } from '../../wailsjs/go/app/App'
 
 // Files
-export { GetFiles, GetFileByID, UpdateFile, SearchFiles, DeleteFile, OpenOriginalFile, OpenFileFolder, DeleteOriginalFile, CopyImageToClipboard } from '../../wailsjs/go/app/App'
+export { GetFiles, GetFileIDs, GetFileByID, UpdateFile, SearchFiles, DeleteFile, OpenOriginalFile, OpenFileFolder, DeleteOriginalFile, CopyImageToClipboard } from '../../wailsjs/go/app/App'
 
 // Import
 export { ImportFile } from '../../wailsjs/go/app/App'

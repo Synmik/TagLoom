@@ -102,6 +102,10 @@ export function GetFileTags(arg1) {
   return window['go']['app']['App']['GetFileTags'](arg1);
 }
 
+export function GetFileIDs(arg1) {
+  return window['go']['app']['App']['GetFileIDs'](arg1);
+}
+
 export function GetFiles(arg1, arg2, arg3, arg4) {
   return window['go']['app']['App']['GetFiles'](arg1, arg2, arg3, arg4);
 }
