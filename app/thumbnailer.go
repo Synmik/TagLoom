@@ -84,14 +84,11 @@ func (a *App) GenerateThumbnail(fileID int64) (string, error) {
 	// Hash is based on relative path (portable across vault moves)
 	thumbPath := v.generateThumbnailAbsolutePath(relVaultPath)
 
-	// If thumbnail already exists, check if source is newer
-	// thumbStr is relative (from DB), resolve it for comparison
-	if v.resolvePath(thumbStr) == thumbPath {
-		thumbStat, err1 := os.Stat(thumbPath)
-		srcStat, err2 := os.Stat(absPath)
-		if err1 == nil && err2 == nil && !srcStat.ModTime().After(thumbStat.ModTime()) {
-			return thumbPath, nil // Thumbnail is up to date
-		}
+	// If the DB points at this exact path and the thumbnail is up to date,
+	// skip regeneration. (If the DB path is stale or the file was replaced,
+	// we regenerate and refresh the DB row below.)
+	if v.resolvePath(thumbStr) == thumbPath && thumbnailUpToDate(thumbPath, absPath) {
+		return thumbPath, nil
 	}
 
 	// Determine file category
@@ -161,6 +158,19 @@ func (a *App) GenerateThumbnail(fileID int64) (string, error) {
 	default:
 		return "", fmt.Errorf("thumbnail generation not supported for %s files", ext)
 	}
+}
+
+// thumbnailUpToDate reports whether an existing thumbnail at thumbPath is
+// still current for the source at srcPath. Returns false if either file
+// cannot be stat-ed (caller should regenerate) or if the source is newer
+// than the thumbnail.
+func thumbnailUpToDate(thumbPath, srcPath string) bool {
+	thumbStat, err1 := os.Stat(thumbPath)
+	srcStat, err2 := os.Stat(srcPath)
+	if err1 != nil || err2 != nil {
+		return false
+	}
+	return !srcStat.ModTime().After(thumbStat.ModTime())
 }
 
 // thumbResult holds the outcome of processing one file's thumbnail.
@@ -285,8 +295,11 @@ func (a *App) GenerateThumbnailsPool() error {
 			// Hash based on relative path (portable across vault moves)
 			thumbPath := v.generateThumbnailAbsolutePath(f.vaultPath)
 
-			// Skip if already generated (another worker may have done it)
-			if _, err := os.Stat(thumbPath); err == nil {
+			// Skip if an up-to-date thumbnail already exists (another worker
+			// may have done it). If the source file is newer than the WebP,
+			// fall through and regenerate — a bare existence check would
+			// leave stale/placeholder thumbnails behind forever.
+			if thumbnailUpToDate(thumbPath, absPath) {
 				finishFile(f.id, true, thumbPath)
 				continue
 			}

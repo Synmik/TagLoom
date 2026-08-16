@@ -51,6 +51,9 @@ const showDeleteConfirm = ref(false)
 
 const thumbnailUrl = ref('')
 const isLoading = ref(true)
+// Set once we've asked the backend to (re)generate this file's thumbnail,
+// so a still-missing thumbnail can't trigger an infinite retry loop.
+const regenerateAttempted = ref(false)
 
 const filename = computed(() => {
   const parts = props.file.vault_path.split(/[\\/]/)
@@ -92,23 +95,43 @@ const thumbnailSrc = computed(() => {
   return `/api/thumbnail/${props.file.id}${bust}`
 })
 
-onMounted(async () => {
-  // Preload via a hidden Image so we know when the thumbnail is ready.
-  // The preload and the actual <img> use the exact same URL, so the
-  // browser serves the preloaded response from its HTTP cache instead
-  // of making a second request.
+// Load the thumbnail via a hidden Image so we know when it's ready. The
+// preload and the actual <img> use the exact same URL, so the browser
+// serves the preloaded response from its HTTP cache instead of making a
+// second request.
+const loadThumbnail = (retry: boolean) => {
+  // On retry add a one-off parameter to bypass any cached 404 / stale
+  // response; the endpoint ignores unknown query params.
+  const url = retry
+    ? `${thumbnailSrc.value}&retry=${Date.now()}`
+    : thumbnailSrc.value
+
   const img = new Image()
   img.onload = () => {
-    thumbnailUrl.value = thumbnailSrc.value
+    thumbnailUrl.value = url
     isLoading.value = false
   }
-  img.onerror = () => {
-    // Thumbnail not available yet (e.g. not generated). The cell shows
-    // its empty background; the HTTP endpoint is the single source of
-    // truth for thumbnails (browser-cached), so no JS-side fallback.
+  img.onerror = async () => {
+    if (!regenerateAttempted.value) {
+      // Thumbnail missing on disk or stale DB row (e.g. old vaults where
+      // the WebP exists but the row points elsewhere). Ask the backend to
+      // (re)generate it, then retry the same cached HTTP endpoint once.
+      regenerateAttempted.value = true
+      const ok = await filesStore.regenerateThumbnail(props.file.id)
+      if (ok) {
+        loadThumbnail(true)
+        return
+      }
+    }
+    // Still unavailable — the cell shows its empty background until the
+    // next grid re-render (scroll, refresh, vault change) retries.
     isLoading.value = false
   }
-  img.src = thumbnailSrc.value
+  img.src = url
+}
+
+onMounted(() => {
+  loadThumbnail(false)
 })
 
 const handleClick = async (e: MouseEvent) => {

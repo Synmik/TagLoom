@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import type { File, FileUpdate, FilePage, FileFilter, SortOpts } from '../types/file'
-import { GetFiles, UpdateFile, SearchFiles, GenerateThumbnailsPool, AddTagsToFiles, RemoveTagsFromFiles, SetRatingForFiles, SetFavoriteForFiles, DeleteFile, OpenOriginalFile, OpenFileFolder, DeleteOriginalFile, CopyImageToClipboard } from '../api/backend'
+import { GetFiles, UpdateFile, SearchFiles, GenerateThumbnail, GenerateThumbnailsPool, AddTagsToFiles, RemoveTagsFromFiles, SetRatingForFiles, SetFavoriteForFiles, DeleteFile, OpenOriginalFile, OpenFileFolder, DeleteOriginalFile, CopyImageToClipboard } from '../api/backend'
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime'
 import { useFiltersStore } from './filters'
 import { useUIStore } from './ui'
@@ -227,6 +227,21 @@ export const useFilesStore = defineStore('files', {
         this.totalCount = 0
       } finally {
         this.isLoading = false
+      }
+    },
+
+    /** Regenerate a single file's thumbnail on the backend.
+     *  Called when the HTTP thumbnail endpoint fails (missing WebP, stale
+     *  DB row, ...). Generation only writes the WebP file + DB row — the
+     *  image itself is still fetched via the cached HTTP endpoint, so no
+     *  image bytes ever go through JSON-RPC. */
+    async regenerateThumbnail(fileID: number): Promise<boolean> {
+      try {
+        await GenerateThumbnail(fileID)
+        return true
+      } catch (e) {
+        console.warn('Failed to regenerate thumbnail for', fileID, e)
+        return false
       }
     },
 
