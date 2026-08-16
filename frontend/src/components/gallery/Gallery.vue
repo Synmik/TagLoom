@@ -232,7 +232,6 @@ watch(
       filesStore.selectedFiles = []
       filesStore.totalCount = 0
       filesStore.page = 0
-      filesStore.clearThumbnailCache()
       filtersStore.clearFilters()
     } else {
       resetPage()

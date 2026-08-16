@@ -102,12 +102,10 @@ onMounted(async () => {
     thumbnailUrl.value = thumbnailSrc.value
     isLoading.value = false
   }
-  img.onerror = async () => {
-    // Fallback to base64 data URL when the HTTP endpoint fails
-    const dataUrl = await filesStore.getThumbnail(props.file.id)
-    if (dataUrl) {
-      thumbnailUrl.value = dataUrl
-    }
+  img.onerror = () => {
+    // Thumbnail not available yet (e.g. not generated). The cell shows
+    // its empty background; the HTTP endpoint is the single source of
+    // truth for thumbnails (browser-cached), so no JS-side fallback.
     isLoading.value = false
   }
   img.src = thumbnailSrc.value

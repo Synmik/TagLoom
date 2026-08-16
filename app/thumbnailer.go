@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -570,47 +569,5 @@ func (a *App) GetThumbnailInfo(fileID int64) (*ThumbnailInfo, error) {
 	return info, nil
 }
 
-// GetThumbnailData reads a thumbnail file and returns it as a base64 data URL.
-// The frontend uses this to display thumbnails in <img> tags.
-func (a *App) GetThumbnailData(fileID int64) (string, error) {
-	v := a.vault()
-	if v.db == nil {
-		return "", fmt.Errorf("no vault open")
-	}
-
-	// Fetch thumbnail_path from DB
-	row := v.db.Conn().QueryRow("SELECT thumbnail_path FROM files WHERE id = ?", fileID)
-	var thumbPath *string // nullable in DB
-	if err := row.Scan(&thumbPath); err != nil {
-		return "", fmt.Errorf("no thumbnail for file %d: %w", fileID, err)
-	}
-	if thumbPath == nil || *thumbPath == "" {
-		return "", fmt.Errorf("no thumbnail path for file %d", fileID)
-	}
-
-	// Resolve relative path to absolute
-	absThumb := v.resolvePath(*thumbPath)
-	data, err := os.ReadFile(absThumb)
-	if err != nil {
-		return "", fmt.Errorf("failed to read thumbnail: %w", err)
-	}
-
-	// Encode as base64 data URL
-	b64 := base64.StdEncoding.EncodeToString(data)
-	return "data:image/webp;base64," + b64, nil
-}
-
-// ServeThumbnail reads a thumbnail file and returns its bytes.
-// Used by the frontend to display thumbnails via a Go handler.
-func ServeThumbnail(thumbPath string) ([]byte, error) {
-	if thumbPath == "" {
-		return nil, fmt.Errorf("no thumbnail path")
-	}
-	data, err := os.ReadFile(thumbPath)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
-}
 
 

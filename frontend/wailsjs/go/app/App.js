@@ -134,10 +134,6 @@ export function GetTags(arg1) {
   return window['go']['app']['App']['GetTags'](arg1);
 }
 
-export function GetThumbnailData(arg1) {
-  return window['go']['app']['App']['GetThumbnailData'](arg1);
-}
-
 export function GetThumbnailInfo(arg1) {
   return window['go']['app']['App']['GetThumbnailInfo'](arg1);
 }

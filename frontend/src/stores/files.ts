@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import type { File, FileUpdate, FilePage, FileFilter, SortOpts } from '../types/file'
-import { GetFiles, UpdateFile, SearchFiles, GenerateThumbnail, GenerateThumbnailsPool, GetThumbnailData, AddTagsToFiles, RemoveTagsFromFiles, SetRatingForFiles, SetFavoriteForFiles, DeleteFile, OpenOriginalFile, OpenFileFolder, DeleteOriginalFile, CopyImageToClipboard } from '../api/backend'
+import { GetFiles, UpdateFile, SearchFiles, GenerateThumbnailsPool, AddTagsToFiles, RemoveTagsFromFiles, SetRatingForFiles, SetFavoriteForFiles, DeleteFile, OpenOriginalFile, OpenFileFolder, DeleteOriginalFile, CopyImageToClipboard } from '../api/backend'
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime'
 import { useFiltersStore } from './filters'
 import { useUIStore } from './ui'
@@ -15,8 +15,6 @@ export const useFilesStore = defineStore('files', {
     page: 0,
     limit: 500,
     isLoading: false,
-    // Cache of fileID → data URL for thumbnails
-    thumbnailCache: new Map<number, string>(),
   }),
   getters: {
     hasSelection: (state: any) => state.selectedFiles.length > 0,
@@ -230,41 +228,6 @@ export const useFilesStore = defineStore('files', {
       } finally {
         this.isLoading = false
       }
-    },
-
-    /** Generate a thumbnail for a single file and return its data URL */
-    async generateThumbnail(fileID: number): Promise<string | null> {
-      try {
-        await GenerateThumbnail(fileID)
-        const dataUrl = await GetThumbnailData(fileID)
-        this.thumbnailCache.set(fileID, dataUrl)
-        return dataUrl
-      } catch (e) {
-        console.warn('Failed to generate thumbnail for', fileID, e)
-        return null
-      }
-    },
-
-    /** Get a cached thumbnail data URL, or generate one if missing */
-    async getThumbnail(fileID: number): Promise<string | null> {
-      const cached = this.thumbnailCache.get(fileID)
-      if (cached) return cached
-      return this.generateThumbnail(fileID)
-    },
-
-    /** Generate thumbnails for all currently loaded files */
-    async generateAllThumbnails() {
-      const fileIDs = this.files.map(f => f.id)
-      const results = await Promise.allSettled(
-        fileIDs.map(id => this.generateThumbnail(id))
-      )
-      const success = results.filter(r => r.status === 'fulfilled' && r.value !== null).length
-      console.log(`Generated ${success}/${fileIDs.length} thumbnails`)
-    },
-
-    /** Clear the thumbnail cache */
-    clearThumbnailCache() {
-      this.thumbnailCache.clear()
     },
 
     // ── Batch operations ──
