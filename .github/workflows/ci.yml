@@ -20,15 +20,6 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: go build
-        run: go build ./...
-
-      - name: go vet
-        run: go vet ./...
-
-      - name: go test
-        run: go test ./... -count=1
-
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
@@ -43,3 +34,15 @@ jobs:
       - name: npm run build (vue-tsc + vite)
         working-directory: frontend
         run: npm run build
+
+      # frontend/dist is //go:embed'ed by main.go, so the frontend must be
+      # built before any Go step.
+
+      - name: go build
+        run: go build ./...
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go test
+        run: go test ./... -count=1
