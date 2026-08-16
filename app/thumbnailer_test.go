@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"image"
 	"image/png"
 	"os"
@@ -149,6 +150,65 @@ func TestRepairAllThumbnails(t *testing.T) {
 	}
 	if got := thumbPathFor(t, a, id2); got != before2 {
 		t.Errorf("img2 path changed on second repair: %q", got)
+	}
+}
+
+// TestCancelThumbnailGeneration verifies that CancelThumbnailGeneration
+// actually stops a running pool: most seeded files must still be left
+// without a thumbnail, and the cancel handle must be cleared once the pool
+// exits. (Before the cancel func was wired up, the pool ignored cancel and
+// generated everything.)
+func TestCancelThumbnailGeneration(t *testing.T) {
+	if !ffmpegAvailable {
+		t.Skip("ffmpeg not available")
+	}
+	a := newTestApp(t)
+
+	const n = 500
+	ids := make([]int64, n)
+	for i := 0; i < n; i++ {
+		name := fmt.Sprintf("cancel-%03d.png", i)
+		writeTestPNG(t, filepath.Join(a.vaultPath, name))
+		ids[i] = seedFile(t, a, name)
+	}
+
+	done := make(chan error, 1)
+	go func() { done <- a.GenerateThumbnailsPool() }()
+
+	// Wait until the pool has registered its cancel handle.
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		a.mu.RLock()
+		registered := a.thumbCancel != nil
+		a.mu.RUnlock()
+		if registered {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	a.CancelThumbnailGeneration()
+
+	if err := <-done; err != nil {
+		t.Fatalf("GenerateThumbnailsPool: %v", err)
+	}
+
+	a.mu.RLock()
+	left := a.thumbCancel
+	a.mu.RUnlock()
+	if left != nil {
+		t.Error("thumbCancel not cleared after pool finished")
+	}
+
+	// Cancel had an effect: the majority of rows never got a thumbnail.
+	remaining := 0
+	for _, id := range ids {
+		if thumbPathFor(t, a, id) == "" {
+			remaining++
+		}
+	}
+	if remaining < n/2 {
+		t.Errorf("cancel had no effect: only %d of %d rows left without thumbnail", remaining, n)
 	}
 }
 

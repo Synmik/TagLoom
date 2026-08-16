@@ -261,6 +261,9 @@ func (a *App) runThumbnailPool(repairAll bool) error {
 	}
 	ctx, cancel := context.WithCancel(parent)
 	defer cancel()
+	// Register the cancel handle so CancelThumbnailGeneration can reach it.
+	cancelGen := a.setThumbCancel(cancel)
+	defer a.clearThumbCancel(cancelGen)
 
 	// Channel for distributing work
 	jobs := make(chan pendingFile, total)
@@ -452,9 +455,42 @@ func (a *App) runThumbnailPool(repairAll bool) error {
 	return nil
 }
 
-// CancelThumbnailGeneration cancels an ongoing thumbnail generation pool.
+// setThumbCancel registers the running pool's cancel handle and returns
+// its generation. Use the returned generation with clearThumbCancel so a
+// late-finishing pool can never clear a newer pool's handle (Go functions
+// are not comparable).
+func (a *App) setThumbCancel(cancel context.CancelFunc) int {
+	a.mu.Lock()
+	a.thumbCancelGen++
+	a.thumbCancel = cancel
+	gen := a.thumbCancelGen
+	a.mu.Unlock()
+	return gen
+}
+
+// clearThumbCancel deregisters the pool's cancel handle for generation gen.
+func (a *App) clearThumbCancel(gen int) {
+	a.mu.Lock()
+	if a.thumbCancelGen == gen {
+		a.thumbCancel = nil
+	}
+	a.mu.Unlock()
+}
+
+// CancelThumbnailGeneration cancels an ongoing thumbnail generation pool
+// (GenerateThumbnailsPool or RepairAllThumbnails). Workers stop picking up
+// new files at their next checkpoint; files already in flight finish and
+// their results are still persisted. Cancelling when no pool is running is
+// a no-op (no event).
 func (a *App) CancelThumbnailGeneration() {
-	// This will be wired to a cancel context in the future
+	a.mu.Lock()
+	cancel := a.thumbCancel
+	a.thumbCancel = nil
+	a.mu.Unlock()
+	if cancel == nil {
+		return
+	}
+	cancel()
 	a.emitEvent("thumb:cancelled", true)
 }
 

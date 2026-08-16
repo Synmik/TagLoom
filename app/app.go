@@ -40,6 +40,11 @@ type App struct {
 	// files table.
 	fileCount int
 	appCfg    *config.AppSettings
+	// thumbCancel cancels the currently running thumbnail worker pool, if
+	// any (see CancelThumbnailGeneration). thumbCancelGen disambiguates
+	// which pool registered it (Go functions are not comparable).
+	thumbCancel    context.CancelFunc
+	thumbCancelGen int
 }
 
 // NewApp creates a new App instance.
