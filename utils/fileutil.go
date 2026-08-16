@@ -17,9 +17,60 @@ import (
 
 // SupportedExtensions maps file categories to their extensions.
 var SupportedExtensions = map[string][]string{
-	"image": {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tiff", ".tif", ".svg", ".avif", ".jxl", ".jpegxl"},
-	"video": {".mp4", ".mov", ".avi", ".webm", ".mkv", ".wmv", ".flv", ".m4v", ".3gp", ".3g2", ".vob", ".ogv", ".mpg", ".mpeg", ".m2v", ".ts", ".mts", ".m2ts", ".asf", ".rm", ".amv", ".f4v", ".dv", ".mxf"},
+	"image":    {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tiff", ".tif", ".svg", ".avif", ".jxl", ".jpegxl"},
+	"video":    {".mp4", ".mov", ".avi", ".webm", ".mkv", ".wmv", ".flv", ".m4v", ".3gp", ".3g2", ".vob", ".ogv", ".mpg", ".mpeg", ".m2v", ".ts", ".mts", ".m2ts", ".asf", ".rm", ".amv", ".f4v", ".dv", ".mxf"},
 	"animated": {".gif", ".webm"},
+}
+
+// MIMETypes maps lowercase file extensions (with leading dot) to MIME types.
+// Used by the HTTP file API — video players need the exact content type for
+// seeking, and http.DetectContentType can't recognize every supported format
+// (e.g. mkv, wmv, webm).
+var MIMETypes = map[string]string{
+	// Images
+	".jpg":  "image/jpeg",
+	".jpeg": "image/jpeg",
+	".png":  "image/png",
+	".gif":  "image/gif",
+	".webp": "image/webp",
+	".bmp":  "image/bmp",
+	".tiff": "image/tiff",
+	".tif":  "image/tiff",
+	".svg":  "image/svg+xml",
+	// Video
+	".mp4":  "video/mp4",
+	".m4v":  "video/mp4",
+	".f4v":  "video/mp4",
+	".mov":  "video/quicktime",
+	".avi":  "video/x-msvideo",
+	".webm": "video/webm",
+	".mkv":  "video/x-matroska",
+	".wmv":  "video/x-ms-wmv",
+	".flv":  "video/x-flv",
+	".3gp":  "video/3gpp",
+	".3g2":  "video/3gpp2",
+	".vob":  "video/mpeg",
+	".mpg":  "video/mpeg",
+	".mpeg": "video/mpeg",
+	".m2v":  "video/mpeg",
+	".ogv":  "video/ogg",
+	".ts":   "video/mp2t",
+	".mts":  "video/mp2t",
+	".m2ts": "video/mp2t",
+	".asf":  "video/x-ms-asf",
+	".rm":   "application/vnd.rn-realmedia",
+	".amv":  "video/avi",
+	".dv":   "video/dv",
+	".mxf":  "application/mxf",
+}
+
+// MIMEType returns the MIME type for a file's extension, or
+// "application/octet-stream" for unknown extensions.
+func MIMEType(path string) string {
+	if ct, ok := MIMETypes[strings.ToLower(filepath.Ext(path))]; ok {
+		return ct
+	}
+	return "application/octet-stream"
 }
 
 // IsSupported checks if a file extension is supported.
@@ -180,13 +231,13 @@ const (
 )
 
 var (
-	shell32            = syscall.NewLazyDLL("shell32.dll")
+	shell32              = syscall.NewLazyDLL("shell32.dll")
 	procSHFileOperationW = shell32.NewProc("SHFileOperationW")
 )
 
 // FileTimes holds creation and modification times extracted from os.FileInfo.
 type FileTimes struct {
-	CreatedAt time.Time
+	CreatedAt  time.Time
 	ModifiedAt time.Time
 }
 
