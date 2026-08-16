@@ -42,6 +42,12 @@ It indexes existing folders (vaults) without modifying any original files — al
 - Select and download the .exe installer from GitHub Releases and follow the wizard
 - Or download the standalone `.exe`, place it anywhere, and run it directly
 
+> [!IMPORTANT]
+> **FFmpeg is required** for thumbnail generation (images and videos) and is not
+> bundled with the app. Install it and make sure `ffmpeg.exe` is on your PATH
+> (or located at `C:\ffmpeg\bin\` or `C:\Program Files\ffmpeg\bin\`). Without
+> it the app still runs, but no thumbnails can be generated.
+
 ### Use
 
 #### First steps
@@ -80,6 +86,8 @@ It indexes existing folders (vaults) without modifying any original files — al
    - Ensure node and npm are on your PATH
 3. FFmpeg (required at runtime)
    - Download from https://ffmpeg.org/download.html
+   - **All** thumbnails (images and videos) are generated with FFmpeg; if it is
+     not found on PATH, no thumbnails can be created
 
 #### Build steps
 
