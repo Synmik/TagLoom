@@ -34,6 +34,11 @@ type App struct {
 	db        *db.Database
 	vaultPath string
 	vaultCfg  *config.VaultConfig
+	// fileCount is the cached files-table row count for the current vault,
+	// maintained on vault install and every files-table mutation so
+	// GetCurrentVault never has to run COUNT(*) on the (potentially huge)
+	// files table.
+	fileCount int
 	appCfg    *config.AppSettings
 }
 
@@ -46,26 +51,30 @@ func NewApp() *App {
 // lock. Methods that need vault state take one snapshot at entry and use it
 // throughout, so a concurrent vault switch can never mix two vaults mid-call.
 type vault struct {
-	db   *db.Database
-	path string
-	cfg  *config.VaultConfig
+	db        *db.Database
+	path      string
+	cfg       *config.VaultConfig
+	fileCount int
 }
 
 // vault returns the current vault state as a consistent snapshot.
 func (a *App) vault() vault {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	return vault{db: a.db, path: a.vaultPath, cfg: a.vaultCfg}
+	return vault{db: a.db, path: a.vaultPath, cfg: a.vaultCfg, fileCount: a.fileCount}
 }
 
 // setVault atomically installs a new vault as the current one.
 // Callers must have completed all slow I/O (open DB, load config) beforehand.
+// The cached file count is reset to 0; install sites set it via setFileCount
+// immediately after.
 func (a *App) setVault(d *db.Database, path string, cfg *config.VaultConfig) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.db = d
 	a.vaultPath = path
 	a.vaultCfg = cfg
+	a.fileCount = 0
 	if a.appCfg != nil {
 		a.appCfg.LastVaultPath = path
 	}
@@ -84,7 +93,38 @@ func (a *App) closeCurrentVault() error {
 	a.db = nil
 	a.vaultPath = ""
 	a.vaultCfg = nil
+	a.fileCount = 0
 	return err
+}
+
+// setFileCount updates the cached files-table row count for the current vault.
+func (a *App) setFileCount(n int) {
+	a.mu.Lock()
+	a.fileCount = n
+	a.mu.Unlock()
+}
+
+// adjustFileCount bumps the cached file count by delta (clamped at 0).
+func (a *App) adjustFileCount(delta int) {
+	a.mu.Lock()
+	a.fileCount += delta
+	if a.fileCount < 0 {
+		a.fileCount = 0
+	}
+	a.mu.Unlock()
+}
+
+// refreshFileCount recomputes the cached file count with a single COUNT(*)
+// query. Called after bulk operations (scans, imports) where incremental
+// bookkeeping would be fragile.
+func (a *App) refreshFileCount(v vault) {
+	if v.db == nil {
+		return
+	}
+	var n int
+	if err := v.db.Conn().QueryRow("SELECT COUNT(*) FROM files").Scan(&n); err == nil {
+		a.setFileCount(n)
+	}
 }
 
 // resolvePath converts a relative path (stored in DB) to an absolute path.
@@ -158,14 +198,13 @@ func (a *App) GetLastVaultPath() string {
 }
 
 // GetCurrentVault returns information about the currently open vault.
+// The file count is served from the in-memory cache (see setFileCount /
+// adjustFileCount / refreshFileCount) — no COUNT(*) per call.
 func (a *App) GetCurrentVault() *db.VaultInfo {
 	v := a.vault()
 	if v.db == nil || v.path == "" {
 		return nil
 	}
-
-	var fileCount int
-	_ = v.db.Conn().QueryRow("SELECT COUNT(*) FROM files").Scan(&fileCount)
 
 	name, createdAt := "", ""
 	if v.cfg != nil {
@@ -176,7 +215,7 @@ func (a *App) GetCurrentVault() *db.VaultInfo {
 		Path:      v.path,
 		Name:      name,
 		CreatedAt: createdAt,
-		FileCount: fileCount,
+		FileCount: v.fileCount,
 	}
 }
 

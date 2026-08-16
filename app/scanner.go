@@ -134,6 +134,10 @@ func (a *App) ScanVault() (int, error) {
 		return 0, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
+	// Refresh the cached file count (upserts don't tell us how many were
+	// actually new vs. updated, and rows for deleted files may linger).
+	a.refreshFileCount(v)
+
 	// Emit completion
 	a.emitEvent("scan:progress", map[string]int{
 		"current": totalCount,
@@ -365,6 +369,9 @@ func (a *App) RescanVault() (int, error) {
 	if err := tx.Commit(); err != nil {
 		return 0, fmt.Errorf("failed to commit: %w", err)
 	}
+
+	// Update the cached file count from the exact diff.
+	a.adjustFileCount(len(added) - len(removed))
 
 	// Emit completion
 	a.emitEvent("rescan:complete", map[string]int{
@@ -647,12 +654,19 @@ func (a *App) DeleteOriginalFile(fileID int64) error {
 		return fmt.Errorf("delete file_tags: %w", err)
 	}
 
-	_, err = tx.Exec("DELETE FROM files WHERE id = ?", fileID)
+	res, err := tx.Exec("DELETE FROM files WHERE id = ?", fileID)
 	if err != nil {
 		return fmt.Errorf("delete file: %w", err)
 	}
 
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit: %w", err)
+	}
+
+	if n, _ := res.RowsAffected(); n > 0 {
+		a.adjustFileCount(-1)
+	}
+	return nil
 }
 
 // CopyImageToClipboard reads the original image file and places it on the
@@ -712,12 +726,19 @@ func (a *App) DeleteFile(fileID int64) error {
 	}
 
 	// Remove from files table
-	_, err = tx.Exec("DELETE FROM files WHERE id = ?", fileID)
+	res, err := tx.Exec("DELETE FROM files WHERE id = ?", fileID)
 	if err != nil {
 		return fmt.Errorf("delete file: %w", err)
 	}
 
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit: %w", err)
+	}
+
+	if n, _ := res.RowsAffected(); n > 0 {
+		a.adjustFileCount(-1)
+	}
+	return nil
 }
 
 // indexFile inserts a single file into the database.
@@ -744,7 +765,17 @@ func (a *App) indexFile(filePath string) error {
 		createdAtStr = ft.CreatedAt.Format(time.RFC3339)
 	}
 
-	_, err := v.db.Conn().Exec(`
+	relPath := v.toRelativePath(filePath)
+
+	// Check before upserting whether the row already exists, so we know
+	// afterwards whether the insert grew the files table.
+	var existing int
+	err := v.db.Conn().QueryRow(
+		"SELECT 1 FROM files WHERE vault_path = ?", relPath,
+	).Scan(&existing)
+	isNew := err != nil // no row → not indexed yet
+
+	_, err = v.db.Conn().Exec(`
 		INSERT INTO files (vault_path, folder_path, filename, file_size, date_created, date_modified, indexed_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(vault_path) DO UPDATE SET
@@ -754,13 +785,19 @@ func (a *App) indexFile(filePath string) error {
 			date_created = excluded.date_created,
 			date_modified = excluded.date_modified,
 			indexed_at = excluded.indexed_at
-	`, v.toRelativePath(filePath), v.toRelativePath(folderPath), fileName,
+	`, relPath, v.toRelativePath(folderPath), fileName,
 		info.Size(),
 		createdAtStr,
 		ft.ModifiedAt.Format(time.RFC3339),
 		now)
+	if err != nil {
+		return err
+	}
 
-	return err
+	if isNew {
+		a.adjustFileCount(1)
+	}
+	return nil
 }
 
 // ImportResult holds the result of importing a single file.
@@ -886,6 +923,9 @@ func (a *App) ImportFile(sourcePath string, move bool, targetFolder string) *Imp
 		result.Errors = append(result.Errors, fmt.Sprintf("failed to index file: %v", err))
 		return result
 	}
+
+	// Plain INSERT after the existence check above — a new row was added.
+	a.adjustFileCount(1)
 
 	// Get the newly inserted file ID and generate thumbnail in background
 	var newID int64

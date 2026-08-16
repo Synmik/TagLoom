@@ -84,12 +84,15 @@ func (a *App) OpenVault(path string) (*db.VaultInfo, error) {
 		}
 	}
 
-	// Count indexed files before installing the vault
+	// Count indexed files once, at install time — the count is cached in
+	// App state and maintained on mutations (see setFileCount and friends),
+	// so GetCurrentVault never re-queries COUNT(*).
 	fileCount := 0
 	_ = d.Conn().QueryRow("SELECT COUNT(*) FROM files").Scan(&fileCount)
 
 	// Atomically install as current vault (also saves last-vault path)
 	a.setVault(d, path, cfg)
+	a.setFileCount(fileCount)
 
 	// Add to recent vaults list
 	a.addToRecentVaults(path, cfg.Name)
@@ -155,6 +158,7 @@ func (a *App) CloseVault() error {
 	a.db = nil
 	a.vaultPath = ""
 	a.vaultCfg = nil
+	a.fileCount = 0
 	return nil
 }
 
@@ -234,6 +238,7 @@ func (a *App) CreateVault(path string, settings NewVaultSettings) (*db.VaultInfo
 
 	// Atomically install as current vault (also saves last-vault path)
 	a.setVault(d, path, cfg)
+	a.setFileCount(0) // new vault — the auto-scan below refreshes it
 
 	// Add to recent vaults list
 	a.addToRecentVaults(path, cfg.Name)
