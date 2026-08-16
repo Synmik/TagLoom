@@ -1,0 +1,4 @@
+# Normalize line endings: store LF in the repo, check out LF everywhere.
+# (Windows' default core.autocrlf=true would otherwise check out CRLF,
+#  which breaks `prettier --check` whose default is endOfLine: lf.)
+* text=auto eol=lf
