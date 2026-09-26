@@ -394,11 +394,11 @@ func (a *App) DeleteTagsSafely(tagIDs []int64, childStrategy string) error {
 // previewNames lists up to three names for an error message, with a count for
 // the rest, so the message stays readable for a wide fan-out.
 func previewNames(names []string) string {
-	const max = 3
-	if len(names) <= max {
+	const previewCount = 3
+	if len(names) <= previewCount {
 		return strings.Join(names, ", ")
 	}
-	return fmt.Sprintf("%s, and %d more", strings.Join(names[:max], ", "), len(names)-max)
+	return fmt.Sprintf("%s, and %d more", strings.Join(names[:previewCount], ", "), len(names)-previewCount)
 }
 
 // MoveTag re-parents a tag and positions it within its new level.
@@ -592,16 +592,18 @@ func (a *App) MergeTags(sourceIDs []int64, targetID int64) (*db.TagMergeResult, 
 		for rows.Next() {
 			var alias string
 			if err := rows.Scan(&alias); err != nil {
-				rows.Close()
+				_ = rows.Close()
 				return nil, fmt.Errorf("scan alias of tag %d: %w", id, err)
 			}
 			pending = append(pending, alias)
 		}
 		if err := rows.Err(); err != nil {
-			rows.Close()
+			_ = rows.Close()
 			return nil, fmt.Errorf("read aliases of tag %d: %w", id, err)
 		}
-		rows.Close()
+		// Closed here, not deferred: the loop opens one rows per source and the
+		// transaction outlives the iteration.
+		_ = rows.Close()
 
 		if _, err := tx.Exec(`DELETE FROM tag_aliases WHERE tag_id = ?`, id); err != nil {
 			return nil, fmt.Errorf("release aliases of tag %d: %w", id, err)
