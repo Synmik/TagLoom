@@ -5,6 +5,53 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 26-09-2026
+
+### New Features
+
+- Tag Manager: one window to browse, create, edit, re-parent, reorder, merge and delete tags — virtual
+  list for large tag sets, search by name or alias, multi-select, keyboard navigation, and drag to re-parent
+- Escape steps back through the layers: selection, then filter text, then the window
+- Merge tags with a preview of what moves — file links, aliases, child tags — counted before anything runs;
+  a merged-away tag's name becomes an alias of the target, so saved searches keep matching
+- Deleting tags now reports how many files are affected and, when a tag has children, asks whether to move
+  them up a level, promote them to top level, delete them too, or refuse
+- Categories are top-level grouping tags: they cannot be nested or assigned to files, and a vault migration
+  flattens any that were
+- Tag Manager filter and sort menus — show only unused tags, categories, uncolored tags or top-level ones,
+  and order each level by name, file count or creation date; the footer reads `filtered 12 / 84 tags`
+- Ctrl+F focuses the Tag Manager's filter box
+- Renaming a tag onto a name that already exists offers to merge it into that tag instead
+- Deleting a tag that is on files offers to merge it instead, which keeps every file link
+- The details pane reports how a tag is used (files, child tags, aliases, files under it) and, when a tag
+  that is already on files is turned into a category, links straight to those files
+
+### Changes
+
+- Tag aliases are passed as a list instead of a comma-separated string; a comma in a name or alias no longer
+  splits it
+- Tag rows carrying no files are dimmed so the used vocabulary stands out, and each row shows edit,
+  move up, move down and delete on hover
+- Checking "Is Category" clears the parent picker, so the form cannot promise a parent the save would drop
+- The right panel's tag list refreshes after a merge or a delete, so it never lists a tag that is gone
+- QuickActions: icons 15 -> 20 and buttons 28px -> 32px, App Settings move below Tag Manager
+
+### Fixes
+
+- Deleting a tag from the tag editor no longer leaves child tags pointing at a removed row
+- A tag could be given a parent inside itself, hiding its whole subtree; the backend now refuses it
+- An in-app drag (re-parenting a tag) no longer flashes the "Drop files to import" overlay
+- App shortcuts (Ctrl+A, Ctrl+B, Ctrl+C, Ctrl+R) no longer fire while the Tag Manager is open — Ctrl+A
+  selects tags there instead of every file in the gallery
+- Clearing a tag's parent in the form really moves it to the top level now; the field used to send
+  "leave it alone", so the tag quietly stayed where it was
+- Escape while a merge or delete dialog is open closes the dialog only — it no longer also clears the
+  selection behind it
+- The Tag Manager's details pane no longer opens empty: reading a tag's aliases could throw before the form
+  was filled, leaving the name blank and Save disabled for every change except typing a name
+- Selecting a tag always leaves the "New tag" pane — an empty create form no longer sits on top of a
+  selected tag, which also left Save with nothing to save
+
 ## [0.5.0] - 16-08-2026
 
 ### New Features

@@ -244,7 +244,7 @@ const createTag = async () => {
     color: "",
     is_category: 0,
     sort_order: 0,
-    aliases: "",
+    aliases: [],
   });
   const newTag = tagsStore.tags.find((t) => t.name.toLowerCase() === name.toLowerCase());
   if (newTag) {

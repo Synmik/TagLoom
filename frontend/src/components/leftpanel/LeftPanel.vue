@@ -43,14 +43,14 @@
     >
       <div class="section-header">
         <h3>Tags</h3>
-        <button class="icon-btn" title="Create Tag" @click="openTagManager(null)">
+        <button class="icon-btn" title="Create Tag" @click="openTagEditor(null)">
           <Plus :size="14" />
         </button>
       </div>
-      <TagTree @edit="openTagManager($event)" />
+      <TagTree @edit="openTagEditor($event)" />
     </section>
 
-    <TagManagerModal v-if="showTagManager" :tag="editingTag" @close="closeTagManager" />
+    <TagEditorModal v-if="showTagEditor" :tag="editingTag" @close="closeTagEditor" />
   </aside>
 </template>
 
@@ -59,7 +59,7 @@ import { ref, computed, onBeforeUnmount } from "vue";
 import { FolderOpen, Plus, Star, Tags } from "@lucide/vue";
 import FolderTree from "./FolderTree.vue";
 import TagTree from "./TagTree.vue";
-import TagManagerModal from "../modals/TagManagerModal.vue";
+import TagEditorModal from "../modals/TagEditorModal.vue";
 import { useVaultStore } from "../../stores/vault";
 import { useUIStore } from "../../stores/ui";
 import { useFiltersStore } from "../../stores/filters";
@@ -70,7 +70,7 @@ const filtersStore = useFiltersStore();
 const panelStyle = computed(() => ({ width: `${uiStore.leftPanelWidth}px` }));
 
 const vaultStore = useVaultStore();
-const showTagManager = ref(false);
+const showTagEditor = ref(false);
 const editingTag = ref<Tag | null>(null);
 
 const openVault = () => vaultStore.pickAndOpenVault();
@@ -85,13 +85,13 @@ const toggleUntagged = () => {
   filtersStore.setUntaggedFilter(newState);
 };
 
-const openTagManager = (tag: Tag | null) => {
+const openTagEditor = (tag: Tag | null) => {
   editingTag.value = tag;
-  showTagManager.value = true;
+  showTagEditor.value = true;
 };
 
-const closeTagManager = () => {
-  showTagManager.value = false;
+const closeTagEditor = () => {
+  showTagEditor.value = false;
   editingTag.value = null;
 };
 

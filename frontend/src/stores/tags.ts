@@ -1,13 +1,25 @@
 import { defineStore, storeToRefs } from "pinia";
 import { watch } from "vue";
-import type { Tag, TagCreate, TagUpdate } from "../types/tag";
+import type {
+  ChildStrategy,
+  Tag,
+  TagAlias,
+  TagCreate,
+  TagMergeResult,
+  TagUpdate,
+  TagUsage,
+} from "../types/tag";
 import {
   GetTags,
   CreateTag,
   UpdateTag,
-  DeleteTag,
   GetAllTagFileCounts,
   GetTagAliases,
+  GetAllTagAliases,
+  GetTagUsage,
+  MergeTags,
+  MoveTag,
+  DeleteTagsSafely,
   AddTagToFile,
   RemoveTagFromFile,
   GetFileTags,
@@ -91,18 +103,89 @@ export const useTagsStore = defineStore("tags", {
       await UpdateTag(tag);
       await this.loadTags();
     },
+    /**
+     * Delete a single tag. Its children move up a level instead of being left
+     * behind: PRAGMA foreign_keys is off, so removing a parent outright would
+     * strand them out of sight. Callers that ask the user what to do about
+     * children use deleteTagsSafely.
+     */
     async deleteTag(id: number) {
-      await DeleteTag(id);
+      await this.deleteTagsSafely([id], "promote");
+    },
+
+    /**
+     * Delete tags without orphaning children. `strategy` decides what happens to
+     * the children; "block" makes the backend refuse when any child exists.
+     */
+    async deleteTagsSafely(tagIDs: number[], strategy: ChildStrategy) {
+      if (tagIDs.length === 0) return;
+      await DeleteTagsSafely(tagIDs, strategy);
       await this.loadTags();
-      // Remove deleted tag from active filters so the gallery doesn't query a stale tag
+      await this.dropFromActiveFilters(tagIDs);
+      await this.refreshPreviewTags();
+    },
+
+    /** Fold source tags into target and report what changed. */
+    async mergeTags(sourceIDs: number[], targetID: number): Promise<TagMergeResult | null> {
+      const result = await MergeTags(sourceIDs, targetID);
+      await this.loadTags();
+      await this.dropFromActiveFilters(sourceIDs);
+      await this.refreshPreviewTags();
+      return result ?? null;
+    },
+
+    /**
+     * Re-parent a tag and/or position it before `beforeID` in its new level.
+     * `beforeID = 0` appends to the end of the level.
+     */
+    async moveTag(tagID: number, newParentID: number | null, beforeID = 0) {
+      await MoveTag(tagID, newParentID, beforeID);
+      await this.loadTags();
+    },
+
+    /** How the given tags are used, keyed by tag id: one query for the lot. */
+    async fetchTagUsage(tagIDs: number[]): Promise<Record<number, TagUsage>> {
+      if (tagIDs.length === 0) return {};
+      const result = await GetTagUsage(tagIDs);
+      const usage: Record<number, TagUsage> = {};
+      for (const row of result || []) {
+        usage[row.tag_id] = row;
+      }
+      return usage;
+    },
+
+    /** Aliases of every tag — the manager searches by alias, so it needs them all. */
+    async loadAllTagAliases(): Promise<TagAlias[]> {
+      const result = await GetAllTagAliases();
+      return Array.isArray(result) ? result : [];
+    },
+
+    /**
+     * Remove deleted tags from active filters so the gallery never queries a tag
+     * that no longer exists, and reload once if anything was dropped.
+     */
+    async dropFromActiveFilters(tagIDs: number[]) {
       const { useFiltersStore } = await import("./filters");
       const { useFilesStore } = await import("./files");
       const filtersStore = useFiltersStore();
-      const idx = filtersStore.activeFilters.tagGroups.findIndex((g) => g.includes(id));
-      if (idx >= 0) {
-        filtersStore.activeFilters.tagGroups.splice(idx, 1);
+      const removed = new Set(tagIDs);
+      const kept = filtersStore.activeFilters.tagGroups.filter(
+        (g) => !g.some((id) => removed.has(id)),
+      );
+      if (kept.length !== filtersStore.activeFilters.tagGroups.length) {
+        filtersStore.activeFilters.tagGroups = kept;
         await useFilesStore().reloadFiles();
       }
+    },
+    /**
+     * The right panel lists the open file's tags; a merge or delete changes them
+     * without the panel knowing. Refetch when a file is open.
+     */
+    async refreshPreviewTags() {
+      const { usePreviewStore } = await import("./preview");
+      const previewStore = usePreviewStore();
+      const file = previewStore.currentFile;
+      if (file) await previewStore.loadFileDetails(file.id);
     },
     async addTagToFile(fileID: number, tagID: number) {
       await AddTagToFile(fileID, tagID);

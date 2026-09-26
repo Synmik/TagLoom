@@ -15,6 +15,24 @@ export interface ImportMenuData {
 }
 
 /**
+ * True while a drag started inside the app — re-parenting a tag in the Tag
+ * Manager, for instance. Wails marks the root drop target during any drag over
+ * the window, and its class is what shows the "Drop files to import" overlay, so
+ * without this an internal drag would look like an incoming file drop.
+ * Module level because the drag is started by one component and the overlay
+ * lives in another.
+ */
+let internalDrag = false;
+
+export function beginInternalDrag() {
+  internalDrag = true;
+}
+
+export function endInternalDrag() {
+  internalDrag = false;
+}
+
+/**
  * Uses Wails runtime OnFileDrop for drag-and-drop file import.
  *
  * Wails handles all native drag events at the window level.
@@ -66,7 +84,7 @@ export function useDragDrop() {
     // Watch for Wails' active drop-target class to show the overlay.
     // Wails adds 'wails-drop-target-active' to elements during drag-over.
     const observer = new MutationObserver(() => {
-      const active = rootEl.classList.contains("wails-drop-target-active");
+      const active = rootEl.classList.contains("wails-drop-target-active") && !internalDrag;
       isDragging.value = active;
     });
 

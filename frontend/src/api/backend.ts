@@ -44,6 +44,11 @@ export {
   GetTagFileCount,
   GetAllTagFileCounts,
   GetTagAliases,
+  GetAllTagAliases,
+  GetTagUsage,
+  MergeTags,
+  MoveTag,
+  DeleteTagsSafely,
 } from "../../wailsjs/go/app/App";
 export { AddTagToFile, RemoveTagFromFile, GetFileTags } from "../../wailsjs/go/app/App";
 

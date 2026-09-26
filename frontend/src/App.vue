@@ -51,7 +51,7 @@ import FilePreviewModal from "./components/modals/FilePreviewModal.vue";
 import BatchEditModal from "./components/modals/BatchEditModal.vue";
 import VaultSettingsModal from "./components/modals/VaultSettingsModal.vue";
 import AppSettingsModal from "./components/modals/AppSettingsModal.vue";
-import TagManagerModal from "./components/modals/TagManagerModal.vue";
+import TagManagerModal from "./components/modals/tagmanager/TagManagerModal.vue";
 import NewVaultModal from "./components/modals/NewVaultModal.vue";
 import AboutModal from "./components/modals/AboutModal.vue";
 import ImportMenu from "./components/common/ImportMenu.vue";

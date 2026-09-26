@@ -54,6 +54,10 @@ export function DeleteTag(arg1) {
   return window['go']['app']['App']['DeleteTag'](arg1);
 }
 
+export function DeleteTagsSafely(arg1, arg2) {
+  return window['go']['app']['App']['DeleteTagsSafely'](arg1, arg2);
+}
+
 export function GenerateThumbnail(arg1) {
   return window['go']['app']['App']['GenerateThumbnail'](arg1);
 }
@@ -64,6 +68,10 @@ export function GenerateThumbnailsForFiles(arg1) {
 
 export function GenerateThumbnailsPool() {
   return window['go']['app']['App']['GenerateThumbnailsPool']();
+}
+
+export function GetAllTagAliases() {
+  return window['go']['app']['App']['GetAllTagAliases']();
 }
 
 export function GetAllTagFileCounts() {
@@ -134,6 +142,10 @@ export function GetTagFileCount(arg1) {
   return window['go']['app']['App']['GetTagFileCount'](arg1);
 }
 
+export function GetTagUsage(arg1) {
+  return window['go']['app']['App']['GetTagUsage'](arg1);
+}
+
 export function GetTags(arg1) {
   return window['go']['app']['App']['GetTags'](arg1);
 }
@@ -156,6 +168,14 @@ export function GetVersion() {
 
 export function ImportFile(arg1, arg2, arg3) {
   return window['go']['app']['App']['ImportFile'](arg1, arg2, arg3);
+}
+
+export function MergeTags(arg1, arg2) {
+  return window['go']['app']['App']['MergeTags'](arg1, arg2);
+}
+
+export function MoveTag(arg1, arg2, arg3) {
+  return window['go']['app']['App']['MoveTag'](arg1, arg2, arg3);
 }
 
 export function OpenFileFolder(arg1) {

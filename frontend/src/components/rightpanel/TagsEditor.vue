@@ -133,7 +133,7 @@ const createTag = async () => {
     color: "",
     is_category: 0,
     sort_order: 0,
-    aliases: "",
+    aliases: [],
   });
   // After creating (or finding existing case-insensitive match), attach to current file
   // Use case-insensitive lookup since the backend may return an existing tag

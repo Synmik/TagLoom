@@ -18,7 +18,7 @@ var schemaFS embed.FS
 
 // SchemaVersion is the current schema version. Bump this and append a
 // migration to the list below whenever the schema changes.
-const SchemaVersion = 6
+const SchemaVersion = 7
 
 // Database wraps the standard database/sql connection for a vault.
 type Database struct {
@@ -99,6 +99,7 @@ var migrations = []migration{
 	{version: 4, up: migrateAddFilenameAndDateCreated},
 	{version: 5, up: migrateAddDateCreated},
 	{version: 6, up: migrateAddFileSize},
+	{version: 7, up: migrateFlattenCategories},
 }
 
 // runMigrations applies all migrations newer than the recorded schema
@@ -307,6 +308,21 @@ func migrateAddFileSize(tx *sql.Tx) error {
 	_, err = tx.Exec("ALTER TABLE files ADD COLUMN file_size INTEGER NOT NULL DEFAULT 0")
 	if err != nil {
 		return fmt.Errorf("failed to add file_size column: %w", err)
+	}
+	return nil
+}
+
+// migrateFlattenCategories enforces the rule that a category is a top-level
+// grouping tag. Vaults created before the rule may hold a category nested
+// under another tag, where neither the tag tree (which renders a category as a
+// section header) nor the "a category is not assignable to files" rule makes
+// sense. Such rows are moved to the top level; nothing else about them changes,
+// so their children keep hanging where they were.
+func migrateFlattenCategories(tx *sql.Tx) error {
+	if _, err := tx.Exec(
+		`UPDATE tags SET parent_id = NULL WHERE is_category = 1 AND parent_id IS NOT NULL`,
+	); err != nil {
+		return fmt.Errorf("failed to flatten nested categories: %w", err)
 	}
 	return nil
 }

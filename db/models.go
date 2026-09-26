@@ -50,18 +50,49 @@ type TagCreate struct {
 	ParentID   *int64 `json:"parent_id"`
 	IsCategory int    `json:"is_category"`
 	SortOrder  int    `json:"sort_order"`
-	Aliases    string `json:"aliases"` // comma-separated
+	// Aliases is the full desired alias list; nil or empty means "no aliases".
+	// A slice rather than a delimited string on purpose: an alias may legally
+	// contain a comma.
+	Aliases []string `json:"aliases"`
 }
 
-// TagUpdate is used when editing an existing tag.
+// TagUpdate is used when editing an existing tag. Aliases is the full desired
+// list — existing rows are replaced, so nil/empty clears them.
 type TagUpdate struct {
-	ID         int64  `json:"id"`
-	Name       string `json:"name"`
-	Color      string `json:"color"`
-	ParentID   *int64 `json:"parent_id"`
-	IsCategory int    `json:"is_category"`
-	SortOrder  int    `json:"sort_order"`
-	Aliases    string `json:"aliases"`
+	ID         int64    `json:"id"`
+	Name       string   `json:"name"`
+	Color      string   `json:"color"`
+	ParentID   *int64   `json:"parent_id"`
+	IsCategory int      `json:"is_category"`
+	SortOrder  int      `json:"sort_order"`
+	Aliases    []string `json:"aliases"`
+}
+
+// TagMergeResult reports what a merge actually changed, so the UI can state it
+// instead of guessing: the frontend cannot know how many source files already
+// carried the target tag.
+type TagMergeResult struct {
+	Sources        int `json:"sources"`
+	FilesMoved     int `json:"files_moved"`     // new file_tags rows on the target
+	Duplicates     int `json:"duplicates"`      // source links dropped: the file already had the target
+	AliasesMoved   int `json:"aliases_moved"`   // source aliases that survived on the target
+	NamesAdopted   int `json:"names_adopted"`   // source names kept as target aliases
+	AliasesSkipped int `json:"aliases_skipped"` // forbidden by the unique alias index
+	ChildrenMoved  int `json:"children_moved"`  // source children re-parented onto the target
+}
+
+// TagUsage reports how a tag is used, so destructive UI can state exactly what
+// a delete or merge will change. DescendantFiles matches the tag-tree badge
+// semantics: the tag's own files plus every descendant's files (a file tagged
+// with two descendants is counted per descendant, as in the sidebar).
+type TagUsage struct {
+	TagID           int64  `json:"tag_id"`
+	Name            string `json:"name"`
+	IsCategory      int    `json:"is_category"`
+	DirectFiles     int    `json:"direct_files"`
+	DescendantFiles int    `json:"descendant_files"`
+	Children        int    `json:"children"`
+	Aliases         int    `json:"aliases"`
 }
 
 // TagAlias represents an alternate name for a tag.

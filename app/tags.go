@@ -1,12 +1,67 @@
 package app
 
 import (
+	"database/sql"
 	"fmt"
 	"strings"
 	"time"
 
 	"TagLoom/db"
+	"TagLoom/utils"
 )
+
+// execer is satisfied by both *sql.DB and *sql.Tx, so alias helpers can run
+// either outside a transaction (plain tag create/update) or inside one
+// (merge), without branching on the concrete type.
+type execer interface {
+	Exec(query string, args ...any) (sql.Result, error)
+}
+
+// cleanAliases normalizes a caller-supplied alias list: trims whitespace,
+// drops empties, and removes case-insensitive duplicates (tag aliases are
+// unique case-insensitively — idx_tag_aliases_alias_nocase).
+func cleanAliases(aliases []string) []string {
+	cleaned := make([]string, 0, len(aliases))
+	seen := make(map[string]struct{}, len(aliases))
+	for _, alias := range aliases {
+		alias = strings.TrimSpace(alias)
+		if alias == "" {
+			continue
+		}
+		key := strings.ToLower(alias)
+		if _, dup := seen[key]; dup {
+			continue
+		}
+		seen[key] = struct{}{}
+		cleaned = append(cleaned, alias)
+	}
+	return cleaned
+}
+
+// replaceAliases sets a tag's aliases to exactly the given list, returning how
+// many were stored and how many were dropped because another tag already owns
+// that alias (the case-insensitive unique index forbids the duplicate).
+//
+// An alias collision is expected and reported, not an error. A genuine DB
+// failure is returned so callers that must be atomic (merge) can roll back;
+// callers where aliases are secondary (create/update) log it instead.
+func replaceAliases(db execer, tagID int64, aliases []string) (stored int, skipped int, err error) {
+	if _, err := db.Exec("DELETE FROM tag_aliases WHERE tag_id = ?", tagID); err != nil {
+		return 0, 0, fmt.Errorf("clear aliases: %w", err)
+	}
+	for _, alias := range cleanAliases(aliases) {
+		res, err := db.Exec(`INSERT OR IGNORE INTO tag_aliases (tag_id, alias) VALUES (?, ?)`, tagID, alias)
+		if err != nil {
+			return stored, skipped, fmt.Errorf("insert alias %q: %w", alias, err)
+		}
+		if n, err := res.RowsAffected(); err == nil && n == 0 {
+			skipped++
+		} else {
+			stored++
+		}
+	}
+	return stored, skipped, nil
+}
 
 // GetTags returns all tags, optionally filtered by category.
 func (a *App) GetTags(_ string) ([]db.Tag, error) { // parameter reserved for category filtering (TODO)
@@ -71,18 +126,10 @@ func (a *App) CreateTag(tag *db.TagCreate) (*db.Tag, error) {
 
 	id, _ := result.LastInsertId()
 
-	// Insert aliases
-	if tag.Aliases != "" {
-		for _, alias := range strings.Split(tag.Aliases, ",") {
-			alias = strings.TrimSpace(alias)
-			if alias != "" {
-				// Alias insert is best-effort (INSERT OR IGNORE) — a failure
-				// here must not fail tag creation.
-				_, _ = v.db.Conn().Exec(`
-					INSERT OR IGNORE INTO tag_aliases (tag_id, alias) VALUES (?, ?)
-				`, id, alias)
-			}
-		}
+	// Aliases are best-effort: a DB hiccup on an optional alias must not fail
+	// tag creation, so it is logged rather than returned.
+	if _, _, err := replaceAliases(v.db.Conn(), id, tag.Aliases); err != nil {
+		utils.LogWarn("create tag %d: aliases: %v", id, err)
 	}
 
 	return &db.Tag{
@@ -98,11 +145,24 @@ func (a *App) CreateTag(tag *db.TagCreate) (*db.Tag, error) {
 
 // UpdateTag updates an existing tag.
 // Tag name changes are case-insensitive: renaming to a name that already exists
-// (ignoring case) returns an error.
+// (ignoring case) returns an error. A parent that is the tag itself, one of its
+// own descendants, or a tag that does not exist is rejected — either would leave
+// the subtree unreachable in the tag tree.
 func (a *App) UpdateTag(tag *db.TagUpdate) error {
 	v := a.vault()
 	if v.db == nil {
 		return fmt.Errorf("no vault open")
+	}
+
+	if err := a.validateNewParent(v.db.Conn(), tag.ID, tag.ParentID); err != nil {
+		return err
+	}
+	// A category is a top-level grouping tag, so its parent is cleared on save
+	// rather than rejected. Rejecting would lock the rows that vaults created
+	// before this rule may already contain — a category with a parent could not
+	// even be renamed. Migration 7 flattens those rows for new databases.
+	if tag.IsCategory == 1 {
+		tag.ParentID = nil
 	}
 
 	// Check for case-insensitive duplicate (excluding self)
@@ -126,22 +186,20 @@ func (a *App) UpdateTag(tag *db.TagUpdate) error {
 		return err
 	}
 
-	// Update aliases: remove old, insert new (best-effort, see CreateTag)
-	_, _ = v.db.Conn().Exec("DELETE FROM tag_aliases WHERE tag_id = ?", tag.ID)
-	if tag.Aliases != "" {
-		for _, alias := range strings.Split(tag.Aliases, ",") {
-			alias = strings.TrimSpace(alias)
-			if alias != "" {
-				_, _ = v.db.Conn().Exec(`
-					INSERT OR IGNORE INTO tag_aliases (tag_id, alias) VALUES (?, ?)
-				`, tag.ID, alias)
-			}
-		}
+	// Replace aliases with the submitted list (empty list clears them).
+	// Best-effort, as in CreateTag.
+	if _, _, err := replaceAliases(v.db.Conn(), tag.ID, tag.Aliases); err != nil {
+		utils.LogWarn("update tag %d: aliases: %v", tag.ID, err)
 	}
 	return nil
 }
 
 // DeleteTag removes a tag and its aliases. File associations are also removed.
+//
+// Deprecated: this leaves child tags pointing at a row that no longer exists —
+// PRAGMA foreign_keys is off, so SQLite will not object. Use DeleteTagsSafely,
+// which promotes, roots, or cascades the children and checks that nothing is
+// stranded. Kept only because it is an existing published binding.
 func (a *App) DeleteTag(id int64) error {
 	v := a.vault()
 	if v.db == nil {

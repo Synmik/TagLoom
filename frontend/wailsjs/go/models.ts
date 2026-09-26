@@ -440,13 +440,27 @@ export namespace db {
 	    }
 	}
 	
+	export class TagAlias {
+	    tag_id: number;
+	    alias: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new TagAlias(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.tag_id = source["tag_id"];
+	        this.alias = source["alias"];
+	    }
+	}
 	export class TagCreate {
 	    name: string;
 	    color: string;
 	    parent_id?: number;
 	    is_category: number;
 	    sort_order: number;
-	    aliases: string;
+	    aliases: string[];
 	
 	    static createFrom(source: any = {}) {
 	        return new TagCreate(source);
@@ -462,6 +476,30 @@ export namespace db {
 	        this.aliases = source["aliases"];
 	    }
 	}
+	export class TagMergeResult {
+	    sources: number;
+	    files_moved: number;
+	    duplicates: number;
+	    aliases_moved: number;
+	    names_adopted: number;
+	    aliases_skipped: number;
+	    children_moved: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new TagMergeResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.sources = source["sources"];
+	        this.files_moved = source["files_moved"];
+	        this.duplicates = source["duplicates"];
+	        this.aliases_moved = source["aliases_moved"];
+	        this.names_adopted = source["names_adopted"];
+	        this.aliases_skipped = source["aliases_skipped"];
+	        this.children_moved = source["children_moved"];
+	    }
+	}
 	export class TagUpdate {
 	    id: number;
 	    name: string;
@@ -469,7 +507,7 @@ export namespace db {
 	    parent_id?: number;
 	    is_category: number;
 	    sort_order: number;
-	    aliases: string;
+	    aliases: string[];
 	
 	    static createFrom(source: any = {}) {
 	        return new TagUpdate(source);
@@ -483,6 +521,30 @@ export namespace db {
 	        this.parent_id = source["parent_id"];
 	        this.is_category = source["is_category"];
 	        this.sort_order = source["sort_order"];
+	        this.aliases = source["aliases"];
+	    }
+	}
+	export class TagUsage {
+	    tag_id: number;
+	    name: string;
+	    is_category: number;
+	    direct_files: number;
+	    descendant_files: number;
+	    children: number;
+	    aliases: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new TagUsage(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.tag_id = source["tag_id"];
+	        this.name = source["name"];
+	        this.is_category = source["is_category"];
+	        this.direct_files = source["direct_files"];
+	        this.descendant_files = source["descendant_files"];
+	        this.children = source["children"];
 	        this.aliases = source["aliases"];
 	    }
 	}

@@ -217,7 +217,7 @@ func TestMigrationFailureNotRecorded(t *testing.T) {
 	// idempotency checks in later migrations can't no-op cleanly.
 	// Instead, directly test the invariant with a failing up-func.
 	m := migration{
-		version: 7,
+		version: SchemaVersion + 1, // beyond the real history, so it cannot collide
 		up: func(tx *sql.Tx) error {
 			if _, err := tx.Exec("UPDATE files SET nonexistent = 1"); err != nil {
 				return err
@@ -230,7 +230,7 @@ func TestMigrationFailureNotRecorded(t *testing.T) {
 	}
 
 	var recorded int
-	if err := d.Conn().QueryRow("SELECT COUNT(*) FROM schema_migrations WHERE version = 7").Scan(&recorded); err != nil {
+	if err := d.Conn().QueryRow("SELECT COUNT(*) FROM schema_migrations WHERE version = ?", SchemaVersion+1).Scan(&recorded); err != nil {
 		t.Fatalf("query: %v", err)
 	}
 	if recorded != 0 {
@@ -242,4 +242,64 @@ func TestMigrationFailureNotRecorded(t *testing.T) {
 	if v != SchemaVersion {
 		t.Fatalf("version = %d, want %d", v, SchemaVersion)
 	}
+}
+
+// TestMigrationFlattensNestedCategories covers migration 7: a category nested
+// under another tag (possible in vaults saved before the rule) is moved to the
+// top level, while its own children stay where they were.
+func TestMigrationFlattensNestedCategories(t *testing.T) {
+	d := openAt(t, filepath.Join(t.TempDir(), "db.sqlite"))
+
+	insertTag := func(name string, parent *int64, isCategory int) int64 {
+		t.Helper()
+		res, err := d.Conn().Exec(
+			`INSERT INTO tags (name, parent_id, is_category, created_at) VALUES (?, ?, ?, '2025-01-01T00:00:00Z')`,
+			name, parent, isCategory)
+		if err != nil {
+			t.Fatalf("insert tag %s: %v", name, err)
+		}
+		id, err := res.LastInsertId()
+		if err != nil {
+			t.Fatalf("last insert id: %v", err)
+		}
+		return id
+	}
+
+	group := insertTag("group", nil, 0)
+	category := insertTag("Photo", &group, 1) // the shape migration 7 removes
+	sub := insertTag("Landscape", &category, 0)
+
+	// Rewind so migration 7 looks unapplied, then apply it.
+	if _, err := d.Conn().Exec(`DELETE FROM schema_migrations WHERE version = 7`); err != nil {
+		t.Fatalf("rewind: %v", err)
+	}
+	if err := d.runMigration(migrationByVersion(t, 7)); err != nil {
+		t.Fatalf("migration 7: %v", err)
+	}
+
+	var categoryParent, subParent sql.NullInt64
+	if err := d.Conn().QueryRow("SELECT parent_id FROM tags WHERE id = ?", category).Scan(&categoryParent); err != nil {
+		t.Fatalf("query category: %v", err)
+	}
+	if categoryParent.Valid {
+		t.Errorf("nested category still has parent %d", categoryParent.Int64)
+	}
+	if err := d.Conn().QueryRow("SELECT parent_id FROM tags WHERE id = ?", sub).Scan(&subParent); err != nil {
+		t.Fatalf("query sub-tag: %v", err)
+	}
+	if !subParent.Valid || subParent.Int64 != category {
+		t.Errorf("sub-tag parent = %v, want %d (untouched)", subParent, category)
+	}
+}
+
+// migrationByVersion returns the recorded migration with the given version.
+func migrationByVersion(t *testing.T, version int) migration {
+	t.Helper()
+	for _, m := range migrations {
+		if m.version == version {
+			return m
+		}
+	}
+	t.Fatalf("no migration with version %d", version)
+	return migration{}
 }

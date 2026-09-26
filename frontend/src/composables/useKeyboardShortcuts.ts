@@ -209,6 +209,11 @@ export function useKeyboardShortcuts() {
   const onKeydown = (e: KeyboardEvent) => {
     const ctrl = e.ctrlKey || e.metaKey;
 
+    // The Tag Manager is a workspace of its own: its list owns Enter, the arrow
+    // keys, Del and Ctrl+A (select tags, not files). Escape stays live so it
+    // closes even when focus sits on the detail form rather than the list.
+    if (uiStore.showTagManager && e.key !== "Escape") return;
+
     // Ctrl+A — select all files matching current filters
     if (ctrl && e.key === "a") {
       const inInput =

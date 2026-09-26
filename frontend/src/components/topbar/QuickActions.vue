@@ -1,7 +1,7 @@
 <template>
   <div class="quick-actions">
     <button class="action-btn" title="New Vault" @click="onNewVault">
-      <Plus :size="15" />
+      <Plus :size="20" />
     </button>
 
     <!-- Vault switcher dropdown -->
@@ -12,7 +12,7 @@
         title="Open Vault / Recent Vaults"
         @click="toggleDropdown"
       >
-        <FolderOpen :size="15" />
+        <FolderOpen :size="20" />
       </button>
       <div v-if="dropdownOpen" class="dropdown-menu">
         <button class="dropdown-item" @click="onOpenVault">
@@ -34,29 +34,29 @@
         </button>
         <div v-if="recentVaults.length > 0" class="dropdown-divider"></div>
         <button class="dropdown-item" @click="onAppSettings">
-          <Settings :size="14" />
+          <Settings :size="20" />
           <span>Manage in Settings…</span>
         </button>
       </div>
     </div>
 
-    <button class="action-btn" title="Rescan Folder" @click="onRescanVault">
-      <RefreshCw :size="15" />
+    <button class="action-btn" title="Rescan/Refresh Folder" @click="onRescanVault">
+      <RefreshCw :size="20" />
     </button>
     <button class="action-btn" title="Full Scan" @click="onFullScan">
-      <FolderSearch :size="15" />
+      <FolderSearch :size="20" />
     </button>
     <button class="action-btn" title="Vault Settings" @click="onVaultSettings">
-      <FolderCog :size="15" />
-    </button>
-    <button class="action-btn" title="App Settings" @click="onAppSettings">
-      <Settings :size="15" />
+      <FolderCog :size="20" />
     </button>
     <button class="action-btn" title="Tag Manager" @click="onTagManager">
-      <Tags :size="15" />
+      <Tags :size="20" />
+    </button>
+    <button class="action-btn" title="App Settings" @click="onAppSettings">
+      <Settings :size="20" />
     </button>
     <button class="action-btn" title="About TagLoom" @click="onAbout">
-      <Info :size="15" />
+      <Info :size="20" />
     </button>
   </div>
 </template>
@@ -137,8 +137,8 @@ const onAbout = () => uiStore.openAbout();
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   background: none;
   border: none;
   color: #666;

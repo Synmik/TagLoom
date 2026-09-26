@@ -30,11 +30,15 @@ export function DeleteOriginalFile(arg1:number):Promise<void>;
 
 export function DeleteTag(arg1:number):Promise<void>;
 
+export function DeleteTagsSafely(arg1:Array<number>,arg2:string):Promise<void>;
+
 export function GenerateThumbnail(arg1:number):Promise<string>;
 
 export function GenerateThumbnailsForFiles(arg1:Array<number>):Promise<number>;
 
 export function GenerateThumbnailsPool():Promise<void>;
+
+export function GetAllTagAliases():Promise<Array<db.TagAlias>>;
 
 export function GetAllTagFileCounts():Promise<Record<number, number>>;
 
@@ -70,6 +74,8 @@ export function GetTagAliases(arg1:number):Promise<Array<string>>;
 
 export function GetTagFileCount(arg1:number):Promise<number>;
 
+export function GetTagUsage(arg1:Array<number>):Promise<Array<db.TagUsage>>;
+
 export function GetTags(arg1:string):Promise<Array<db.Tag>>;
 
 export function GetThumbnailInfo(arg1:number):Promise<app.ThumbnailInfo>;
@@ -81,6 +87,10 @@ export function GetVaultConfig():Promise<config.VaultConfig>;
 export function GetVersion():Promise<string>;
 
 export function ImportFile(arg1:string,arg2:boolean,arg3:string):Promise<app.ImportResult>;
+
+export function MergeTags(arg1:Array<number>,arg2:number):Promise<db.TagMergeResult>;
+
+export function MoveTag(arg1:number,arg2:any,arg3:number):Promise<void>;
 
 export function OpenFileFolder(arg1:number):Promise<void>;
 
