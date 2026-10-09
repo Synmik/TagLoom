@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -213,6 +214,70 @@ func TestGetFilesSortByFileSize(t *testing.T) {
 	}
 	if page.Files[0].Filename != "big.jpg" {
 		t.Errorf("desc order: first file is %s, want big.jpg", page.Files[0].Filename)
+	}
+}
+
+// TestGetFilesSearchQueryPagination verifies that free-text search runs as a
+// GetFiles filter: total_count counts every match (not just the page), pages
+// continue past the page size, and the query ANDs with the other filters.
+func TestGetFilesSearchQueryPagination(t *testing.T) {
+	a := newTestApp(t)
+
+	const total = 25
+	var ids []int64
+	for i := 0; i < total; i++ {
+		ids = append(ids, seedFile(t, a, fmt.Sprintf("photos/sunset-%02d.jpg", i)))
+	}
+	for i := 0; i < 5; i++ {
+		seedFile(t, a, fmt.Sprintf("photos/cat-%02d.jpg", i))
+	}
+
+	filter := db.FileFilter{SearchQuery: "sunset"}
+
+	// Page 1 of 3 — total_count must be the full match count, not the page size.
+	page, err := a.GetFiles(filter, db.SortOpts{Field: "filename", Order: "asc"}, 0, 10)
+	if err != nil {
+		t.Fatalf("GetFiles page 0: %v", err)
+	}
+	if page.TotalCount != total {
+		t.Errorf("total_count = %d, want %d", page.TotalCount, total)
+	}
+	if len(page.Files) != 10 || page.Files[0].Filename != "sunset-00.jpg" {
+		t.Fatalf("page 0 = %d files (first %q)", len(page.Files), page.Files[0].Filename)
+	}
+
+	// Pages keep going past the old 500-row search cap: page 2 holds the last 5.
+	page, err = a.GetFiles(filter, db.SortOpts{Field: "filename", Order: "asc"}, 2, 10)
+	if err != nil {
+		t.Fatalf("GetFiles page 2: %v", err)
+	}
+	if len(page.Files) != 5 || page.Files[4].Filename != "sunset-24.jpg" {
+		t.Fatalf("page 2 = %d files (last %q)", len(page.Files), page.Files[4].Filename)
+	}
+
+	// Search ANDs with the other filters, and GetFileIDs (batch edit scope)
+	// sees the same set.
+	tagID := seedTag(t, a, "golden")
+	for _, id := range ids[:7] {
+		if _, err := a.db.Conn().Exec(
+			"INSERT INTO file_tags (file_id, tag_id) VALUES (?, ?)", id, tagID); err != nil {
+			t.Fatalf("tag file: %v", err)
+		}
+	}
+	filtered := db.FileFilter{SearchQuery: "sunset", TagGroups: [][]int64{{tagID}}}
+	page, err = a.GetFiles(filtered, db.SortOpts{Field: "filename", Order: "asc"}, 0, 50)
+	if err != nil {
+		t.Fatalf("GetFiles tagged: %v", err)
+	}
+	if page.TotalCount != 7 || len(page.Files) != 7 {
+		t.Errorf("tagged search = %d total / %d files, want 7/7", page.TotalCount, len(page.Files))
+	}
+	gotIDs, err := a.GetFileIDs(filtered)
+	if err != nil {
+		t.Fatalf("GetFileIDs: %v", err)
+	}
+	if len(gotIDs) != 7 {
+		t.Errorf("GetFileIDs = %d ids, want 7", len(gotIDs))
 	}
 }
 

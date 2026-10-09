@@ -9,7 +9,13 @@ import (
 	"TagLoom/db"
 )
 
-// SearchFiles performs a full-text search across file names, user-set names, notes, and tags.
+// SearchFiles performs a full-text search across file names, user-set names,
+// notes, and tags, returning at most `limit` bare File rows (no tags attached).
+//
+// The gallery does not use this: gallery search goes through GetFiles with
+// FileFilter.SearchQuery, so results are counted, sorted, paginated and
+// lazy-loaded like every other filter. This binding stays for callers that
+// want one flat result set.
 func (a *App) SearchFiles(query string, limit int) ([]db.File, error) {
 	v := a.vault()
 	if v.db == nil {
@@ -20,6 +26,36 @@ func (a *App) SearchFiles(query string, limit int) ([]db.File, error) {
 		limit = 500
 	}
 
+	searchClause, args := buildSearchClause(query)
+	args = append(args, limit)
+
+	querySQL := `
+		SELECT f.id, f.vault_path, f.thumbnail_path, f.name, f.notes, f.link,
+		       f.rating, f.is_favorite, f.folder_path, f.filename, f.file_size,
+		       f.date_created, f.date_modified, f.indexed_at
+		FROM files f
+		WHERE ` + searchClause + `
+		LIMIT ?`
+
+	rows, err := v.db.Conn().Query(querySQL, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	return scanFiles(rows)
+}
+
+// buildSearchClause builds one WHERE condition (with bound arguments) matching
+// a free-text query over three paths, OR'ed together:
+//   - FTS5 over files.name / files.notes
+//   - LIKE over files.vault_path (filename and folder names)
+//   - LIKE over tag names and tag aliases (words of 2+ characters)
+//
+// Shared by SearchFiles and buildFileFilterClause so both agree on what a
+// search hit means. All user input goes through bound parameters — ftsQuery is
+// a safe FTS5 phrase (sanitizeFTSQuery) and the LIKE patterns are
+// wildcard-escaped (escapeLike).
+func buildSearchClause(query string) (string, []any) {
 	// FTS5 search on name and notes — split into words so each term is searched
 	// (FTS5 uses space as a term separator, so "red sunset" matches both terms)
 	ftsWords := strings.Fields(query)
@@ -56,9 +92,6 @@ func (a *App) SearchFiles(query string, limit int) ([]db.File, error) {
 		tagArgs = tagArgs[:20]
 	}
 
-	// Build the full query with all match conditions. All user input goes through
-	// bound parameters — ftsQuery is a safe FTS5 phrase (sanitizeFTSQuery) and the
-	// LIKE patterns are wildcard-escaped (escapeLike).
 	whereParts := []string{
 		"f.id IN (SELECT rowid FROM files_fts WHERE files_fts MATCH ?)",
 		"f.vault_path LIKE ? ESCAPE '\\'",
@@ -66,26 +99,12 @@ func (a *App) SearchFiles(query string, limit int) ([]db.File, error) {
 	args := []any{ftsQuery, pathPattern}
 
 	if len(tagConditions) > 0 {
-		whereParts = append(whereParts, "f.id IN (SELECT ft.file_id FROM file_tags ft JOIN tags t ON ft.tag_id = t.id LEFT JOIN tag_aliases a ON a.tag_id = t.id WHERE " +
-			strings.Join(tagConditions, " OR ") + ")")
+		whereParts = append(whereParts, "f.id IN (SELECT ft.file_id FROM file_tags ft JOIN tags t ON ft.tag_id = t.id LEFT JOIN tag_aliases a ON a.tag_id = t.id WHERE "+
+			strings.Join(tagConditions, " OR ")+")")
 		args = append(args, tagArgs...)
 	}
-	args = append(args, limit)
 
-	querySQL := "\n"
-	querySQL += `SELECT f.id, f.vault_path, f.thumbnail_path, f.name, f.notes, f.link,
-	       f.rating, f.is_favorite, f.folder_path, f.filename, f.file_size,
-	       f.date_created, f.date_modified, f.indexed_at
-	FROM files f
-	WHERE ` + strings.Join(whereParts, " OR ") + `
-	LIMIT ?`
-
-	rows, err := v.db.Conn().Query(querySQL, args...)
-	if err != nil {
-		return nil, err
-	}
-
-	return scanFiles(rows)
+	return strings.Join(whereParts, " OR "), args
 }
 
 // GetFiles returns a paginated list of files with optional filters and sorting.
@@ -230,6 +249,14 @@ func buildFileFilterClause(v vault, filter db.FileFilter) (string, []any) {
 	}
 	if filter.UntaggedOnly {
 		conditions = append(conditions, "f.id NOT IN (SELECT file_id FROM file_tags)")
+	}
+	if filter.SearchQuery != "" {
+		// Free-text search is just another filter: it ANDs with the others and is
+		// counted and paginated by GetFiles, so a search matching 100k files
+		// lazy-loads page by page instead of stopping at a fixed limit.
+		clause, searchArgs := buildSearchClause(filter.SearchQuery)
+		conditions = append(conditions, "("+clause+")")
+		args = append(args, searchArgs...)
 	}
 
 	whereClause := ""

@@ -122,6 +122,10 @@ type FileFilter struct {
 	MinRating     int       `json:"min_rating"`
 	FavoritesOnly bool      `json:"favorites_only"`
 	UntaggedOnly  bool      `json:"untagged_only"`
+	// SearchQuery is free text matched against file names/notes (FTS5),
+	// vault paths, and tag names/aliases. Combined with the other filters
+	// with AND, and paginated like them.
+	SearchQuery string `json:"search_query"`
 }
 
 // SortOpts holds sorting parameters.

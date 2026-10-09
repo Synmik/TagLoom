@@ -162,7 +162,8 @@ function handleEmptyStateAction() {
     loadGallery();
   } else if (state.actionText === "Clear search") {
     filtersStore.activeFilters.searchQuery = "";
-    filesStore.loadFiles();
+    resetPage();
+    loadGallery();
   } else if (state.actionText === "Rescan vault") {
     vaultStore.rescanVault();
   }

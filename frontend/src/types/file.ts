@@ -94,6 +94,7 @@ export interface FileFilter {
   min_rating: number;
   favorites_only: boolean;
   untagged_only: boolean;
+  search_query: string; // free text: names/notes (FTS5), paths, tag names/aliases
 }
 
 export interface SortOpts {

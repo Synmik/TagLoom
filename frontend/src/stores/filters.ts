@@ -49,6 +49,9 @@ export const useFiltersStore = defineStore("filters", {
         min_rating: f.minRating,
         favorites_only: f.favoritesOnly,
         untagged_only: f.untaggedOnly,
+        // Search is a backend filter like any other: GetFiles counts and paginates
+        // it, so the gallery lazy-loads every match instead of a fixed cap.
+        search_query: f.searchQuery.trim(),
       };
     },
   },

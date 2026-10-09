@@ -23,13 +23,11 @@ export function useSearch() {
   const search = async () => {
     if (debounceTimer) clearTimeout(debounceTimer);
     debounceTimer = setTimeout(async () => {
-      // Keep the store in sync so the gallery can detect an active search
+      // Search is one of the filters, not a separate result set: reloadFiles
+      // resets to page 0 and GetFiles returns the full match count, so the
+      // gallery keeps lazy-loading matches as the user scrolls.
       filtersStore.activeFilters.searchQuery = query.value;
-      if (query.value.trim()) {
-        await filesStore.searchFiles(query.value.trim());
-      } else {
-        await filesStore.reloadFiles();
-      }
+      await filesStore.reloadFiles();
     }, 300);
   };
 

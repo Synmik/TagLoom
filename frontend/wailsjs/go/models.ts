@@ -316,6 +316,7 @@ export namespace db {
 	    min_rating: number;
 	    favorites_only: boolean;
 	    untagged_only: boolean;
+	    search_query: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new FileFilter(source);
@@ -329,6 +330,7 @@ export namespace db {
 	        this.min_rating = source["min_rating"];
 	        this.favorites_only = source["favorites_only"];
 	        this.untagged_only = source["untagged_only"];
+	        this.search_query = source["search_query"];
 	    }
 	}
 	export class FilePage {

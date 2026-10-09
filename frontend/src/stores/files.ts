@@ -4,7 +4,6 @@ import {
   GetFiles,
   GetFileIDs,
   UpdateFile,
-  SearchFiles,
   GenerateThumbnail,
   GenerateThumbnailsPool,
   AddTagsToFiles,
@@ -32,6 +31,10 @@ export const useFilesStore = defineStore("files", {
     page: 0,
     limit: 500,
     isLoading: false,
+    // Incremented on every fresh (non-appending) load. Responses from an older
+    // load are dropped, so a slow query for "sun" cannot overwrite the results
+    // of the "sunset" query typed after it.
+    loadSeq: 0,
   }),
   getters: {
     hasSelection: (state) => state.selectedFiles.length > 0,
@@ -43,6 +46,7 @@ export const useFilesStore = defineStore("files", {
       sort: SortOpts = { field: "indexed_at", order: "desc" },
       append: boolean = false,
     ) {
+      const seq = ++this.loadSeq;
       this.isLoading = true;
       try {
         const filtersStore = useFiltersStore();
@@ -53,6 +57,7 @@ export const useFilesStore = defineStore("files", {
         // 30s busy_timeout is the right bound, and a race timeout would
         // surface an empty gallery while the query is still running.
         const result: FilePage = await GetFiles(mergedFilter, sort, this.page, this.limit);
+        if (seq !== this.loadSeq) return; // stale response — a newer load won
         // Go returns nil slice → null in JS; result itself can also be null
         const fileArray: File[] = result && Array.isArray(result.files) ? result.files : [];
         if (append) {
@@ -63,12 +68,12 @@ export const useFilesStore = defineStore("files", {
         this.totalCount = result?.total_count ?? 0;
       } catch (e) {
         logger.error("files.loadFiles", e);
-        if (!append) {
+        if (!append && seq === this.loadSeq) {
           this.files = [];
           this.totalCount = 0;
         }
       } finally {
-        this.isLoading = false;
+        if (seq === this.loadSeq) this.isLoading = false;
       }
     },
 
@@ -85,6 +90,7 @@ export const useFilesStore = defineStore("files", {
      * total scroll height. Subsequent pages are loaded via loadNextPage() as
      * the user scrolls. Thumbnails are still loaded lazily per-cell. */
     async loadAllFiles() {
+      const seq = ++this.loadSeq;
       this.isLoading = true;
       this.page = 0;
       this.files = [];
@@ -96,16 +102,19 @@ export const useFilesStore = defineStore("files", {
 
         // Load first page with same page size as reloadFiles
         const result: FilePage = await GetFiles(activeFilter, sortOpts, 0, this.limit);
+        if (seq !== this.loadSeq) return; // stale response — a newer load won
         const fileArray: File[] = result && Array.isArray(result.files) ? result.files : [];
         this.files = fileArray;
         this.totalCount = result?.total_count ?? 0;
         this.page = 0;
       } catch (e) {
         logger.error("files.loadAllFiles", e);
-        this.files = [];
-        this.totalCount = 0;
+        if (seq === this.loadSeq) {
+          this.files = [];
+          this.totalCount = 0;
+        }
       } finally {
-        this.isLoading = false;
+        if (seq === this.loadSeq) this.isLoading = false;
       }
     },
 
@@ -124,11 +133,13 @@ export const useFilesStore = defineStore("files", {
         const uiStore = useUIStore();
         const activeFilter = filtersStore.asBackendFilter;
         const sortOpts = { field: uiStore.sortBy, order: uiStore.sortOrder };
+        const seq = this.loadSeq;
 
         // Calculate next page: files.length items are loaded across pages 0..page.
         // Since we just loaded page 'this.page', the next page is this.page + 1.
         const nextPage = this.page + 1;
         const result: FilePage = await GetFiles(activeFilter, sortOpts, nextPage, this.limit);
+        if (seq !== this.loadSeq) return; // filter/search changed mid-flight
         const fileArray: File[] = result && Array.isArray(result.files) ? result.files : [];
         this.files = [...this.files, ...fileArray];
         this.page = nextPage;
@@ -213,23 +224,6 @@ export const useFilesStore = defineStore("files", {
     async toggleFavorite(file: File) {
       const newFav = file.is_favorite === 1 ? 0 : 1;
       await this.updateFile({ id: file.id, is_favorite: newFav });
-    },
-    async searchFiles(query: string, limit: number = 500) {
-      this.isLoading = true;
-      try {
-        const results = await SearchFiles(query, limit);
-        // Go returns nil slice → null in JS when no results
-        const fileArray: File[] = Array.isArray(results) ? results : [];
-        this.files = fileArray;
-        this.totalCount = fileArray.length;
-        this.page = 0;
-      } catch (e) {
-        logger.error("files.searchFiles", e);
-        this.files = [];
-        this.totalCount = 0;
-      } finally {
-        this.isLoading = false;
-      }
     },
 
     /** Regenerate a single file's thumbnail on the backend.
