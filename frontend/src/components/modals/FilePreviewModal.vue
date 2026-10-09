@@ -71,6 +71,9 @@
         </div>
       </div>
 
+      <!-- PDF viewer: WebView2 renders it from /api/original -->
+      <iframe v-else-if="isPdf" :src="mediaUrl" class="preview-pdf" title="PDF preview" />
+
       <!-- Fallback -->
       <div v-else class="no-preview">No preview available</div>
 
@@ -98,6 +101,7 @@ import {
 } from "@lucide/vue";
 import { usePreviewStore } from "../../stores/preview";
 import { useFilesStore } from "../../stores/files";
+import { isImageFile, isVideoFile, isPdfFile } from "../../utils/extensions";
 
 const previewStore = usePreviewStore();
 const filesStore = useFilesStore();
@@ -112,51 +116,12 @@ const currentTimeVal = ref(0);
 const duration = ref(0);
 const bufferedPercent = ref(0);
 
-const imageExtensions = new Set([
-  ".jpg",
-  ".jpeg",
-  ".png",
-  ".gif",
-  ".webp",
-  ".bmp",
-  ".svg",
-  ".avif",
-]);
-const videoExtensions = new Set([
-  ".mp4",
-  ".mov",
-  ".avi",
-  ".webm",
-  ".mkv",
-  ".wmv",
-  ".flv",
-  ".m4v",
-  ".3gp",
-  ".3g2",
-  ".vob",
-  ".ogv",
-  ".mpg",
-  ".mpeg",
-  ".m2v",
-  ".ts",
-  ".mts",
-  ".m2ts",
-  ".asf",
-  ".rm",
-  ".amv",
-  ".f4v",
-  ".dv",
-  ".mxf",
-]);
+// What kind of file this is, decided in one place: utils/extensions.ts.
+const filePath = computed(() => previewStore.currentFile?.vault_path ?? "");
 
-const fileExt = computed(() => {
-  const file = previewStore.currentFile;
-  if (!file) return "";
-  return file.vault_path.split(".").pop()?.toLowerCase() || "";
-});
-
-const isImage = computed(() => imageExtensions.has("." + fileExt.value));
-const isVideo = computed(() => videoExtensions.has("." + fileExt.value));
+const isImage = computed(() => isImageFile(filePath.value));
+const isVideo = computed(() => isVideoFile(filePath.value));
+const isPdf = computed(() => isPdfFile(filePath.value));
 
 const mediaUrl = computed(() => {
   const file = previewStore.currentFile;
@@ -311,6 +276,13 @@ const navigate = (direction: number) => {
   max-height: 85vh;
   object-fit: contain;
   display: block;
+}
+.preview-pdf {
+  width: 80vw;
+  height: 85vh;
+  border: 0;
+  background: #101010;
+  border-radius: 8px;
 }
 .no-preview {
   color: #555;

@@ -47,6 +47,7 @@ import { useToast } from "../../composables/useToast";
 import ContextMenu from "../common/ContextMenu.vue";
 import ConfirmDialog from "../common/ConfirmDialog.vue";
 import type { File } from "../../types/file";
+import { isBrowserPreviewable } from "../../utils/extensions";
 import { logger } from "../../utils/logger";
 
 const props = defineProps<{ file: File }>();
@@ -101,15 +102,6 @@ const handleClick = async (e: MouseEvent) => {
     await previewStore.setFile(props.file);
   }
   toggleSelection(props.file, e.ctrlKey, e.shiftKey);
-};
-
-// Extensions that browsers can display in <img> / <video> tags.
-// Everything else opens with the OS default application.
-const browserPreviewable = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".avif"]);
-
-const isBrowserPreviewable = (path: string): boolean => {
-  const ext = path.split(".").pop()?.toLowerCase() || "";
-  return browserPreviewable.has(`.${ext}`);
 };
 
 const openPreview = async () => {

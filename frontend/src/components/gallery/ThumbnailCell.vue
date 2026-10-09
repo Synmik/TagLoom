@@ -27,6 +27,7 @@
 <script setup lang="ts">
 import { computed, ref, onMounted } from "vue";
 import { Heart } from "@lucide/vue";
+import { isBrowserPreviewable, formatLabel } from "../../utils/extensions";
 import { useSelection } from "../../composables/useSelection";
 import { useContextMenu, type ContextMenuItem } from "../../composables/useContextMenu";
 import { usePreviewStore } from "../../stores/preview";
@@ -61,10 +62,7 @@ const filename = computed(() => {
   return parts[parts.length - 1] || props.file.vault_path;
 });
 
-const formatName = computed(() => {
-  const ext = props.file.vault_path.split(".").pop()?.toUpperCase() || "";
-  return ext === "JPG" || ext === "JPEG" ? "JPEG" : ext;
-});
+const formatName = computed(() => formatLabel(props.file.vault_path));
 
 const vaultPath = computed(() => vaultStore.currentVault?.path || "");
 const absolutePath = computed(() => {
@@ -142,15 +140,6 @@ const handleClick = async (e: MouseEvent) => {
     await previewStore.setFile(props.file);
   }
   toggleSelection(props.file, e.ctrlKey, e.shiftKey);
-};
-
-// Extensions that browsers can display in <img> / <video> tags.
-// Everything else opens with the OS default application.
-const browserPreviewable = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".avif"]);
-
-const isBrowserPreviewable = (path: string): boolean => {
-  const ext = path.split(".").pop()?.toLowerCase() || "";
-  return browserPreviewable.has(`.${ext}`);
 };
 
 const openPreview = async () => {

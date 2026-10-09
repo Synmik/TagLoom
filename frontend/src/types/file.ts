@@ -41,6 +41,9 @@ export const SUPPORTED_EXTENSIONS = new Set([
   ".dv",
   ".mxf",
   // Animated (already covered above)
+  // Documents — first page / embedded cover is thumbnailed by the backend
+  ".pdf",
+  ".epub",
 ]);
 
 export interface FileTag {
@@ -114,4 +117,7 @@ export interface FileMetadata {
   resolution_height: number;
   duration_seconds: number;
   dominant_colors: string[];
+  page_count: number; // PDF pages, 0 for other formats
+  title: string; // document title (EPUB package metadata)
+  author: string; // document author (EPUB package metadata)
 }

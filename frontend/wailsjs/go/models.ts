@@ -30,6 +30,9 @@ export namespace app {
 	    resolution_height: number;
 	    duration_seconds: number;
 	    dominant_colors: string[];
+	    page_count: number;
+	    title: string;
+	    author: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new FileMetadata(source);
@@ -48,6 +51,9 @@ export namespace app {
 	        this.resolution_height = source["resolution_height"];
 	        this.duration_seconds = source["duration_seconds"];
 	        this.dominant_colors = source["dominant_colors"];
+	        this.page_count = source["page_count"];
+	        this.title = source["title"];
+	        this.author = source["author"];
 	    }
 	}
 	export class ImportResult {

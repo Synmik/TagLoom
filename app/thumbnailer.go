@@ -155,9 +155,86 @@ func (a *App) GenerateThumbnail(fileID int64) (string, error) {
 			return "", fmt.Errorf("failed to update thumbnail_path: %w", execErr)
 		}
 		return thumbPath, nil
+	case "document":
+		if !ffmpegAvailable {
+			return "", fmt.Errorf("ffmpeg not found — cannot generate thumbnail for %s", ext)
+		}
+		if docErr := generateDocumentThumbnail(absPath, thumbPath, size, quality); docErr != nil {
+			return "", fmt.Errorf("failed to generate document thumbnail: %w", docErr)
+		}
+		// Update DB with thumbnail path (store relative to vault root)
+		relThumbPath := v.toRelativePath(thumbPath)
+		_, execErr := v.db.Conn().Exec("UPDATE files SET thumbnail_path = ? WHERE id = ?", relThumbPath, fileID)
+		if execErr != nil {
+			return "", fmt.Errorf("failed to update thumbnail_path: %w", execErr)
+		}
+		return thumbPath, nil
 	default:
 		return "", fmt.Errorf("thumbnail generation not supported for %s files", ext)
 	}
+}
+
+// generateDocumentThumbnail renders a WebP thumbnail for a document: PDF first
+// page via PDFium-in-WebAssembly, EPUB via its embedded cover. Both hand the
+// pixels to FFmpeg for resize/encode, so the WebP matches every other
+// thumbnail in the vault. When a document has no cover to show — an imageless
+// EPUB, an encrypted or damaged PDF — a title card is drawn instead so the
+// grid has no holes. A failed run leaves no partial file behind.
+func generateDocumentThumbnail(absPath, thumbPath string, size, quality int) error {
+	thumbDir := filepath.Dir(thumbPath)
+	if err := os.MkdirAll(thumbDir, 0755); err != nil {
+		return fmt.Errorf("failed to create thumbnail directory: %w", err)
+	}
+
+	ext := strings.ToLower(filepath.Ext(absPath))
+	var coverErr error
+	switch ext {
+	case ".pdf":
+		coverErr = utils.RenderPDFToWebP(absPath, thumbPath, size, quality)
+	case ".epub":
+		coverErr = utils.EncodeEPUBCoverToWebP(absPath, thumbPath, size, quality)
+	default:
+		return fmt.Errorf("no thumbnail renderer for %s", filepath.Ext(absPath))
+	}
+	if coverErr == nil {
+		return nil
+	}
+
+	// Best-effort cleanup of partial output before redrawing the slot.
+	_ = os.Remove(thumbPath)
+
+	cardErr := utils.RenderDocumentCardToWebP(thumbPath, size, quality, documentCardFor(absPath, ext))
+	if cardErr != nil {
+		_ = os.Remove(thumbPath)
+		return fmt.Errorf("%w (fallback card failed: %v)", coverErr, cardErr)
+	}
+	utils.LogInfo("no cover for %s, drew a title card instead: %v", absPath, coverErr)
+	return nil
+}
+
+// documentCardFor picks the text of a fallback card: the document's own title
+// and author when it carries them, otherwise the filename; the format badge is
+// always the extension.
+func documentCardFor(absPath, ext string) utils.DocumentCard {
+	card := utils.DocumentCard{
+		Title: strings.TrimSuffix(filepath.Base(absPath), filepath.Ext(absPath)),
+		Badge: strings.ToUpper(strings.TrimPrefix(ext, ".")),
+	}
+
+	switch ext {
+	case ".epub":
+		if info, err := utils.ReadEPUB(absPath); err == nil {
+			if info.Title != "" {
+				card.Title = info.Title
+			}
+			card.Subtitle = info.Creator
+		}
+	case ".pdf":
+		if pages, err := utils.PDFPageCount(absPath); err == nil && pages > 0 {
+			card.Subtitle = fmt.Sprintf("%d pages", pages)
+		}
+	}
+	return card
 }
 
 // thumbnailUpToDate reports whether an existing thumbnail at thumbPath is
@@ -380,6 +457,18 @@ func (a *App) runThumbnailPool(repairAll bool) error {
 					continue
 				}
 				// Video thumbnail generated successfully
+				finishFile(f.id, true, thumbPath)
+				continue
+			case "document":
+				if !ffmpegAvailable {
+					finishFile(f.id, false, "")
+					continue
+				}
+				if docErr := generateDocumentThumbnail(absPath, thumbPath, size, quality); docErr != nil {
+					utils.LogWarn("document thumbnail failed for %s: %v", f.vaultPath, docErr)
+					finishFile(f.id, false, "")
+					continue
+				}
 				finishFile(f.id, true, thumbPath)
 				continue
 			default:

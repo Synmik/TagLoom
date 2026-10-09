@@ -201,6 +201,15 @@ func (a *App) Startup(ctx context.Context) {
 	a.mu.Unlock()
 }
 
+// Shutdown is called when the app exits. It releases the PDFium WebAssembly
+// runtime (a few MB of sandbox memory per worker) instead of letting the
+// process teardown handle it.
+func (a *App) Shutdown(_ context.Context) {
+	if err := utils.ClosePDFRenderer(); err != nil {
+		utils.LogWarn("PDFium runtime shutdown: %v", err)
+	}
+}
+
 // GetLastVaultPath returns the path of the last opened vault (from global app settings).
 // The frontend calls this on mount to decide whether to auto-open.
 func (a *App) GetLastVaultPath() string {

@@ -5,6 +5,7 @@ import { usePreviewStore } from "../stores/preview";
 import { useVaultStore } from "../stores/vault";
 import { useToast } from "./useToast";
 import { logger } from "../utils/logger";
+import { isBrowserPreviewable } from "../utils/extensions";
 
 /**
  * Global keyboard shortcut handler.
@@ -112,15 +113,6 @@ export function useKeyboardShortcuts() {
     }
 
     // No selection — do nothing silently
-  };
-
-  // Extensions that browsers can display in <img> / <video> tags.
-  // Everything else opens with the OS default application.
-  const browserPreviewable = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".avif"]);
-
-  const isBrowserPreviewable = (path: string): boolean => {
-    const ext = path.split(".").pop()?.toLowerCase() || "";
-    return browserPreviewable.has(`.${ext}`);
   };
 
   /** Open preview for the currently selected file (same as double-click) */

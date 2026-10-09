@@ -32,6 +32,17 @@
       <div class="meta-row">
         <span class="meta-label">Duration</span><span class="meta-value">{{ duration }}</span>
       </div>
+      <div v-if="meta?.page_count" class="meta-row">
+        <span class="meta-label">Pages</span><span class="meta-value">{{ meta.page_count }}</span>
+      </div>
+      <div v-if="meta?.title" class="meta-row">
+        <span class="meta-label">Title</span
+        ><span class="meta-value truncated" :title="meta.title">{{ meta.title }}</span>
+      </div>
+      <div v-if="meta?.author" class="meta-row">
+        <span class="meta-label">Author</span
+        ><span class="meta-value truncated" :title="meta.author">{{ meta.author }}</span>
+      </div>
     </div>
 
     <div class="rating-row">

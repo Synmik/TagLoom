@@ -2,12 +2,18 @@
   <section class="preview-section">
     <div class="preview-container" @dblclick="previewStore.openFullPreview">
       <!-- Image preview -->
-      <img v-if="isImage" :src="imageUrl" alt="Preview" class="preview-media" draggable="false" />
+      <img
+        v-if="isImage"
+        :src="originalUrl"
+        alt="Preview"
+        class="preview-media"
+        draggable="false"
+      />
       <!-- Video player -->
       <div v-else-if="isVideo" class="video-wrapper" @dblclick.stop>
         <video
           ref="videoEl"
-          :src="videoUrl"
+          :src="originalUrl"
           preload="metadata"
           class="preview-media"
           @loadedmetadata="onVideoLoaded"
@@ -69,6 +75,32 @@
           </div>
         </div>
       </div>
+      <!-- PDF: WebView2 draws it with its own viewer, which costs real time
+           when the user walks through a folder.  Keep the generated card on
+           screen until the document is asked for. -->
+      <div v-else-if="isPdf" class="pdf-stage">
+        <template v-if="!pdfLoaded">
+          <img
+            v-if="!pdfThumbFailed"
+            :src="thumbnailSrc"
+            class="preview-media pdf-thumb"
+            alt=""
+            draggable="false"
+            @error="pdfThumbFailed = true"
+          />
+          <button
+            class="pdf-load-btn"
+            type="button"
+            title="Render the document in the preview pane"
+            @click.stop="pdfLoaded = true"
+            @dblclick.stop
+          >
+            <FileText :size="14" />
+            <span>Load PDF</span>
+          </button>
+        </template>
+        <iframe v-else :src="originalUrl" class="preview-pdf" title="PDF preview" />
+      </div>
       <!-- Fallback -->
       <span v-else class="no-preview">No preview</span>
     </div>
@@ -80,10 +112,35 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { PlayCircle, Pause, Volume2, Volume1, VolumeX, PictureInPicture2 } from "@lucide/vue";
+import {
+  PlayCircle,
+  Pause,
+  Volume2,
+  Volume1,
+  VolumeX,
+  PictureInPicture2,
+  FileText,
+} from "@lucide/vue";
 import { usePreviewStore } from "../../stores/preview";
+import { useVaultStore } from "../../stores/vault";
+import { isImageFile, isVideoFile, isPdfFile, formatLabel } from "../../utils/extensions";
 
 const previewStore = usePreviewStore();
+const vaultStore = useVaultStore();
+
+// The panel keeps the thumbnail until the user asks for the document; the
+// fullscreen modal loads it straight away because opening it is deliberate.
+const pdfLoaded = ref(false);
+const pdfThumbFailed = ref(false);
+
+// Same URL shape as the gallery cells, so both share one cached response.
+const thumbnailSrc = computed(() => {
+  const file = previewStore.currentFile;
+  if (!file) return "";
+  const vp = vaultStore.currentVault?.path || "";
+  const bust = vp ? `?vp=${encodeURIComponent(vp)}` : "";
+  return `/api/thumbnail/${file.id}${bust}`;
+});
 
 const videoEl = ref<HTMLVideoElement | null>(null);
 const isPlaying = ref(false);
@@ -107,6 +164,8 @@ watch(
     currentTimeVal.value = 0;
     duration.value = 0;
     bufferedPercent.value = 0;
+    pdfLoaded.value = false;
+    pdfThumbFailed.value = false;
   },
 );
 
@@ -204,70 +263,21 @@ const formatTime = (seconds: number): string => {
   return `${m}:${s.toString().padStart(2, "0")}`;
 };
 
-const imageExtensions = new Set([
-  ".jpg",
-  ".jpeg",
-  ".png",
-  ".gif",
-  ".webp",
-  ".bmp",
-  ".svg",
-  ".avif",
-]);
-const videoExtensions = new Set([
-  ".mp4",
-  ".mov",
-  ".avi",
-  ".webm",
-  ".mkv",
-  ".wmv",
-  ".flv",
-  ".m4v",
-  ".3gp",
-  ".3g2",
-  ".vob",
-  ".ogv",
-  ".mpg",
-  ".mpeg",
-  ".m2v",
-  ".ts",
-  ".mts",
-  ".m2ts",
-  ".asf",
-  ".rm",
-  ".amv",
-  ".f4v",
-  ".dv",
-  ".mxf",
-]);
+// What kind of file this is, decided in one place: utils/extensions.ts.
+const filePath = computed(() => previewStore.currentFile?.vault_path ?? "");
 
-const fileExt = computed(() => {
-  const file = previewStore.currentFile;
-  if (!file) return "";
-  return file.vault_path.split(".").pop()?.toLowerCase() || "";
-});
+const isImage = computed(() => isImageFile(filePath.value));
+const isVideo = computed(() => isVideoFile(filePath.value));
+const isPdf = computed(() => isPdfFile(filePath.value));
 
-const isImage = computed(() => imageExtensions.has("." + fileExt.value));
-const isVideo = computed(() => videoExtensions.has("." + fileExt.value));
-
-const imageUrl = computed(() => {
+// One route serves every original: images, videos and PDFs alike.
+const originalUrl = computed(() => {
   const file = previewStore.currentFile;
   if (!file) return "";
   return `/api/original/${file.id}`;
 });
 
-const videoUrl = computed(() => {
-  const file = previewStore.currentFile;
-  if (!file) return "";
-  return `/api/original/${file.id}`;
-});
-
-const formatName = computed(() => {
-  const file = previewStore.currentFile;
-  if (!file) return "";
-  const ext = file.vault_path.split(".").pop()?.toUpperCase() || "";
-  return ext === "JPG" || ext === "JPEG" ? "JPEG" : ext;
-});
+const formatName = computed(() => formatLabel(filePath.value));
 </script>
 
 <style scoped>
@@ -290,6 +300,51 @@ const formatName = computed(() => {
   max-height: 100%;
   object-fit: contain;
   display: block;
+}
+
+/* PDF viewer */
+.preview-pdf {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #0a0a0a;
+}
+
+/* PDF shown as a card until it is loaded */
+.pdf-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pdf-load-btn {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-family: inherit;
+  color: #ccc;
+  background: rgba(10, 10, 10, 0.78);
+  border: 1px solid #3f3f46;
+  border-radius: 6px;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+}
+
+.pdf-load-btn:hover {
+  color: #fff;
+  border-color: #22c55e;
 }
 
 /* Video wrapper */

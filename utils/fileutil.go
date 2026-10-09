@@ -20,6 +20,8 @@ var SupportedExtensions = map[string][]string{
 	"image":    {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tiff", ".tif", ".svg", ".avif", ".jxl", ".jpegxl"},
 	"video":    {".mp4", ".mov", ".avi", ".webm", ".mkv", ".wmv", ".flv", ".m4v", ".3gp", ".3g2", ".vob", ".ogv", ".mpg", ".mpeg", ".m2v", ".ts", ".mts", ".m2ts", ".asf", ".rm", ".amv", ".f4v", ".dv", ".mxf"},
 	"animated": {".gif", ".webm"},
+	// Documents are thumbnailed from their first page (PDF) or embedded cover (EPUB).
+	"document": {".pdf", ".epub"},
 }
 
 // MIMETypes maps lowercase file extensions (with leading dot) to MIME types.
@@ -37,6 +39,10 @@ var MIMETypes = map[string]string{
 	".tiff": "image/tiff",
 	".tif":  "image/tiff",
 	".svg":  "image/svg+xml",
+	// Documents — the exact type matters: the WebView2 PDF viewer only starts
+	// for application/pdf, not for application/octet-stream.
+	".pdf":  "application/pdf",
+	".epub": "application/epub+zip",
 	// Video
 	".mp4":  "video/mp4",
 	".m4v":  "video/mp4",
@@ -88,11 +94,11 @@ func IsSupported(path string) bool {
 
 // GetFileCategory returns the category of a file based on its extension.
 // Order matters for extensions in multiple categories (e.g. .gif is both image and animated).
-// We check in priority order: video > animated > image.
+// We check in priority order: video > animated > image > document.
 func GetFileCategory(path string) string {
 	ext := strings.ToLower(filepath.Ext(path))
 	// Check in priority order so extensions in multiple categories get the most specific one
-	for _, category := range []string{"video", "animated", "image"} {
+	for _, category := range []string{"video", "animated", "image", "document"} {
 		for _, e := range SupportedExtensions[category] {
 			if ext == e {
 				return category

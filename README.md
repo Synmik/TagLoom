@@ -8,10 +8,12 @@
 </p>
 
 <p align="center">
-<img align=center src="https://img.shields.io/badge/OS-Windows-blue">
-<img align=center src="https://img.shields.io/badge/License-MIT-green">
-<img align=center src="https://img.shields.io/badge/Release-0.6.0-plastic">
-<img align=center src="https://img.shields.io/badge/size-18MB-violet"><br>
+<img align=center src="https://img.shields.io/badge/Windows-0078D6?style=flat&logo=windows&logoColor=white">
+<img align=center src="https://img.shields.io/badge/Go-00ADD8?style=flat&logo=go&logoColor=white">
+<img align=center src="https://img.shields.io/badge/Vue.js-4FC08D?style=flat&logo=vue.js&logoColor=white">
+<img align=center src="https://img.shields.io/github/license/Synmik/TagLoom">
+<img align=center src="https://img.shields.io/github/v/release/Synmik/TagLoom">
+<img align=center src="https://img.shields.io/badge/size-30MB-brightgreen"><br>
 </p>
 
 **TagLoom** is a desktop multimedia tagging and library management application for images, videos, and GIFs.
@@ -25,11 +27,12 @@ It indexes existing folders (vaults) without modifying any original files — al
 ## Features
 
 - **Non-Destructive Vault System** - Index any folder without modifying original files; all metadata lives in `.tagloom/`
-- **High Performance** - Thousands of files per vault, fast search and switch vaults, ~18MB executable
+- **High Performance** - Thousands of files per vault, fast search and switch vaults, ~30MB executable
 - **Full-Text Search** - Real-time FTS5 search across filenames, names, notes, and tags
 - **Hierarchical Tagging** - Color-coded parent/child tags with aliases
-- **Rich Metadata** - Editable name, notes, links, star ratings, and favorites, plus read-only EXIF, resolution, and video duration
+- **Rich Metadata** - Editable name, notes, links, star ratings, and favorites, plus read-only EXIF, resolution, video duration, and document page count, title and author
 - **Grid & List Views** - Adjustable thumbnail sizes with multi-select and full-size preview
+- **Document Previews** - PDF first pages and EPUB covers get thumbnails without any external viewer; PDFs also open inline in the preview pane
 - **Composable Filtering** - Combine folder, tags, rating, and favorite filters
 - **Flexible Sorting** - By date, filename, name, size, or rating (ascending/descending)
 - **Batch Editing** - Apply tags, ratings, or favorites across multiple selected files
@@ -43,10 +46,11 @@ It indexes existing folders (vaults) without modifying any original files — al
 - Or download the standalone `.exe`, place it anywhere, and run it directly
 
 > [!IMPORTANT]
-> **FFmpeg is required** for thumbnail generation (images and videos) and is not
-> bundled with the app. Install it and make sure `ffmpeg.exe` is on your PATH
-> (or located at `C:\ffmpeg\bin\` or `C:\Program Files\ffmpeg\bin\`). Without
-> it the app still runs, but no thumbnails can be generated.
+> **FFmpeg is required** for thumbnail generation (images, videos and documents)
+> and is not bundled with the app. Install it and make sure `ffmpeg.exe` is on
+> your PATH (or located at `C:\ffmpeg\bin\` or `C:\Program Files\ffmpeg\bin\`).
+> Without it the app still runs, but no thumbnails can be generated. PDF pages
+> are rendered by PDFium, which is bundled — no extra download.
 
 ### Use
 
@@ -78,7 +82,7 @@ It indexes existing folders (vaults) without modifying any original files — al
 
 #### Prerequisites
 
-1. Go (1.25+)
+1. Go (1.26+)
    - Download from https://go.dev/dl/
    - Install and ensure **Go** is on your PATH
 2. Node.js (16+)
@@ -86,8 +90,8 @@ It indexes existing folders (vaults) without modifying any original files — al
    - Ensure node and npm are on your PATH
 3. FFmpeg (required at runtime)
    - Download from https://ffmpeg.org/download.html
-   - **All** thumbnails (images and videos) are generated with FFmpeg; if it is
-     not found on PATH, no thumbnails can be created
+   - **All** raster thumbnails (images, videos and documents) are generated with
+     FFmpeg; if it is not found on PATH, no thumbnails can be created
 
 #### Build steps
 
@@ -134,6 +138,10 @@ Outputs to bin/ directory: `bin/TagLoom.exe` — standalone Windows executable
 ### Video formats
 
 `MP4`, `MOV`, `AVI`, `WEBM`, `MKV`, `WMV`, `FLV`, `M4V`, `3GP`, `3G2`, `VOB`, `OGV`, `MPG`, `MPEG`, `M2V`, `TS`, `MTS`, `M2TS`, `ASF`, `RM`, `AMV`, `F4V`, `DV`, `MXF`
+
+### Book formats
+
+`PDF`, `EPUB`
 
 ## Roadmap
 

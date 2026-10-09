@@ -2,6 +2,7 @@ import { ref } from "vue";
 import { SUPPORTED_EXTENSIONS } from "../types/file";
 import { OnFileDrop, OnFileDropOff } from "../../wailsjs/runtime/runtime";
 import { logger } from "../utils/logger";
+import { extensionOf } from "../utils/extensions";
 
 export interface DroppedFile {
   name: string;
@@ -61,10 +62,7 @@ export function useDragDrop() {
       path: p,
     }));
 
-    const supported = droppedFiles.filter((f) => {
-      const ext = "." + f.name.split(".").pop()?.toLowerCase();
-      return SUPPORTED_EXTENSIONS.has(ext);
-    });
+    const supported = droppedFiles.filter((f) => SUPPORTED_EXTENSIONS.has(extensionOf(f.name)));
 
     if (supported.length === 0) {
       logger.log("dragDrop.onFileDrop", "no supported files found");

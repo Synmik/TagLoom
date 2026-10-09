@@ -32,6 +32,11 @@ type FileMetadata struct {
 	ResolutionHeight int      `json:"resolution_height"`
 	DurationSeconds  float64  `json:"duration_seconds"`
 	DominantColors   []string `json:"dominant_colors"`
+	// Document fields: PDF page count, EPUB title and author from the package
+	// metadata. Zero/empty when the document carries none.
+	PageCount int    `json:"page_count"`
+	Title     string `json:"title"`
+	Author    string `json:"author"`
 }
 
 // mimeTypeMap maps file extensions to MIME types.
@@ -73,6 +78,9 @@ var mimeTypeMap = map[string]string{
 	".f4v":  "video/mp4",
 	".dv":   "video/dv",
 	".mxf":  "application/mxf",
+	// Documents
+	".pdf":  "application/pdf",
+	".epub": "application/epub+zip",
 }
 
 // GetFileMetadata extracts metadata from the original file on disk.
@@ -170,6 +178,20 @@ func (a *App) GetFileMetadata(fileID int64) (*FileMetadata, error) {
 			// Fallback to legacy moov parsing for MP4/MOV
 			if d, err := getVideoDuration(absPath, ext); err == nil {
 				metadata.DurationSeconds = d
+			}
+		}
+	case "document":
+		// Documents report what their own container says, not what ffprobe
+		// would guess (it cannot open either format).
+		switch ext {
+		case ".pdf":
+			if pages, err := utils.PDFPageCount(absPath); err == nil {
+				metadata.PageCount = pages
+			}
+		case ".epub":
+			if epubInfo, err := utils.ReadEPUB(absPath); err == nil {
+				metadata.Title = epubInfo.Title
+				metadata.Author = epubInfo.Creator
 			}
 		}
 	}

@@ -5,6 +5,50 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 10-10-2026
+
+### New Features
+
+- PDFs and EPUBs are now scanned and thumbnailed: the first PDF page is rasterized by PDFium compiled to
+  WebAssembly (`klippa-app/go-pdfium` + wazero — MIT/Apache, no CGO, no extra DLLs to ship), and an EPUB's cover
+  is read straight out of the zip with the standard library (`archive/zip` + `encoding/xml`), looking at
+  `cover-image`, then `<meta name="cover">`, then a cover/titlepage page, then any manifest image. Both feed the
+  existing FFmpeg WebP pipeline, so they match every other thumbnail in the vault
+- `.pdf` and `.epub` now resolve to `application/pdf` / `application/epub+zip`, so the metadata panel and the
+  `/api/original/{id}` route report the real type instead of `application/octet-stream`
+- A document with no cover to show — an EPUB without images, a PDF that is encrypted or damaged — gets a drawn
+  fallback card instead of a blank cell: format badge, title and author, set in the system font (Segoe UI on
+  Windows, so Cyrillic and other scripts render), encoded through the same FFmpeg WebP pipeline
+- The metadata panel now reads what the container says: page count for PDFs, title and author from an EPUB's
+  package metadata
+- PDFs open inline: the fullscreen modal embeds an `<iframe>` served as
+  `application/pdf`, which WebView2 renders with its built-in viewer. Double-click and Enter in the gallery open a
+  PDF there rather than the system's PDF reader — the "which formats does the app display itself" list used to live
+  in three files and had not heard about PDFs; it is now one list in `frontend/src/utils/extensions.ts`
+- The right-panel preview does not load a PDF by itself: it keeps the thumbnail and shows a **Load PDF** button,
+  so moving quickly through a folder never starts the viewer for files that were only glanced at. Double-click
+  and Enter open the document straight away in the modal
+
+### Changes
+
+- One module answers "what kind of file is this?": `frontend/src/utils/extensions.ts` holds the image, video and
+  PDF sets plus `extensionOf` / `formatLabel`, replacing the copies that the panel, the modal, the gallery cells,
+  the list rows, the Enter shortcut and drag-and-drop each kept for themselves
+- Building TagLoom now requires Go 1.26 (pulled in by go-pdfium), and the executable is about 11 MB larger
+  (29.9 MB vs 18.3 MB) because the 5.7 MB PDFium WASM module and wazero are embedded — no runtime dependency
+  beyond FFmpeg
+
+### Fixes
+
+- Dropping a `.pdf` or `.epub` onto the window now offers the import menu: `SUPPORTED_EXTENSIONS` on the frontend
+  mirrors `utils.SupportedExtensions` in Go by hand, and the two new formats had not been added to it
+
+- Search no longer stops at 500 files: the query is now a filter in `GetFiles`, so the gallery counts every
+  match and lazy-loads page by page as you scroll, the same way folder and tag filters do
+- Search now combines with the other filters (folder, tags, formats, rating, favorites) instead of replacing
+  them, and search results are sorted by the current sort order and carry their tags
+- Batch edits scoped to the gallery respect the active search
+
 ## [0.6.0] - 26-09-2026
 
 ### New Features
