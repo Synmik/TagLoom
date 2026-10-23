@@ -2,14 +2,11 @@
   <section class="metadata-section">
     <label class="field-label">Metadata</label>
     <div class="metadata-grid">
-      <div class="meta-row">
+      <div class="meta-row meta-row-wide">
         <span class="meta-label">Filename</span
-        ><span
-          class="meta-value"
-          :class="{ truncated: displayFilenameTruncated }"
-          :title="displayFilenameTruncated ? meta?.filename : undefined"
-          >{{ displayFilename }}</span
-        >
+        ><span class="meta-value truncated" :title="meta?.filename">{{
+          meta?.filename || "—"
+        }}</span>
       </div>
       <div class="meta-row">
         <span class="meta-label">Date Created</span
@@ -35,11 +32,11 @@
       <div v-if="meta?.page_count" class="meta-row">
         <span class="meta-label">Pages</span><span class="meta-value">{{ meta.page_count }}</span>
       </div>
-      <div v-if="meta?.title" class="meta-row">
+      <div v-if="meta?.title" class="meta-row meta-row-wide">
         <span class="meta-label">Title</span
         ><span class="meta-value truncated" :title="meta.title">{{ meta.title }}</span>
       </div>
-      <div v-if="meta?.author" class="meta-row">
+      <div v-if="meta?.author" class="meta-row meta-row-wide">
         <span class="meta-label">Author</span
         ><span class="meta-value truncated" :title="meta.author">{{ meta.author }}</span>
       </div>
@@ -75,18 +72,6 @@ import { usePreviewStore } from "../../stores/preview";
 
 const previewStore = usePreviewStore();
 const meta = computed(() => previewStore.metadata);
-
-const displayFilenameTruncated = computed(() => {
-  const fn = meta.value?.filename;
-  return fn && fn.length > 40;
-});
-
-const displayFilename = computed(() => {
-  const fn = meta.value?.filename;
-  if (!fn) return "—";
-  if (fn.length <= 40) return fn;
-  return fn.slice(0, 37) + "…";
-});
 
 const formatSize = computed(() => {
   if (!meta.value?.size_bytes) return "—";
@@ -152,13 +137,22 @@ const toggleFavorite = () => previewStore.toggleFavorite();
 }
 .metadata-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* minmax(0, …) and not 1fr: an fr track floors at its min-content, and a
+     nowrap filename would widen the first column and drag every label after
+     it to the right. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 6px;
 }
 .meta-row {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0; /* allow the row to shrink below its value's min-content */
+}
+/* Long free text — a filename, a book title, an author — takes the whole panel
+   width; half a column at the default 400 px panel shows about 30 characters. */
+.meta-row-wide {
+  grid-column: 1 / -1;
 }
 .meta-label {
   color: #555;
@@ -171,6 +165,7 @@ const toggleFavorite = () => previewStore.toggleFavorite();
 .meta-value.truncated {
   overflow: hidden;
   white-space: nowrap;
+  text-overflow: ellipsis; /* cut with an ellipsis, not mid-glyph */
   max-width: 100%;
   display: block;
 }
