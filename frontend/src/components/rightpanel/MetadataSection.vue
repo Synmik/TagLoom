@@ -26,10 +26,10 @@
         <span class="meta-label">File Format</span
         ><span class="meta-value">{{ meta?.format_name || "—" }}</span>
       </div>
-      <div class="meta-row">
+      <div v-if="showResolution" class="meta-row">
         <span class="meta-label">Resolution</span><span class="meta-value">{{ resolution }}</span>
       </div>
-      <div class="meta-row">
+      <div v-if="showDuration" class="meta-row">
         <span class="meta-label">Duration</span><span class="meta-value">{{ duration }}</span>
       </div>
       <div v-if="meta?.page_count" class="meta-row">
@@ -96,18 +96,41 @@ const formatSize = computed(() => {
   return bytes + " B";
 });
 
-const resolution = computed(() => {
-  const m = meta.value;
-  if (!m?.resolution_width) return "—";
-  return `${m.resolution_width} × ${m.resolution_height}`;
-});
+// Rows a format cannot have are left out rather than filled with "—": a still
+// image has no duration, a PDF or EPUB has no resolution. The category comes
+// from the backend (utils.GetFileCategory), which already labels GIF and WebM
+// files "animated".
+const RESOLUTION_CATEGORIES = new Set(["image", "animated", "video"]);
+const DURATION_CATEGORIES = new Set(["animated", "video"]);
+
+const category = computed(() => meta.value?.category ?? "");
+
+const hasResolution = computed(
+  () => (meta.value?.resolution_width ?? 0) > 0 && (meta.value?.resolution_height ?? 0) > 0,
+);
+const hasDuration = computed(() => (meta.value?.duration_seconds ?? 0) > 0);
+
+// An empty category means an older binding or an unknown file: fall back to
+// showing the row whenever a value was actually read.
+const showResolution = computed(
+  () => hasResolution.value && (category.value === "" || RESOLUTION_CATEGORIES.has(category.value)),
+);
+const showDuration = computed(
+  () => hasDuration.value && (category.value === "" || DURATION_CATEGORIES.has(category.value)),
+);
+
+const resolution = computed(
+  () => `${meta.value?.resolution_width} × ${meta.value?.resolution_height}`,
+);
 
 const duration = computed(() => {
-  const s = meta.value?.duration_seconds;
-  if (!s || s === 0) return "—";
-  const min = Math.floor(s / 60);
-  const sec = Math.floor(s % 60);
-  return `${min}:${sec.toString().padStart(2, "0")}`;
+  const total = Math.floor(meta.value?.duration_seconds ?? 0);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const mm = h > 0 ? String(m).padStart(2, "0") : String(m);
+  const ss = String(s).padStart(2, "0");
+  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 });
 
 const setRating = (r: number) => previewStore.setRating(r);

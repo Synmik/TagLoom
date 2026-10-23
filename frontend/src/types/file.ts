@@ -110,6 +110,8 @@ export interface FileMetadata {
   extension: string;
   format_name: string;
   mime_type: string;
+  /** Backend category: image | animated | video | document (utils.GetFileCategory) */
+  category: string;
   size_bytes: number;
   date_created: string;
   date_modified: string;

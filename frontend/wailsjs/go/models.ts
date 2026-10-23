@@ -23,6 +23,7 @@ export namespace app {
 	    extension: string;
 	    format_name: string;
 	    mime_type: string;
+	    category: string;
 	    size_bytes: number;
 	    date_created: string;
 	    date_modified: string;
@@ -44,6 +45,7 @@ export namespace app {
 	        this.extension = source["extension"];
 	        this.format_name = source["format_name"];
 	        this.mime_type = source["mime_type"];
+	        this.category = source["category"];
 	        this.size_bytes = source["size_bytes"];
 	        this.date_created = source["date_created"];
 	        this.date_modified = source["date_modified"];

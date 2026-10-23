@@ -21,10 +21,14 @@ import (
 // FileMetadata holds read-only metadata extracted from the original file.
 // This is fetched on-demand when the metadata panel is opened.
 type FileMetadata struct {
-	Filename         string   `json:"filename"`
-	Extension        string   `json:"extension"`
-	FormatName       string   `json:"format_name"`
-	MimeType         string   `json:"mime_type"`
+	Filename   string `json:"filename"`
+	Extension  string `json:"extension"`
+	FormatName string `json:"format_name"`
+	MimeType   string `json:"mime_type"`
+	// Category is utils.GetFileCategory for the file — image, animated, video
+	// or document. The panel uses it to skip rows a format cannot have: no
+	// Duration for a still image, no Resolution for a book.
+	Category         string   `json:"category"`
 	SizeBytes        int64    `json:"size_bytes"`
 	DateCreated      string   `json:"date_created"`
 	DateModified     string   `json:"date_modified"`
@@ -114,6 +118,7 @@ func (a *App) GetFileMetadata(fileID int64) (*FileMetadata, error) {
 		Extension:    ext,
 		FormatName:   utils.GetFormatName(absPath),
 		MimeType:     mimeTypeMap[ext],
+		Category:     category,
 		SizeBytes:    info.Size(),
 		DateCreated:  formatDateCreated(file.DateCreated),
 		DateModified: info.ModTime().Format("2006-01-02 15:04:05"),

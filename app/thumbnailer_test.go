@@ -366,16 +366,23 @@ func TestScanAndThumbnailDocuments(t *testing.T) {
 	// Document metadata comes from the container itself: page count for the
 	// PDF, package title/author for the EPUB.
 	type wantMeta struct {
-		path   string
-		count  int
-		title  string
-		author string
-		mime   string
+		path     string
+		count    int
+		title    string
+		author   string
+		mime     string
+		category string
 	}
 	for _, w := range []wantMeta{
-		{path: "doc.pdf", count: 1, mime: "application/pdf"},
-		{path: "broken.pdf", mime: "application/pdf"},
-		{path: "nocover.epub", title: "Зимний дневник", author: "Пётр Петров", mime: "application/epub+zip"},
+		{path: "doc.pdf", count: 1, mime: "application/pdf", category: "document"},
+		{path: "broken.pdf", mime: "application/pdf", category: "document"},
+		{
+			path:     "nocover.epub",
+			title:    "Зимний дневник",
+			author:   "Пётр Петров",
+			mime:     "application/epub+zip",
+			category: "document",
+		},
 	} {
 		var id int64
 		if err := a.db.Conn().QueryRow("SELECT id FROM files WHERE vault_path = ?", w.path).Scan(&id); err != nil {
@@ -388,6 +395,9 @@ func TestScanAndThumbnailDocuments(t *testing.T) {
 		}
 		if md.MimeType != w.mime {
 			t.Errorf("%s mime = %q, want %q", w.path, md.MimeType, w.mime)
+		}
+		if md.Category != w.category {
+			t.Errorf("%s category = %q, want %q", w.path, md.Category, w.category)
 		}
 		if md.PageCount != w.count {
 			t.Errorf("%s page count = %d, want %d", w.path, md.PageCount, w.count)
