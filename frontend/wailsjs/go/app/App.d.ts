@@ -78,6 +78,8 @@ export function GetTagUsage(arg1:Array<number>):Promise<Array<db.TagUsage>>;
 
 export function GetTags(arg1:string):Promise<Array<db.Tag>>;
 
+export function GetTextContent(arg1:number):Promise<app.TextContent>;
+
 export function GetThumbnailInfo(arg1:number):Promise<app.ThumbnailInfo>;
 
 export function GetThumbnailPath(arg1:number):Promise<string>;

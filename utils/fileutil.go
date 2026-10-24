@@ -20,8 +20,9 @@ var SupportedExtensions = map[string][]string{
 	"image":    {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tiff", ".tif", ".svg", ".avif", ".jxl", ".jpegxl"},
 	"video":    {".mp4", ".mov", ".avi", ".webm", ".mkv", ".wmv", ".flv", ".m4v", ".3gp", ".3g2", ".vob", ".ogv", ".mpg", ".mpeg", ".m2v", ".ts", ".mts", ".m2ts", ".asf", ".rm", ".amv", ".f4v", ".dv", ".mxf"},
 	"animated": {".gif", ".webm"},
-	// Documents are thumbnailed from their first page (PDF) or embedded cover (EPUB).
-	"document": {".pdf", ".epub"},
+	// Documents are thumbnailed from their first page (PDF), their embedded
+	// cover (EPUB) or a bundled format icon (Markdown, plain text).
+	"document": {".pdf", ".epub", ".md", ".txt"},
 }
 
 // MIMETypes maps lowercase file extensions (with leading dot) to MIME types.
@@ -43,6 +44,10 @@ var MIMETypes = map[string]string{
 	// for application/pdf, not for application/octet-stream.
 	".pdf":  "application/pdf",
 	".epub": "application/epub+zip",
+	// Text is served with an explicit charset: without one a reader guesses,
+	// and a Cyrillic .txt saved as CP1251 arrives as mojibake.
+	".md":  "text/markdown; charset=utf-8",
+	".txt": "text/plain; charset=utf-8",
 	// Video
 	".mp4":  "video/mp4",
 	".m4v":  "video/mp4",

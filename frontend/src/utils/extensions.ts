@@ -45,9 +45,14 @@ const videoExtensions = new Set([
   ".mxf",
 ]);
 
+// Markdown and plain text: no picture of their own, so the panel shows the
+// file's text and the gallery shows a bundled format icon.
+const textExtensions = new Set([".md", ".txt"]);
+
 // What the fullscreen modal shows.  SVG stays out: the right panel draws it,
 // but double-click hands it to the system viewer.  Videos are out on purpose
-// too — double-clicking one opens the external player.
+// too — double-clicking one opens the external player.  Markdown and text are
+// in: their text is read through a binding and shown as text.
 const modalPreviewExtensions = new Set([
   ".jpg",
   ".jpeg",
@@ -57,6 +62,8 @@ const modalPreviewExtensions = new Set([
   ".bmp",
   ".avif",
   ".pdf",
+  ".md",
+  ".txt",
 ]);
 
 /** Lowercased extension with the leading dot, e.g. `.pdf`. */
@@ -76,6 +83,9 @@ export const isImageFile = (path: string): boolean => imageExtensions.has(extens
 export const isVideoFile = (path: string): boolean => videoExtensions.has(extensionOf(path));
 
 export const isPdfFile = (path: string): boolean => extensionOf(path) === ".pdf";
+
+/** Read inline as text — the backend decodes it, the view shows a `<pre>`. */
+export const isTextFile = (path: string): boolean => textExtensions.has(extensionOf(path));
 
 /** True when a double-click opens the file in the preview modal instead of the OS viewer. */
 export const isBrowserPreviewable = (path: string): boolean =>

@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 24-10-2026
+
+### New Features
+
+- **Markdown and plain text** (`.md`, `.txt`) are indexed. Their thumbnail is a bundled format icon —
+  `utils/assets/mdicon.png` and `txticon.png`, scaled by the same lanczos encode a rendered page goes
+  through, so it lands in the thumbnail cache as a square WebP like every other file and the grid shows it
+  with the usual `object-fit: cover` crop. Nothing external is opened: clicking one shows its text in the
+  preview panel, and double-click opens the same text full-size
+
+- The text itself comes from a new `GetTextContent` binding, which returns the first 256 KiB decoded — a
+  BOM picks UTF-16LE/BE, otherwise UTF-8 — so Notepad's UTF-16 `notes.txt` reads correctly rather than as
+  mojibake. UTF-32 and files with NUL bytes are refused and fall back to the icon. **Lines** and **Words**
+  appear in the metadata panel, counted over at most 8 MiB and marked with a `+` when the file is bigger,
+  so a count is never presented as a total it did not read
+
+- Existing vaults need one **Update index** (Ctrl+R) before their Markdown and text files show up: they were
+  skipped as unsupported before
+
+### Fixes
+
+- The metadata panel only shows rows a format can have: **Duration** is left out for still images
+  (GIF and WebM — the backend's own `animated` category — keep it) and **Resolution** is left out for
+  PDFs and EPUBs; a row for an applicable field whose value could not be read is hidden instead of
+  showing `—`. `GetFileMetadata` now returns the file's `category` (`utils.GetFileCategory`) so the
+  panel asks the backend instead of guessing from the extension
+- Durations over an hour in the panel read `1:05:30` instead of `65:30`
+- Metadata rows no longer shove the second column to the right. An `fr` track floors at its
+  min-content, so `grid-template-columns: 1fr 1fr` let one long filename set the first column to the
+  filename's full width and drag every label after it — at a 400 px panel the right column started at
+  225 px instead of 163, and at the 200 px minimum it started outside the panel, which is why book
+  titles were cut off at the edge. It is `minmax(0, 1fr)` now, and `.meta-value` ends with an
+  ellipsis instead of breaking mid-glyph
+- Filename, Title and Author take the full panel width (`grid-column: 1 / -1`) rather than half a
+  column, and the script that cut filenames at 40 characters is gone: it counted characters instead
+  of pixels, so it truncated early on a wide panel and late on a narrow one, and the tooltip only
+  appeared when that cut fired. CSS ellipsis follows the panel as it is dragged between 200 and
+  600 px, and the tooltip always holds the whole name
+
 ## [0.7.0] - 10-10-2026
 
 ### New Features

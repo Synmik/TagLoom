@@ -2,6 +2,8 @@ package app
 
 import (
 	"archive/zip"
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"image"
 	"image/color"
@@ -10,6 +12,7 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+	"unicode/utf16"
 
 	"TagLoom/utils"
 )
@@ -422,7 +425,7 @@ func TestGenerateDocumentThumbnailFailures(t *testing.T) {
 	dir := t.TempDir()
 
 	// Unsupported extension: no renderer and no card.
-	if err := generateDocumentThumbnail(filepath.Join(dir, "note.txt"), filepath.Join(dir, "note.webp"), 256, 80); err == nil {
+	if err := generateDocumentThumbnail(filepath.Join(dir, "report.docx"), filepath.Join(dir, "report.webp"), 256, 80); err == nil {
 		t.Error("expected an error for an unsupported extension")
 	}
 
@@ -492,4 +495,177 @@ func writeTestEPUBNoCover(t *testing.T, path string) {
 	if err := zw.Close(); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// utf16LEWithBOM is the byte shape Windows Notepad writes for a UTF-16 text
+// file, so the text paths can be tested against a real-world encoding.
+func utf16LEWithBOM(t *testing.T, s string) []byte {
+	t.Helper()
+	units := utf16.Encode([]rune(s))
+	out := []byte{0xFF, 0xFE}
+	for _, u := range units {
+		out = binary.LittleEndian.AppendUint16(out, u)
+	}
+	return out
+}
+
+// TestScanAndThumbnailTextDocuments covers Markdown and plain text end to end:
+// the scanner indexes both, the pool draws each format's bundled icon, and the
+// metadata panel gets the file's own tallies rather than ffprobe's guess.
+func TestScanAndThumbnailTextDocuments(t *testing.T) {
+	if !ffmpegAvailable {
+		t.Skip("ffmpeg not available")
+	}
+	a := newTestApp(t)
+
+	const mdBody = "# Notes\n\n- milk\n- bread\n"
+	const txtBody = "раз два\nтри\n"
+
+	if err := os.WriteFile(filepath.Join(a.vaultPath, "notes.md"), []byte(mdBody), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(a.vaultPath, "notes.txt"), utf16LEWithBOM(t, txtBody), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(a.vaultPath, "doc.pdf"), []byte(minimalPDF), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := a.ScanVault(); err != nil {
+		t.Fatalf("ScanVault: %v", err)
+	}
+	for _, name := range []string{"notes.md", "notes.txt"} {
+		var n int
+		if err := a.db.Conn().QueryRow("SELECT COUNT(*) FROM files WHERE vault_path = ?", name).Scan(&n); err != nil {
+			t.Fatalf("count %s: %v", name, err)
+		}
+		if n != 1 {
+			t.Errorf("%s indexed %d times, want 1", name, n)
+		}
+	}
+	if got := utils.GetFormatName("notes.md"); got != "MD" {
+		t.Errorf("GetFormatName(notes.md) = %q, want MD", got)
+	}
+	if got := utils.GetFormatName("notes.txt"); got != "TXT" {
+		t.Errorf("GetFormatName(notes.txt) = %q, want TXT", got)
+	}
+
+	if err := a.GenerateThumbnailsPool(); err != nil {
+		t.Fatalf("GenerateThumbnailsPool: %v", err)
+	}
+
+	// Both formats get a thumbnail, and they are not the same picture: each
+	// format draws its own icon.
+	thumbOf := map[string][]byte{}
+	for _, name := range []string{"notes.md", "notes.txt"} {
+		id := fileIDByPath(t, a, name)
+		rel := thumbPathFor(t, a, id)
+		if rel == "" {
+			t.Errorf("%s: thumbnail_path empty after pool", name)
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(a.vaultPath, rel))
+		if err != nil {
+			t.Errorf("%s: thumbnail missing: %v", name, err)
+			continue
+		}
+		if len(data) < 16 || string(data[:4]) != "RIFF" || string(data[8:12]) != "WEBP" {
+			t.Errorf("%s: thumbnail is not WebP (%d bytes)", name, len(data))
+		}
+		thumbOf[name] = data
+	}
+	if bytes.Equal(thumbOf["notes.md"], thumbOf["notes.txt"]) {
+		t.Error("notes.md and notes.txt share one thumbnail — the wrong icon is being picked")
+	}
+
+	// The single-file path (Regenerate, on-demand serving) draws the icon too.
+	for _, name := range []string{"notes.md", "notes.txt"} {
+		id := fileIDByPath(t, a, name)
+		full := filepath.Join(a.vaultPath, thumbPathFor(t, a, id))
+		if err := os.Remove(full); err != nil {
+			t.Fatalf("remove %s: %v", full, err)
+		}
+		if _, err := a.GenerateThumbnail(id); err != nil {
+			t.Errorf("GenerateThumbnail(%s): %v", name, err)
+			continue
+		}
+		if _, err := os.Stat(full); err != nil {
+			t.Errorf("%s: GenerateThumbnail did not recreate %s", name, full)
+		}
+	}
+
+	// Metadata: a text document reports its own tallies, and the tallies come
+	// out of a UTF-16 file as readily as out of a UTF-8 one.
+	type wantMeta struct {
+		path     string
+		mime     string
+		lines    int
+		words    int
+		truncate bool
+	}
+	for _, w := range []wantMeta{
+		{path: "notes.md", mime: "text/markdown", lines: 4, words: 6},
+		{path: "notes.txt", mime: "text/plain", lines: 2, words: 3},
+	} {
+		id := fileIDByPath(t, a, w.path)
+		md, err := a.GetFileMetadata(id)
+		if err != nil {
+			t.Errorf("GetFileMetadata(%s): %v", w.path, err)
+			continue
+		}
+		if md.Category != "document" {
+			t.Errorf("%s category = %q, want document", w.path, md.Category)
+		}
+		if md.MimeType != w.mime {
+			t.Errorf("%s mime = %q, want %q", w.path, md.MimeType, w.mime)
+		}
+		if md.LineCount != w.lines || md.WordCount != w.words {
+			t.Errorf("%s lines=%d words=%d, want lines=%d words=%d",
+				w.path, md.LineCount, md.WordCount, w.lines, w.words)
+		}
+		if md.TextTruncated != w.truncate {
+			t.Errorf("%s text_truncated = %v, want %v", w.path, md.TextTruncated, w.truncate)
+		}
+	}
+
+	// The inline preview decodes per BOM, so the UTF-16 file reads back as text.
+	txtID := fileIDByPath(t, a, "notes.txt")
+	tc, err := a.GetTextContent(txtID)
+	if err != nil {
+		t.Fatalf("GetTextContent(notes.txt): %v", err)
+	}
+	if tc.Text != txtBody {
+		t.Errorf("text = %q, want %q", tc.Text, txtBody)
+	}
+	if tc.Encoding != utils.EncodingUTF16LE {
+		t.Errorf("encoding = %q, want %s", tc.Encoding, utils.EncodingUTF16LE)
+	}
+	if tc.Truncated {
+		t.Error("truncated = true for a two-line file")
+	}
+
+	mdID := fileIDByPath(t, a, "notes.md")
+	mc, err := a.GetTextContent(mdID)
+	if err != nil {
+		t.Fatalf("GetTextContent(notes.md): %v", err)
+	}
+	if mc.Text != mdBody || mc.Encoding != utils.EncodingUTF8 {
+		t.Errorf("notes.md preview = %+v, want the file body as utf-8", mc)
+	}
+
+	// A document that is not text is refused: the binding takes an ID from the
+	// UI and must not turn into a way to read any file in the vault.
+	if _, err := a.GetTextContent(fileIDByPath(t, a, "doc.pdf")); err == nil {
+		t.Error("GetTextContent(doc.pdf): expected an error")
+	}
+}
+
+// fileIDByPath returns the row ID for a vault-relative path.
+func fileIDByPath(t *testing.T, a *App, rel string) int64 {
+	t.Helper()
+	var id int64
+	if err := a.db.Conn().QueryRow("SELECT id FROM files WHERE vault_path = ?", rel).Scan(&id); err != nil {
+		t.Fatalf("id for %s: %v", rel, err)
+	}
+	return id
 }

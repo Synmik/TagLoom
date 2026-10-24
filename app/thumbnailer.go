@@ -175,11 +175,12 @@ func (a *App) GenerateThumbnail(fileID int64) (string, error) {
 }
 
 // generateDocumentThumbnail renders a WebP thumbnail for a document: PDF first
-// page via PDFium-in-WebAssembly, EPUB via its embedded cover. Both hand the
-// pixels to FFmpeg for resize/encode, so the WebP matches every other
-// thumbnail in the vault. When a document has no cover to show — an imageless
-// EPUB, an encrypted or damaged PDF — a title card is drawn instead so the
-// grid has no holes. A failed run leaves no partial file behind.
+// page via PDFium-in-WebAssembly, EPUB via its embedded cover, Markdown and
+// plain text via a bundled format icon. All of them hand pixels to FFmpeg for
+// resize/encode, so the WebP matches every other thumbnail in the vault. When
+// a document has no cover to show — an imageless EPUB, an encrypted or damaged
+// PDF — a title card is drawn instead so the grid has no holes. A failed run
+// leaves no partial file behind.
 func generateDocumentThumbnail(absPath, thumbPath string, size, quality int) error {
 	thumbDir := filepath.Dir(thumbPath)
 	if err := os.MkdirAll(thumbDir, 0755); err != nil {
@@ -188,10 +189,20 @@ func generateDocumentThumbnail(absPath, thumbPath string, size, quality int) err
 
 	ext := strings.ToLower(filepath.Ext(absPath))
 	var coverErr error
-	switch ext {
-	case ".pdf":
+	switch {
+	case utils.HasDocumentIcon(ext):
+		// Markdown and text carry no artwork of their own, so the bundled format
+		// icon is the thumbnail and the file itself is never opened. No card
+		// fallback: a card is drawn through the same FFmpeg encode that just
+		// failed, so retrying it would only waste a second run.
+		if iconErr := utils.RenderDocumentIconToWebP(ext, thumbPath, size, quality); iconErr != nil {
+			_ = os.Remove(thumbPath)
+			return iconErr
+		}
+		return nil
+	case ext == ".pdf":
 		coverErr = utils.RenderPDFToWebP(absPath, thumbPath, size, quality)
-	case ".epub":
+	case ext == ".epub":
 		coverErr = utils.EncodeEPUBCoverToWebP(absPath, thumbPath, size, quality)
 	default:
 		return fmt.Errorf("no thumbnail renderer for %s", filepath.Ext(absPath))

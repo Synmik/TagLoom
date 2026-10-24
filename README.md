@@ -30,9 +30,9 @@ It indexes existing folders (vaults) without modifying any original files — al
 - **High Performance** - Thousands of files per vault, fast search and switch vaults, ~30MB executable
 - **Full-Text Search** - Real-time FTS5 search across filenames, names, notes, and tags
 - **Hierarchical Tagging** - Color-coded parent/child tags with aliases
-- **Rich Metadata** - Editable name, notes, links, star ratings, and favorites, plus read-only EXIF, resolution, video duration, and document page count, title and author
+- **Rich Metadata** - Editable name, notes, links, star ratings, and favorites, plus read-only EXIF, resolution, video duration, document page count, title and author, and text line and word counts
 - **Grid & List Views** - Adjustable thumbnail sizes with multi-select and full-size preview
-- **Document Previews** - PDF first pages and EPUB covers get thumbnails without any external viewer; PDFs also open inline in the preview pane
+- **Document Previews** - PDF first pages and EPUB covers get thumbnails without any external viewer; PDFs open inline in the preview pane, and Markdown and plain text are read and shown as text
 - **Composable Filtering** - Combine folder, tags, rating, and favorite filters
 - **Flexible Sorting** - By date, filename, name, size, or rating (ascending/descending)
 - **Batch Editing** - Apply tags, ratings, or favorites across multiple selected files
@@ -143,14 +143,6 @@ Outputs to bin/ directory: `bin/TagLoom.exe` — standalone Windows executable
 
 `PDF`, `EPUB`
 
-## Roadmap
+### Text formats
 
-- [ ] More file types support
-- [ ] More tag types
-- [ ] More customization for tags
-- [ ] More filters
-- [ ] Convert images
-- [ ] Folders to tags feature
-- [ ] Auto-index new files
-- [ ] Dark / light theme toggle
-- [ ] Option to exclude file types from indexing
+`MD`, `TXT`

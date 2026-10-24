@@ -384,8 +384,8 @@ func TestImportFileErrors(t *testing.T) {
 		t.Errorf("directory source: expected error, got %+v", r)
 	}
 
-	txt := writeTestFile(t, src, "notes.txt")
-	r = a.ImportFile(txt, false, "")
+	docx := writeTestFile(t, src, "report.docx")
+	r = a.ImportFile(docx, false, "")
 	if r.Imported != 0 || len(r.Errors) == 0 {
 		t.Errorf("unsupported type: expected error, got %+v", r)
 	}

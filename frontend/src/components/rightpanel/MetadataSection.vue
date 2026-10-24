@@ -40,6 +40,14 @@
         <span class="meta-label">Author</span
         ><span class="meta-value truncated" :title="meta.author">{{ meta.author }}</span>
       </div>
+      <div v-if="showLineCount" class="meta-row">
+        <span class="meta-label">Lines</span
+        ><span class="meta-value" :title="tallyTitle">{{ lines }}</span>
+      </div>
+      <div v-if="showWordCount" class="meta-row">
+        <span class="meta-label">Words</span
+        ><span class="meta-value" :title="tallyTitle">{{ words }}</span>
+      </div>
     </div>
 
     <div class="rating-row">
@@ -103,6 +111,20 @@ const showResolution = computed(
 const showDuration = computed(
   () => hasDuration.value && (category.value === "" || DURATION_CATEGORIES.has(category.value)),
 );
+
+// Lines and words belong to text documents only — a PDF reports pages, not
+// tallies of its own. When the backend could not read the whole file (it stops
+// after a few MB), the numbers carry a "+": they are floors, not totals.
+const TEXT_CATEGORIES = new Set(["document"]);
+const inTextCategory = computed(() => category.value === "" || TEXT_CATEGORIES.has(category.value));
+const showLineCount = computed(() => (meta.value?.line_count ?? 0) > 0 && inTextCategory.value);
+const showWordCount = computed(() => (meta.value?.word_count ?? 0) > 0 && inTextCategory.value);
+const tallySuffix = computed(() => (meta.value?.text_truncated ? "+" : ""));
+const tallyTitle = computed(() =>
+  meta.value?.text_truncated ? "Counted over the first part of a larger file" : undefined,
+);
+const lines = computed(() => `${meta.value?.line_count}${tallySuffix.value}`);
+const words = computed(() => `${meta.value?.word_count}${tallySuffix.value}`);
 
 const resolution = computed(
   () => `${meta.value?.resolution_width} × ${meta.value?.resolution_height}`,

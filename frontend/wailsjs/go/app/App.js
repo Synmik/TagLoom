@@ -150,6 +150,10 @@ export function GetTags(arg1) {
   return window['go']['app']['App']['GetTags'](arg1);
 }
 
+export function GetTextContent(arg1) {
+  return window['go']['app']['App']['GetTextContent'](arg1);
+}
+
 export function GetThumbnailInfo(arg1) {
   return window['go']['app']['App']['GetThumbnailInfo'](arg1);
 }

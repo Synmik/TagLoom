@@ -41,6 +41,12 @@ type FileMetadata struct {
 	PageCount int    `json:"page_count"`
 	Title     string `json:"title"`
 	Author    string `json:"author"`
+	// Text fields: line and word tallies for Markdown and plain text, counted
+	// over at most utils.TextCountLimit bytes — TextTruncated says the file is
+	// bigger and both numbers are floors.
+	LineCount     int  `json:"line_count"`
+	WordCount     int  `json:"word_count"`
+	TextTruncated bool `json:"text_truncated"`
 }
 
 // mimeTypeMap maps file extensions to MIME types.
@@ -85,6 +91,8 @@ var mimeTypeMap = map[string]string{
 	// Documents
 	".pdf":  "application/pdf",
 	".epub": "application/epub+zip",
+	".md":   "text/markdown",
+	".txt":  "text/plain",
 }
 
 // GetFileMetadata extracts metadata from the original file on disk.
@@ -197,6 +205,13 @@ func (a *App) GetFileMetadata(fileID int64) (*FileMetadata, error) {
 			if epubInfo, err := utils.ReadEPUB(absPath); err == nil {
 				metadata.Title = epubInfo.Title
 				metadata.Author = epubInfo.Creator
+			}
+		case ".md", ".txt":
+			// A text document's only useful counts are its own: lines and words.
+			if counts, err := utils.CountText(absPath, utils.TextCountLimit); err == nil {
+				metadata.LineCount = counts.Lines
+				metadata.WordCount = counts.Words
+				metadata.TextTruncated = counts.Truncated
 			}
 		}
 	}

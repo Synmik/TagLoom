@@ -41,9 +41,12 @@ export const SUPPORTED_EXTENSIONS = new Set([
   ".dv",
   ".mxf",
   // Animated (already covered above)
-  // Documents — first page / embedded cover is thumbnailed by the backend
+  // Documents — first page / embedded cover is thumbnailed by the backend, and
+  // Markdown and text are read inline
   ".pdf",
   ".epub",
+  ".md",
+  ".txt",
 ]);
 
 export interface FileTag {
@@ -122,4 +125,21 @@ export interface FileMetadata {
   page_count: number; // PDF pages, 0 for other formats
   title: string; // document title (EPUB package metadata)
   author: string; // document author (EPUB package metadata)
+  line_count: number; // .md / .txt only, 0 elsewhere
+  word_count: number; // .md / .txt only, 0 elsewhere
+  /** True when the file is bigger than the backend counted: both tallies are floors */
+  text_truncated: boolean;
+}
+
+/**
+ * Head of a .md or .txt file, decoded to UTF-8 by the backend — the inline
+ * preview text. `text` never exceeds 256 KiB of the file.
+ */
+export interface TextContent {
+  file_id: number;
+  text: string;
+  /** utf-8 | utf-16le | utf-16be, from the file's BOM */
+  encoding: string;
+  bytes_read: number;
+  truncated: boolean;
 }

@@ -34,6 +34,9 @@ export namespace app {
 	    page_count: number;
 	    title: string;
 	    author: string;
+	    line_count: number;
+	    word_count: number;
+	    text_truncated: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new FileMetadata(source);
@@ -56,6 +59,9 @@ export namespace app {
 	        this.page_count = source["page_count"];
 	        this.title = source["title"];
 	        this.author = source["author"];
+	        this.line_count = source["line_count"];
+	        this.word_count = source["word_count"];
+	        this.text_truncated = source["text_truncated"];
 	    }
 	}
 	export class ImportResult {
@@ -86,6 +92,26 @@ export namespace app {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.thumbnail_quality = source["thumbnail_quality"];
 	        this.excluded_folders = source["excluded_folders"];
+	    }
+	}
+	export class TextContent {
+	    file_id: number;
+	    text: string;
+	    encoding: string;
+	    bytes_read: number;
+	    truncated: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new TextContent(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.file_id = source["file_id"];
+	        this.text = source["text"];
+	        this.encoding = source["encoding"];
+	        this.bytes_read = source["bytes_read"];
+	        this.truncated = source["truncated"];
 	    }
 	}
 	export class ThumbnailInfo {

@@ -1,9 +1,10 @@
 import { defineStore, storeToRefs } from "pinia";
 import { watch } from "vue";
-import type { File, FileMetadata } from "../types/file";
+import type { File, FileMetadata, TextContent } from "../types/file";
 import type { Tag } from "../types/tag";
-import { GetFileMetadata, GetFileTags, UpdateFile } from "../api/backend";
+import { GetFileMetadata, GetFileTags, GetTextContent, UpdateFile } from "../api/backend";
 import { useFilesStore } from "./files";
+import { isTextFile } from "../utils/extensions";
 import { logger } from "../utils/logger";
 
 export const usePreviewStore = defineStore("preview", {
@@ -11,9 +12,14 @@ export const usePreviewStore = defineStore("preview", {
     currentFile: null as File | null,
     metadata: null as FileMetadata | null,
     tags: [] as Tag[],
+    // Decoded text of a .md/.txt file, for the panel and the modal. Null for
+    // every other format, and for a text file that could not be read (UTF-32,
+    // NUL bytes, deleted between scan and click) — both fall back to the icon.
+    textContent: null as TextContent | null,
     isLoading: false,
     previewModalOpen: false,
     _loadSeq: 0, // monotonic counter to discard stale loadFileDetails responses
+    _textSeq: 0, // same for loadTextContent, kept apart so the two can't cancel each other
     // In-flight edits per file ID — merged into later full-row payloads so
     // rapid consecutive saves (e.g. name edit + favorite toggle) don't
     // clobber each other with stale values.
@@ -29,8 +35,27 @@ export const usePreviewStore = defineStore("preview", {
       this.currentFile = file;
       this.metadata = null;
       this.tags = [];
+      this.textContent = null;
       if (file) {
-        await this.loadFileDetails(file.id);
+        await Promise.all([this.loadFileDetails(file.id), this.loadTextContent(file)]);
+      }
+    },
+
+    /**
+     * Read the text of a .md/.txt file for the inline preview. The backend
+     * decodes it (BOM/UTF-16) and caps it, so a huge log never reaches the
+     * view. Silent on failure: the thumbnail is a better fallback than an error.
+     */
+    async loadTextContent(file: File) {
+      if (!isTextFile(file.vault_path)) return;
+      const seq = ++this._textSeq;
+      const content = await GetTextContent(file.id).catch((e) => {
+        logger.warn("preview.text", `text fetch failed for ${file.id}:`, e);
+        return null;
+      });
+      // A late answer must only land on the file it was read for.
+      if (seq === this._textSeq && this.currentFile?.id === file.id) {
+        this.textContent = content;
       }
     },
 

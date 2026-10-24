@@ -101,11 +101,28 @@
         </template>
         <iframe v-else :src="originalUrl" class="preview-pdf" title="PDF preview" />
       </div>
+      <!-- Markdown and text: the backend reads the file, decodes it per its BOM
+           and caps it, and the panel shows the source verbatim. Until that
+           arrives — or when the file cannot be read at all — the format icon is
+           on screen, same picture the gallery shows. -->
+      <div v-else-if="isText" class="text-stage">
+        <pre v-if="hasText" class="preview-text">{{ textContent?.text }}</pre>
+        <img
+          v-else-if="!textThumbFailed"
+          :src="thumbnailSrc"
+          class="preview-media"
+          alt=""
+          draggable="false"
+          @error="textThumbFailed = true"
+        />
+        <span v-else class="no-preview">No preview</span>
+      </div>
       <!-- Fallback -->
       <span v-else class="no-preview">No preview</span>
     </div>
     <div class="format-info">
       <span class="format-badge">{{ formatName }}</span>
+      <span v-if="textContent?.truncated" class="text-note">first 256 KB</span>
     </div>
   </section>
 </template>
@@ -123,7 +140,13 @@ import {
 } from "@lucide/vue";
 import { usePreviewStore } from "../../stores/preview";
 import { useVaultStore } from "../../stores/vault";
-import { isImageFile, isVideoFile, isPdfFile, formatLabel } from "../../utils/extensions";
+import {
+  isImageFile,
+  isVideoFile,
+  isPdfFile,
+  isTextFile,
+  formatLabel,
+} from "../../utils/extensions";
 
 const previewStore = usePreviewStore();
 const vaultStore = useVaultStore();
@@ -132,6 +155,8 @@ const vaultStore = useVaultStore();
 // fullscreen modal loads it straight away because opening it is deliberate.
 const pdfLoaded = ref(false);
 const pdfThumbFailed = ref(false);
+// Only used while the text itself has not arrived (or failed to).
+const textThumbFailed = ref(false);
 
 // Same URL shape as the gallery cells, so both share one cached response.
 const thumbnailSrc = computed(() => {
@@ -166,6 +191,7 @@ watch(
     bufferedPercent.value = 0;
     pdfLoaded.value = false;
     pdfThumbFailed.value = false;
+    textThumbFailed.value = false;
   },
 );
 
@@ -269,6 +295,10 @@ const filePath = computed(() => previewStore.currentFile?.vault_path ?? "");
 const isImage = computed(() => isImageFile(filePath.value));
 const isVideo = computed(() => isVideoFile(filePath.value));
 const isPdf = computed(() => isPdfFile(filePath.value));
+const isText = computed(() => isTextFile(filePath.value));
+const textContent = computed(() => previewStore.textContent);
+// An empty file has nothing to show as text, so it keeps its icon on screen.
+const hasText = computed(() => !!textContent.value?.text);
 
 // One route serves every original: images, videos and PDFs alike.
 const originalUrl = computed(() => {
@@ -345,6 +375,32 @@ const formatName = computed(() => formatLabel(filePath.value));
 .pdf-load-btn:hover {
   color: #fff;
   border-color: #22c55e;
+}
+
+/* Markdown / text source, shown as read rather than as a picture */
+.text-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.preview-text {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 10px 12px;
+  overflow: auto;
+  background: #101010;
+  border-radius: 8px;
+  color: #cfcfcf;
+  font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  text-align: left;
+  white-space: pre-wrap; /* the source shape matters, but so does not scrolling sideways */
+  word-break: break-word;
+  tab-size: 4;
+  cursor: text;
 }
 
 /* Video wrapper */
@@ -507,6 +563,12 @@ const formatName = computed(() => formatLabel(filePath.value));
 }
 .format-info {
   margin-top: 8px;
+}
+.text-note {
+  display: block;
+  margin-top: 4px;
+  color: #666;
+  font-size: 10px;
 }
 .format-badge {
   background: #1a1a1a;

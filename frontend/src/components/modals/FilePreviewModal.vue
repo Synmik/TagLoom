@@ -74,6 +74,19 @@
       <!-- PDF viewer: WebView2 renders it from /api/original -->
       <iframe v-else-if="isPdf" :src="mediaUrl" class="preview-pdf" title="PDF preview" />
 
+      <!-- Markdown / text viewer: the text the backend already decoded for the
+           panel, read off the store rather than fetched a second time -->
+      <div v-else-if="isText" class="text-viewer">
+        <pre v-if="hasText" class="preview-text">{{ textContent?.text }}</pre>
+        <!-- Read but nothing in it, versus not readable at all: two different answers -->
+        <div v-else class="no-preview">
+          {{ textContent ? "Empty file" : "No preview available" }}
+        </div>
+        <span v-if="textContent?.truncated" class="text-note">
+          Showing the first 256 KB of the file
+        </span>
+      </div>
+
       <!-- Fallback -->
       <div v-else class="no-preview">No preview available</div>
 
@@ -101,7 +114,7 @@ import {
 } from "@lucide/vue";
 import { usePreviewStore } from "../../stores/preview";
 import { useFilesStore } from "../../stores/files";
-import { isImageFile, isVideoFile, isPdfFile } from "../../utils/extensions";
+import { isImageFile, isVideoFile, isPdfFile, isTextFile } from "../../utils/extensions";
 
 const previewStore = usePreviewStore();
 const filesStore = useFilesStore();
@@ -122,6 +135,9 @@ const filePath = computed(() => previewStore.currentFile?.vault_path ?? "");
 const isImage = computed(() => isImageFile(filePath.value));
 const isVideo = computed(() => isVideoFile(filePath.value));
 const isPdf = computed(() => isPdfFile(filePath.value));
+const isText = computed(() => isTextFile(filePath.value));
+const textContent = computed(() => previewStore.textContent);
+const hasText = computed(() => !!textContent.value?.text);
 
 const mediaUrl = computed(() => {
   const file = previewStore.currentFile;
@@ -289,6 +305,43 @@ const navigate = (direction: number) => {
   font-size: 18px;
   padding: 60px;
   text-align: center;
+}
+
+/* Markdown / text source */
+.text-viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(1100px, 85vw);
+  height: 78vh; /* leaves room for the note and the nav buttons under it */
+}
+.text-viewer .preview-text {
+  flex: 1;
+  margin: 0;
+  padding: 18px 20px;
+  overflow: auto;
+  background: #101010;
+  border-radius: 8px;
+  color: #d4d4d4;
+  font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  tab-size: 4;
+}
+.text-note {
+  color: #777;
+  font-size: 11px;
+  text-align: center;
+}
+.text-viewer .no-preview {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #101010;
+  border-radius: 8px;
 }
 
 /* Close button */

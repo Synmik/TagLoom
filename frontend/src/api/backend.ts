@@ -54,6 +54,8 @@ export { AddTagToFile, RemoveTagFromFile, GetFileTags } from "../../wailsjs/go/a
 
 // Metadata
 export { GetFileMetadata, GetBatchMetadata } from "../../wailsjs/go/app/App";
+// Text documents (.md / .txt) — decoded head for the inline preview
+export { GetTextContent } from "../../wailsjs/go/app/App";
 
 // Thumbnails
 export {

@@ -59,11 +59,18 @@ func TestIsSupported(t *testing.T) {
 		// Animated (in both image and animated categories)
 		{"anim.gif", true},
 		{"anim.webm", true},
+		// Documents — first page/cover/icon thumbnail, read inline when they are
+		// text
+		{"paper.pdf", true},
+		{"book.epub", true},
+		{"notes.md", true},
+		{"notes.txt", true},
+		{"notes.MD", true},
 		// Case-insensitive, nested paths
 		{"PHOTO.JPG", true},
 		{"/a/b/clip.MP4", true},
 		// Unsupported
-		{"notes.txt", false},
+		{"notes.docx", false},
 		{"archive.zip", false},
 		{"noext", false},
 		{"photo.jpg.bak", false},
